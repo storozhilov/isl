@@ -5,8 +5,16 @@
 #include <isl/AbstractHTTPTask.hxx>
 #include "SourceBrowserServer.hxx"
 
+#include <isl/Variant.hxx>
+#include <iostream>
+#include <stdlib.h>
+
 int main(int argc, char *argv[])
 {
+	isl::Variant v(1);
+	std::wcout << v.value<int>() << std::endl;
+	exit(0);
+
 	//isl::Core::daemonize();
 	isl::Core::writePid("sbd.pid");
 	isl::Core::debugLog.setPrefix(L"DEBUG");

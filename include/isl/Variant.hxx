@@ -130,11 +130,59 @@ public:
 	}
 };
 
+template <typename T> class VariantOperator
+{
+public:
+	static std::wstring serialize(const T& value)
+	{
+		throw std::runtime_error("Serializing of this variant type is not implemented");
+	}
+	static T deserialize(const std::wstring serializedValue)
+	{
+		throw std::runtime_error("Deserializing of this variant type is not implemented");
+	}
+// TODO
+//	static AbstractVariantFormatter * createFormatter()
+//	{
+//	}
+};
+
+template <> class VariantOperator <int>
+{
+public:
+	static std::wstring serialize(const int& value)
+	{
+		std::wostringstream oss;
+		oss << value;
+		return oss.str();
+	}
+	static int deserialize(const std::wstring serializedValue)
+	{
+		int result;
+		std::wistringstream iss(serializedValue);
+		iss >> result;
+		return result;
+	}
+};
+
+template <> class VariantOperator <std::wstring>
+{
+public:
+	static std::wstring serialize(const std::wstring& value)
+	{
+		return value;
+	}
+	static std::wstring deserialize(const std::wstring serializedValue)
+	{
+		return serializedValue;
+	}
+};
+
 /*------------------------------------------------------------------------------
  * Variant
  * ---------------------------------------------------------------------------*/
 
-class Variant
+/*class Variant
 {
 public:
 	Variant() :
@@ -161,6 +209,42 @@ private:
 	
 	bool _isNull;
 	DOMDocumentTmp _xml;
+};*/
+
+class Variant
+{
+public:
+	Variant() :
+		_isNull(true),
+		_serializedValue()
+	{}
+	template <typename T> Variant(const T& value) :
+		_isNull(true),
+		_serializedValue()
+	{
+		setValue(value);
+	}
+
+	bool isNull() const
+	{
+		return _isNull;
+	}
+	template <typename T> T value() const
+	{
+		return VariantOperator<T>::deserialize(_serializedValue);
+	}
+	template <typename T> void setValue(const T& newValue)
+	{
+		// TODO: Type Id, create formatter
+		_serializedValue = VariantOperator<T>::serialize(newValue);
+	}
+private:
+	Variant(const Variant&);
+
+	Variant& operator=(const Variant&);
+	
+	bool _isNull;
+	std::wstring _serializedValue;
 };
 
 } // namespace isl
