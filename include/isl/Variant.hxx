@@ -31,7 +31,7 @@ public:
 	}
 	static int typeId()
 	{
-		throw std::runtime_error("Type ID is not implemented");
+		throw std::runtime_error("Type ID is not implemented for the requested variant type");
 	}
 	static AbstractVariantFormatter * createFormatter();
 };
@@ -46,8 +46,9 @@ public:
 	enum Type {
 		NullType = 0x00,
 		IntegerType = 0x01,
-		StringType = 0x02,
-		WStringType = 0x03,
+		DoubleType = 0x02,
+		StringType = 0x03,
+		WStringType = 0x04,
 		// TODO Other types
 		UserType = 0x80
 	};
@@ -71,6 +72,11 @@ public:
 		_formatter.reset(VariantOperator<T>::createFormatter());
 		_typeId = VariantOperator<T>::typeId();
 		_serializedValue = VariantOperator<T>::serialize(newValue);
+	}
+	template <typename T> Variant& operator=(const T& newValue)
+	{
+		setValue<T>(newValue);
+		return *this;
 	}
 	void resetValue();
 	inline std::wstring serializedValue() const
@@ -153,7 +159,7 @@ void Variant::resetValue()
 
 std::wstring Variant::format(const std::wstring& fmt) const
 {
-	return (_formatter.get()) ? _formatter->format(*this, fmt) : std::wstring(L"[EMPTY FORMATTER!]");
+	return (_formatter.get()) ? _formatter->format(*this, fmt) : std::wstring(L"[ERROR: Empty formatter!]");
 }
 
 /*------------------------------------------------------------------------------
@@ -204,6 +210,48 @@ public:
 	}
 };
 
+// double
+
+class DoubleVariantFormatter : public AbstractVariantFormatter
+{
+public:
+	DoubleVariantFormatter() :
+		AbstractVariantFormatter()
+	{}
+
+	virtual std::wstring format(const Variant& var, const std::wstring& fmt)
+	{
+		// TODO
+		return var.serializedValue();
+	}
+};
+
+template <> class VariantOperator <double>
+{
+public:
+	static std::wstring serialize(const double& value)
+	{
+		std::wostringstream oss;
+		oss << value;
+		return oss.str();
+	}
+	static double deserialize(const std::wstring serializedValue)
+	{
+		double result;
+		std::wistringstream iss(serializedValue);	// TODO Fractional part cutted - should be fixed
+		iss >> result;
+		return result;
+	}
+	static double typeId()
+	{
+		return Variant::DoubleType;
+	}
+	static AbstractVariantFormatter * createFormatter()
+	{
+		return new DoubleVariantFormatter();
+	}
+};
+
 // std::string
 
 class StringVariantFormatter : public AbstractVariantFormatter
@@ -224,7 +272,6 @@ template <> class VariantOperator <std::string>
 public:
 	static std::wstring serialize(const std::string& value)
 	{
-		//return value;
 		return Utf8TextCodec().decode(value);
 	}
 	static std::string deserialize(const std::wstring serializedValue)

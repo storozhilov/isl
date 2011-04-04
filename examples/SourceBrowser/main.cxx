@@ -12,6 +12,7 @@
 int main(int argc, char *argv[])
 {
 	isl::Variant v1(1);
+	v1 = 2.5;
 	isl::Variant v2(std::wstring(L"Wide string variant"));
 	isl::Variant v3(std::string("String variant"));
 	std::wcout << L"Value: '" << v1.value<int>() << L"', serialized value: '" << v1.serializedValue() << L"', formatted value: '" << v1.format(L"") << "'" << std::endl;
