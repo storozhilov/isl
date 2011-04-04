@@ -1,134 +1,22 @@
 #ifndef ISL__VARIANT__HXX
 #define ISL__VARIANT__HXX
 
-#include <isl/DOMString.hxx>
-#include <isl/DOMDocument.hxx>
+#include <isl/Utf8TextCodec.hxx>
+#include <stdexcept>
+#include <iostream>
 #include <string>
 #include <sstream>
 #include <memory>
 
-#include <stdexcept>								// TODO Remove it
-#include <iostream>
-
 namespace isl
 {
 
+class AbstractVariantFormatter;
+class NullVariantFormatter;
+
 /*------------------------------------------------------------------------------
- * VariantValue
+ * VariantOperator
  * ---------------------------------------------------------------------------*/
-
-typedef std::wstring DOMDocumentTmp;
-
-template <typename T> class VariantSerializer
-{
-public:
-	static DOMDocumentTmp toXML(const T& value)
-	{
-		throw std::runtime_error("Serializing of this variant type is not implemented");
-	}
-	static T fromXML(DOMDocumentTmp xml)
-	{
-		throw std::runtime_error("Deserializing of this variant type is not implemented");
-	}
-};
-
-template <> class VariantSerializer <int>
-{
-public:
-	static DOMDocumentTmp toXML(const int& value)
-	{
-		/*DOMElement * rootElement = xml->getDocumentElement();
-		DOMElement * typeElement = xml->createElement(DOMString("type").xmlString());
-		rootElement->appendChild(typeElement);
-		DOMText * typeText = xml->createTextNode(DOMString("numeric").xmlString());
-		typeElement->appendChild(typeText);
-		DOMElement * dataElement =  xml->createElement(DOMString("data").xmlString());
-		rootElement->appendChild(dataElement);
-		std::ostringstream sstr;
-		sstr << value;
-		DOMText * dataText = xml->createTextNode(DOMString(sstr.str().c_str()).xmlString());
-		dataElement->appendChild(dataText);
-		return;*/
-		return DOMDocumentTmp();
-	}
-	static int fromXML(DOMDocumentTmp xml)
-	{
-		/*DOMNodeList * typeElements = xml->getElementsByTagName(DOMString("type").xmlString());
-		if (typeElements->getLength() <= 0) {
-			throw std::runtime_error("No <type> section in Variant's XML representation");
-		}
-		DOMNode * typeText = typeElements->item(0)->getFirstChild();
-		if (!typeText) {
-			throw std::runtime_error("No <type>[text]</type> section in Variant's XML representation");
-		}
-		if (!XMLString::equals(typeText->getNodeValue(), DOMString("numeric").xmlString())) {
-			throw std::runtime_error("Converting from <type>numeric</type> type is supported only");
-		}
-		DOMNodeList * dataElements = xml->getElementsByTagName(DOMString("data").xmlString());
-		if (dataElements->getLength() <= 0) {
-			throw std::runtime_error("No <data> section in Variant's XML representation");
-		}
-		DOMNode * dataTextNode = dataElements->item(0)->getFirstChild();
-		if (!dataTextNode) {
-			throw std::runtime_error("No <data>[text]</data> section in Variant's XML representation");
-		}
-		std::wstring dataText = DOMString::stdWString(dataTextNode->getNodeValue());
-		std::wstringstream sstr;
-		sstr << dataText;
-		int result;
-		sstr >> result;
-		return result;*/
-		return 0;
-	}
-};
-
-template <> class VariantSerializer <std::string>
-{
-public:
-	static DOMDocumentTmp toXML(const std::string& value)
-	{
-		/*DOMElement * rootElement = xml->getDocumentElement();
-		DOMElement * typeElement = xml->createElement(DOMString("type").xmlString());
-		rootElement->appendChild(typeElement);
-		DOMText * typeText = xml->createTextNode(DOMString("string").xmlString());
-		typeElement->appendChild(typeText);
-		DOMElement * dataElement =  xml->createElement(DOMString("data").xmlString());
-		rootElement->appendChild(dataElement);
-		//DOMText * dataTextNode = xml->createTextNode(DOMString(value));
-		//dataElement->appendChild(dataTextNode);
-		return;*/
-		return DOMDocumentTmp();
-	}
-	static int fromXML(DOMDocumentTmp xml)
-	{
-		/*DOMNodeList * typeElements = xml->getElementsByTagName(DOMString("type").xmlString());
-		if (typeElements->getLength() <= 0) {
-			throw std::runtime_error("No <type> section in Variant's XML representation");
-		}
-		DOMNode * typeText = typeElements->item(0)->getFirstChild();
-		if (!typeText) {
-			throw std::runtime_error("No <type>[text]</type> section in Variant's XML representation");
-		}
-		if (!XMLString::equals(typeText->getNodeValue(), DOMString("numeric").xmlString())) {
-			throw std::runtime_error("Converting from <type>numeric</type> type is supported only");
-		}
-		DOMNodeList * dataElements = xml->getElementsByTagName(DOMString("data").xmlString());
-		if (dataElements->getLength() <= 0) {
-			throw std::runtime_error("No <data> section in Variant's XML representation");
-		}
-		DOMNode * dataTextNode = dataElements->item(0)->getFirstChild();
-		if (!dataTextNode) {
-			throw std::runtime_error("No <data>[text]</data> section in Variant's XML representation");
-		}
-		std::wstring dataText = DOMString::stdWString(dataTextNode->getNodeValue());
-		std::wstringstream sstr;
-		sstr << dataText;
-		int result;
-		sstr >> result;
-		return result;*/
-		return 0;
-	}
-};
 
 template <typename T> class VariantOperator
 {
@@ -137,14 +25,157 @@ public:
 	{
 		throw std::runtime_error("Serializing of this variant type is not implemented");
 	}
-	static T deserialize(const std::wstring serializedValue)
+	static T deserialize(const std::wstring& serializedValue)
 	{
 		throw std::runtime_error("Deserializing of this variant type is not implemented");
 	}
-// TODO
-//	static AbstractVariantFormatter * createFormatter()
-//	{
-//	}
+	static int typeId()
+	{
+		throw std::runtime_error("Type ID is not implemented");
+	}
+	static AbstractVariantFormatter * createFormatter();
+};
+
+/*------------------------------------------------------------------------------
+ * Variant
+ * ---------------------------------------------------------------------------*/
+
+class Variant
+{
+public:
+	enum Type {
+		NullType = 0x00,
+		IntegerType = 0x01,
+		StringType = 0x02,
+		WStringType = 0x03,
+		// TODO Other types
+		UserType = 0x80
+	};
+
+	Variant();
+	template <typename T> Variant(const T& value);
+
+	bool isNull() const
+	{
+		return _typeId == NullType;
+	}
+	template <typename T> T value() const
+	{
+		if ((_typeId != VariantOperator<T>::typeId()) || (_typeId == NullType)) {
+			return T();
+		}
+		return VariantOperator<T>::deserialize(_serializedValue);
+	}
+	template <typename T> void setValue(const T& newValue)
+	{
+		_formatter.reset(VariantOperator<T>::createFormatter());
+		_typeId = VariantOperator<T>::typeId();
+		_serializedValue = VariantOperator<T>::serialize(newValue);
+	}
+	void resetValue();
+	inline std::wstring serializedValue() const
+	{
+		return _serializedValue;
+	}
+	inline std::wstring format(const std::wstring& fmt) const;
+private:
+	Variant(const Variant&);
+
+	Variant& operator=(const Variant&);
+	
+	int _typeId;
+	std::auto_ptr<AbstractVariantFormatter> _formatter;
+	std::wstring _serializedValue;
+};
+
+/*------------------------------------------------------------------------------
+ * AbstractVariantFormatter
+ * ---------------------------------------------------------------------------*/
+
+// TODO Template for char and wchar_t?
+class AbstractVariantFormatter
+{
+public:
+	AbstractVariantFormatter()
+	{}
+	virtual ~AbstractVariantFormatter()
+	{}
+
+	virtual std::wstring format(const Variant& var, const std::wstring& fmt) = 0;
+};
+
+class NullVariantFormatter : public AbstractVariantFormatter
+{
+public:
+	NullVariantFormatter() :
+		AbstractVariantFormatter()
+	{}
+
+	virtual std::wstring format(const Variant& var, const std::wstring& fmt)
+	{
+		return L"[NULL]";
+	}
+};
+
+/*------------------------------------------------------------------------------
+ * VariantOperator definitions
+ * ---------------------------------------------------------------------------*/
+
+template <typename T> AbstractVariantFormatter * VariantOperator<T>::createFormatter()
+{
+	return new NullVariantFormatter();
+}
+
+/*------------------------------------------------------------------------------
+ * Variant definitions
+ * ---------------------------------------------------------------------------*/
+
+Variant::Variant() :
+	_typeId(NullType),
+	_formatter(new NullVariantFormatter()),
+	_serializedValue()
+{}
+
+template <typename T> Variant::Variant(const T& value) :
+	_typeId(NullType),
+	_formatter(new NullVariantFormatter()),
+	_serializedValue()
+{
+	setValue<T>(value);
+}
+
+void Variant::resetValue()
+{
+	_formatter.reset(new NullVariantFormatter());
+	_typeId = NullType;
+	_serializedValue.clear();
+}
+
+std::wstring Variant::format(const std::wstring& fmt) const
+{
+	return (_formatter.get()) ? _formatter->format(*this, fmt) : std::wstring(L"[EMPTY FORMATTER!]");
+}
+
+/*------------------------------------------------------------------------------
+ * AbstractVariantFormatter descendants definitions and
+ * VariantOperator template specifications for basic types
+ * TODO Other types
+ * ---------------------------------------------------------------------------*/
+
+// int
+
+class IntegerVariantFormatter : public AbstractVariantFormatter
+{
+public:
+	IntegerVariantFormatter() :
+		AbstractVariantFormatter()
+	{}
+
+	virtual std::wstring format(const Variant& var, const std::wstring& fmt)
+	{
+		// TODO
+		return var.serializedValue();
+	}
 };
 
 template <> class VariantOperator <int>
@@ -163,6 +194,66 @@ public:
 		iss >> result;
 		return result;
 	}
+	static int typeId()
+	{
+		return Variant::IntegerType;
+	}
+	static AbstractVariantFormatter * createFormatter()
+	{
+		return new IntegerVariantFormatter();
+	}
+};
+
+// std::string
+
+class StringVariantFormatter : public AbstractVariantFormatter
+{
+public:
+	StringVariantFormatter() :
+		AbstractVariantFormatter()
+	{}
+
+	virtual std::wstring format(const Variant& var, const std::wstring& fmt)
+	{
+		return var.serializedValue();
+	}
+};
+
+template <> class VariantOperator <std::string>
+{
+public:
+	static std::wstring serialize(const std::string& value)
+	{
+		//return value;
+		return Utf8TextCodec().decode(value);
+	}
+	static std::string deserialize(const std::wstring serializedValue)
+	{
+		return Utf8TextCodec().encode(serializedValue);
+	}
+	static int typeId()
+	{
+		return Variant::StringType;
+	}
+	static AbstractVariantFormatter * createFormatter()
+	{
+		return new StringVariantFormatter();
+	}
+};
+
+// std::wstring
+
+class WStringVariantFormatter : public AbstractVariantFormatter
+{
+public:
+	WStringVariantFormatter() :
+		AbstractVariantFormatter()
+	{}
+
+	virtual std::wstring format(const Variant& var, const std::wstring& fmt)
+	{
+		return var.serializedValue();
+	}
 };
 
 template <> class VariantOperator <std::wstring>
@@ -176,75 +267,14 @@ public:
 	{
 		return serializedValue;
 	}
-};
-
-/*------------------------------------------------------------------------------
- * Variant
- * ---------------------------------------------------------------------------*/
-
-/*class Variant
-{
-public:
-	Variant() :
-		_isNull(true),
-		_xml()
-	{}
-	template <typename T> Variant(const T& value) :
-		_isNull(true),
-		_xml(VariantSerializer<T>::toXML(value))
-	{}
-
-	bool isNull() const
+	static int typeId()
 	{
-		return _isNull;
+		return Variant::WStringType;
 	}
-	template <typename T> T value() const
+	static AbstractVariantFormatter * createFormatter()
 	{
-		return VariantSerializer<T>::fromXML(_xml);
+		return new WStringVariantFormatter();
 	}
-private:
-	Variant(const Variant&);
-
-	Variant& operator=(const Variant&);
-	
-	bool _isNull;
-	DOMDocumentTmp _xml;
-};*/
-
-class Variant
-{
-public:
-	Variant() :
-		_isNull(true),
-		_serializedValue()
-	{}
-	template <typename T> Variant(const T& value) :
-		_isNull(true),
-		_serializedValue()
-	{
-		setValue(value);
-	}
-
-	bool isNull() const
-	{
-		return _isNull;
-	}
-	template <typename T> T value() const
-	{
-		return VariantOperator<T>::deserialize(_serializedValue);
-	}
-	template <typename T> void setValue(const T& newValue)
-	{
-		// TODO: Type Id, create formatter
-		_serializedValue = VariantOperator<T>::serialize(newValue);
-	}
-private:
-	Variant(const Variant&);
-
-	Variant& operator=(const Variant&);
-	
-	bool _isNull;
-	std::wstring _serializedValue;
 };
 
 } // namespace isl

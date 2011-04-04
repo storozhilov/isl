@@ -11,8 +11,14 @@
 
 int main(int argc, char *argv[])
 {
-	isl::Variant v(1);
-	std::wcout << v.value<int>() << std::endl;
+	isl::Variant v1(1);
+	isl::Variant v2(std::wstring(L"Wide string variant"));
+	isl::Variant v3(std::string("String variant"));
+	std::wcout << L"Value: '" << v1.value<int>() << L"', serialized value: '" << v1.serializedValue() << L"', formatted value: '" << v1.format(L"") << "'" << std::endl;
+	std::wcout << L"Value: '" << v2.value<std::wstring>() << L"', serialized value: '" << v2.serializedValue() << L"', formatted value: '" << v2.format(L"") << "'" << std::endl;
+	std::wcout << L"Value: '" << v3.value<std::wstring>() << L"', serialized value: '" << v3.serializedValue() << L"', formatted value: '" << v3.format(L"") << "'" << std::endl;
+	v2.resetValue();
+	std::wcout << L"Value: '" << v2.value<std::wstring>() << L"', serialized value: '" << v2.serializedValue() << L"', formatted value: '" << v2.format(L"") << "'" << std::endl;
 	exit(0);
 
 	//isl::Core::daemonize();
