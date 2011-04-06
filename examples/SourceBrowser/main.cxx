@@ -6,12 +6,13 @@
 #include "SourceBrowserServer.hxx"
 
 #include <isl/Variant.hxx>
+#include <isl/Format.hxx>
 #include <iostream>
 #include <stdlib.h>
 
 int main(int argc, char *argv[])
 {
-	isl::Variant v1(1);
+	/*isl::Variant v1(1);
 	v1 = 2.5;
 	isl::Variant v2(std::wstring(L"Wide string variant"));
 	isl::Variant v3(std::string("String variant"));
@@ -20,6 +21,16 @@ int main(int argc, char *argv[])
 	std::wcout << L"Value: '" << v3.value<std::wstring>() << L"', serialized value: '" << v3.serializedValue() << L"', formatted value: '" << v3.format(L"") << "'" << std::endl;
 	v2.resetValue();
 	std::wcout << L"Value: '" << v2.value<std::wstring>() << L"', serialized value: '" << v2.serializedValue() << L"', formatted value: '" << v2.format(L"") << "'" << std::endl;
+	std::wcout << "Test" << std::endl;*/
+
+	///isl::BasicFormat<wchar_t> fmt(L"First agument is $0");
+	//isl::BasicFormat<wchar_t>(L"First agument is $0").arg(isl::Variant(2.5)).compose();
+	//isl::Format("First agument is $0").arg(isl::Variant(2.5)).compose();
+	std::cout << isl::Format("First agument is $0, $$").arg(isl::Variant(2.5)).compose()  << std::endl;
+	//isl::WFormat(L"First agument is $0").arg(isl::Variant(2.5)).compose();
+	//fmt.arg(isl::Variant(2.5));
+	//fmt.arg(v1).compose();
+	//fmt.compose();
 	exit(0);
 
 	//isl::Core::daemonize();

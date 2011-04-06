@@ -55,6 +55,9 @@ public:
 
 	Variant();
 	template <typename T> Variant(const T& value);
+	Variant(const Variant& rhs);
+
+	Variant& operator=(const Variant& rhs);
 
 	bool isNull() const
 	{
@@ -85,9 +88,9 @@ public:
 	}
 	inline std::wstring format(const std::wstring& fmt) const;
 private:
-	Variant(const Variant&);
+//	Variant(const Variant&);
 
-	Variant& operator=(const Variant&);
+//	Variant& operator=(const Variant&);
 	
 	int _typeId;
 	std::auto_ptr<AbstractVariantFormatter> _formatter;
@@ -107,7 +110,8 @@ public:
 	virtual ~AbstractVariantFormatter()
 	{}
 
-	virtual std::wstring format(const Variant& var, const std::wstring& fmt) = 0;
+	virtual AbstractVariantFormatter * clone() const = 0;
+	virtual std::wstring format(const Variant& var, const std::wstring& fmt) const = 0;
 };
 
 class NullVariantFormatter : public AbstractVariantFormatter
@@ -117,7 +121,11 @@ public:
 		AbstractVariantFormatter()
 	{}
 
-	virtual std::wstring format(const Variant& var, const std::wstring& fmt)
+	virtual AbstractVariantFormatter * clone() const
+	{
+		return new NullVariantFormatter(*this);
+	}
+	virtual std::wstring format(const Variant& var, const std::wstring& fmt) const
 	{
 		return L"[NULL]";
 	}
@@ -150,6 +158,20 @@ template <typename T> Variant::Variant(const T& value) :
 	setValue<T>(value);
 }
 
+Variant::Variant(const Variant& rhs) :
+	_typeId(rhs._typeId),
+	_formatter(rhs._formatter->clone()),
+	_serializedValue(rhs._serializedValue)
+{}
+
+Variant& Variant::operator=(const Variant& rhs)
+{
+	_typeId = rhs._typeId;
+	_formatter.reset(rhs._formatter->clone());
+	_serializedValue = rhs._serializedValue;
+	return *this;
+}
+
 void Variant::resetValue()
 {
 	_formatter.reset(new NullVariantFormatter());
@@ -177,7 +199,11 @@ public:
 		AbstractVariantFormatter()
 	{}
 
-	virtual std::wstring format(const Variant& var, const std::wstring& fmt)
+	virtual AbstractVariantFormatter * clone() const
+	{
+		return new IntegerVariantFormatter(*this);
+	}
+	virtual std::wstring format(const Variant& var, const std::wstring& fmt) const
 	{
 		// TODO
 		return var.serializedValue();
@@ -219,7 +245,11 @@ public:
 		AbstractVariantFormatter()
 	{}
 
-	virtual std::wstring format(const Variant& var, const std::wstring& fmt)
+	virtual AbstractVariantFormatter * clone() const
+	{
+		return new DoubleVariantFormatter(*this);
+	}
+	virtual std::wstring format(const Variant& var, const std::wstring& fmt) const
 	{
 		// TODO
 		return var.serializedValue();
@@ -261,7 +291,11 @@ public:
 		AbstractVariantFormatter()
 	{}
 
-	virtual std::wstring format(const Variant& var, const std::wstring& fmt)
+	virtual AbstractVariantFormatter * clone() const
+	{
+		return new StringVariantFormatter(*this);
+	}
+	virtual std::wstring format(const Variant& var, const std::wstring& fmt) const
 	{
 		return var.serializedValue();
 	}
@@ -297,7 +331,11 @@ public:
 		AbstractVariantFormatter()
 	{}
 
-	virtual std::wstring format(const Variant& var, const std::wstring& fmt)
+	virtual AbstractVariantFormatter * clone() const
+	{
+		return new WStringVariantFormatter(*this);
+	}
+	virtual std::wstring format(const Variant& var, const std::wstring& fmt) const
 	{
 		return var.serializedValue();
 	}
