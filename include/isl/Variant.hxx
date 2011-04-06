@@ -50,6 +50,7 @@ public:
 		StringType = 0x03,
 		WStringType = 0x04,
 		// TODO Other types
+		// User types should start from here:
 		UserType = 0x80
 	};
 
@@ -88,10 +89,6 @@ public:
 	}
 	inline std::wstring format(const std::wstring& fmt) const;
 private:
-//	Variant(const Variant&);
-
-//	Variant& operator=(const Variant&);
-	
 	int _typeId;
 	std::auto_ptr<AbstractVariantFormatter> _formatter;
 	std::wstring _serializedValue;
@@ -101,7 +98,6 @@ private:
  * AbstractVariantFormatter
  * ---------------------------------------------------------------------------*/
 
-// TODO Template for char and wchar_t?
 class AbstractVariantFormatter
 {
 public:

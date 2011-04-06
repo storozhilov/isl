@@ -40,48 +40,11 @@ protected:
 		if (argNo >= _arguments.size()) {
 			return std::basic_string<Ch>();
 		}
-		return std::basic_string<Ch>(1, '&');
+		//return std::basic_string<Ch>(L"foo");
+		return _arguments[argNo].format(params);
 	}
 private:
 	BasicFormat();
-
-/*	virtual typename isl::AbstractFormat<Ch>::TokenPosition findToken(size_t startPosition = 0) const
-	{
-		typename isl::AbstractFormat<Ch>::TokenPosition result;
-		result.second = 0;
-		// Finding format specifier:
-		if (startPosition >= (isl::AbstractFormat<Ch>::_format.length() - 1)) {
-			result.first = std::basic_string<Ch>::npos;
-			return result;
-		}
-		result.first = isl::AbstractFormat<Ch>::_format.find(_formatSpecifier, startPosition);
-		if (result.first == std::basic_string<Ch>::npos) {
-			return result;
-		}
-		if (result.first >= (isl::AbstractFormat<Ch>::_format.length() - 1)) {
-			result.first = std::basic_string<Ch>::npos;
-			return result;
-		}
-
-		result.second = 2;
-		// Returning "<specifier><specifier>" if found
-		if (isl::AbstractFormat<Ch>::_format[result.first + result.second - 1] == _formatSpecifier) {
-			return result;
-		}
-		// Finding token trailing alfa character
-		while ((result.first + result.second) <= isl::AbstractFormat<Ch>::_format.length()) {
-			if (isalpha(isl::AbstractFormat<Ch>::_format[result.first + result.second - 1])) {
-				return result;
-			}
-			if (isspace(isl::AbstractFormat<Ch>::_format[result.first + result.second - 1])) {
-				break;
-			}
-			result.second++;
-		}
-		result.first = std::basic_string<Ch>::npos;
-		result.second = 0;
-		return result;
-	}*/
 	virtual typename isl::AbstractFormat<Ch>::TokenPosition findToken(size_t startPosition = 0) const
 	{
 		typename isl::AbstractFormat<Ch>::TokenPosition result(startPosition, 0);
@@ -104,7 +67,8 @@ private:
 			if (isl::AbstractFormat<Ch>::_format[result.first + result.second - 1] == _formatSpecifier) {
 				// Returning "<specifier><specifier>" if found
 				return result;
-			} else if ((isl::AbstractFormat<Ch>::_format[result.first + result.second - 1] >= '0') && (isl::AbstractFormat<Ch>::_format[result.first + result.second - 1] <= '9')) {
+			} else if ((isl::AbstractFormat<Ch>::_format[result.first + result.second - 1] >= '0') &&
+					(isl::AbstractFormat<Ch>::_format[result.first + result.second - 1] <= '9')) {
 				// Paramless token
 				_curArgNo = isl::AbstractFormat<Ch>::_format[result.first + result.second - 1] - '0';
 				_curParams = std::basic_string<Ch>();
@@ -121,7 +85,6 @@ private:
 	virtual std::basic_string<Ch> substituteToken(const std::basic_string<Ch>& token) const
 	{
 
-		std::cout << "Token to substitute: '" << token << "'" << std::endl;
 		if ((token.length() == 2) && (token[0] == _formatSpecifier) && (token[1] == _formatSpecifier)) {
 			// Returning "<specifier>" instead if "<specifier><specifier>%"
 			return std::basic_string<Ch>(1, _formatSpecifier);
@@ -136,6 +99,14 @@ private:
 	mutable unsigned int _curArgNo;
 	mutable std::basic_string<Ch> _curParams;
 };
+
+template <> std::basic_string<char> BasicFormat<char>::substitute(unsigned int argNo, const std::basic_string<char>& params) const
+{
+	if (argNo >= _arguments.size()) {
+		return std::basic_string<char>();
+	}
+	return Utf8TextCodec().encode(_arguments[argNo].format(Utf8TextCodec().decode(params)));
+}
 
 typedef BasicFormat<char> Format;
 typedef BasicFormat<wchar_t> WFormat;
