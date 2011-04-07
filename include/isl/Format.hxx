@@ -24,7 +24,7 @@ public:
 		_arguments.push_back(argValue);
 		return *this;
 	}
-	//! Alias for appendArgument
+	//! Alias for isl::BasicFormat<Ch>& appendArgument(const Variant&)
 	inline typename isl::BasicFormat<Ch>& arg(const Variant& argValue)
 	{
 		return appendArgument(argValue);
@@ -40,11 +40,26 @@ protected:
 		if (argNo >= _arguments.size()) {
 			return std::basic_string<Ch>();
 		}
-		//return std::basic_string<Ch>(L"foo");
 		return _arguments[argNo].format(params);
 	}
 private:
 	BasicFormat();
+
+	inline bool isParamNoChar(Ch ch) const
+	{
+		return ((ch >= '0') && (ch <= '9')) || ((ch >= 'a') && (ch <= 'z')) || ((ch >= 'A') && (ch <= 'Z'));
+	}
+	inline unsigned int paramNoByChar(Ch ch) const
+	{
+		if ((ch >= '0') && (ch <= '9')) {
+			return ch - '0';
+		} else if ((ch >= 'a') && (ch <= 'z')) {
+			return ch - 'a' + 10;
+		} else {
+			return ch - 'A' + 10;
+		}
+	}
+
 	virtual typename isl::AbstractFormat<Ch>::TokenPosition findToken(size_t startPosition = 0) const
 	{
 		typename isl::AbstractFormat<Ch>::TokenPosition result(startPosition, 0);
@@ -67,15 +82,41 @@ private:
 			if (isl::AbstractFormat<Ch>::_format[result.first + result.second - 1] == _formatSpecifier) {
 				// Returning "<specifier><specifier>" if found
 				return result;
-			} else if ((isl::AbstractFormat<Ch>::_format[result.first + result.second - 1] >= '0') &&
-					(isl::AbstractFormat<Ch>::_format[result.first + result.second - 1] <= '9')) {
-				// Paramless token
-				_curArgNo = isl::AbstractFormat<Ch>::_format[result.first + result.second - 1] - '0';
+			} else if (isParamNoChar(isl::AbstractFormat<Ch>::_format[result.first + result.second - 1])) {
+				_curArgNo = paramNoByChar(isl::AbstractFormat<Ch>::_format[result.first + result.second - 1]);
 				_curParams = std::basic_string<Ch>();
 				return result;
 			} else if (isl::AbstractFormat<Ch>::_format[result.first + result.second - 1] == '{') {
-				// TODO Parsing format parameters
-				throw std::runtime_error("Parameterized format does not implemented yet (TODO)");
+				// Parsing format parameters
+				int internalLevelsCount = 0;
+				while (true) {
+					++result.second;
+					if ((result.first + result.second) > isl::AbstractFormat<Ch>::_format.length()) {
+						result.first = std::basic_string<Ch>::npos;
+						return result;
+					}
+					if (isl::AbstractFormat<Ch>::_format[result.first + result.second - 1] == '{') {
+						++internalLevelsCount;
+					} else if ((isl::AbstractFormat<Ch>::_format[result.first + result.second - 1] == '}')) {
+						if (internalLevelsCount <= 0) {
+							if ((result.first + result.second + 1) > isl::AbstractFormat<Ch>::_format.length()) {
+								result.first = std::basic_string<Ch>::npos;
+								return result;
+							}
+							if (isParamNoChar(isl::AbstractFormat<Ch>::_format[result.first + result.second])) {
+								++result.second;
+								_curParams = isl::AbstractFormat<Ch>::_format.substr(result.first + 2, result.second - 4);
+								_curArgNo = paramNoByChar(isl::AbstractFormat<Ch>::_format[result.first + result.second - 1]);
+								return result;
+							} else {
+								result.first += (result.second + 1);
+								break;
+							}
+						} else {
+							--internalLevelsCount;
+						}
+					}
+				}
 			} else {
 				// Not a token -> lookup further
 				++result.first;
@@ -86,7 +127,7 @@ private:
 	{
 
 		if ((token.length() == 2) && (token[0] == _formatSpecifier) && (token[1] == _formatSpecifier)) {
-			// Returning "<specifier>" instead if "<specifier><specifier>%"
+			// Returning "<specifier>" instead if "<specifier><specifier>"
 			return std::basic_string<Ch>(1, _formatSpecifier);
 		}
 		return substitute(_curArgNo, _curParams);

@@ -201,7 +201,7 @@ public:
 	}
 	virtual std::wstring format(const Variant& var, const std::wstring& fmt) const
 	{
-		// TODO
+		// TODO Handle fmt
 		return var.serializedValue();
 	}
 };
@@ -247,7 +247,7 @@ public:
 	}
 	virtual std::wstring format(const Variant& var, const std::wstring& fmt) const
 	{
-		// TODO
+		// TODO Handle fmt
 		return var.serializedValue();
 	}
 };
@@ -293,6 +293,7 @@ public:
 	}
 	virtual std::wstring format(const Variant& var, const std::wstring& fmt) const
 	{
+		// TODO Handle fmt
 		return var.serializedValue();
 	}
 };
@@ -333,6 +334,7 @@ public:
 	}
 	virtual std::wstring format(const Variant& var, const std::wstring& fmt) const
 	{
+		// TODO Handle fmt
 		return var.serializedValue();
 	}
 };
@@ -361,4 +363,3 @@ public:
 } // namespace isl
 
 #endif
-

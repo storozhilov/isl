@@ -27,9 +27,9 @@ int main(int argc, char *argv[])
 	//isl::BasicFormat<wchar_t>(L"First agument is $0").arg(isl::Variant(2.5)).compose();
 	//isl::Format("First agument is $0").arg(isl::Variant(2.5)).compose();
 
-	std::cout << isl::Format("First agument is $0, $$").arg(isl::Variant(2.5)).compose()  << std::endl;
-	std::wcout << isl::WFormat(L"First agument is $0, $$").arg(isl::Variant(2.5)).compose()  << std::endl;
-	std::wcout << isl::WFormat(L"$0, '$1', $2, $$").arg(isl::Variant(2.5)).arg(isl::Variant(L"foobar")).compose()  << std::endl;
+	//std::cout << isl::Format("First agument is $0, $$").arg(isl::Variant(2.5)).compose()  << std::endl;
+	//std::wcout << isl::WFormat(L"First agument is $0, $$").arg(isl::Variant(2.5)).compose()  << std::endl;
+	std::wcout << isl::WFormat(L"$0, '$1', ${a{b}c}0, $$, ${sdasd{}}_, ${efg}1").arg(isl::Variant(2.5)).arg(isl::Variant(std::wstring(L"foobar"))).compose() << std::endl;
 
 	//isl::WFormat(L"First agument is $0").arg(isl::Variant(2.5)).compose();
 	//fmt.arg(isl::Variant(2.5));
