@@ -7,44 +7,69 @@
 
 namespace isl
 {
-//! Format stucture: $[{<format_argumants>}]<argument_number>
+//! Base class for string formatting
+/*!
+  Format stucture:
+    - $<argument_number>
+    - $<format_symbol>
+    - ${<format_arguments>}<argument_number>
+    - ${<format_arguments>}<format_symbol>
+*/
 template <typename Ch> class BasicFormat : public AbstractFormat<Ch>
 {
 public:
+	/*!
+	  \param format Format string
+	  \param formatSpecifier Format specifier character
+	*/	
 	BasicFormat(const std::basic_string<Ch>& format = std::basic_string<Ch>(), Ch formatSpecifier = '$') :
 		AbstractFormat<Ch>(format),
 		_formatSpecifier(formatSpecifier),
 		_arguments(),
-		_curArgNo(0),
+		_curFormatSymbol(),
 		_curParams()
 	{}
 
+	//! Appends argument to the format
+	/*!
+	  \param argValue Argument value
+	  \return Reference to the format object
+	*/
 	typename isl::BasicFormat<Ch>& appendArgument(const Variant& argValue)
 	{
 		_arguments.push_back(argValue);
 		return *this;
 	}
-	//! Alias for isl::BasicFormat<Ch>& appendArgument(const Variant&)
+	//! Appends argument to the format
+	/*!
+	  Alias for isl::BasicFormat<Ch>& appendArgument(const Variant&)
+	*/
 	inline typename isl::BasicFormat<Ch>& arg(const Variant& argValue)
 	{
 		return appendArgument(argValue);
 	}
+	//! Clears format arguments
 	typename isl::BasicFormat<Ch>& resetArguments()
 	{
 		_arguments.clear();
 		return *this;
 	}
 protected:
-	virtual std::basic_string<Ch> substitute(unsigned int argNo, const std::basic_string<Ch>& params) const
+	//! Composes string to substitute format token
+	/*!
+	  \param formatSymbol Format symbol
+	  \param params Format parameters
+	  \return String to substitute
+	*/
+	virtual std::basic_string<Ch> substitute(Ch formatSymbol, const std::basic_string<Ch>& params = std::basic_string<Ch>()) const
 	{
+		unsigned int argNo = paramNoByChar(formatSymbol);
 		if (argNo >= _arguments.size()) {
 			return std::basic_string<Ch>();
 		}
 		return _arguments[argNo].format(params);
 	}
 private:
-	BasicFormat();
-
 	inline bool isParamNoChar(Ch ch) const
 	{
 		return ((ch >= '0') && (ch <= '9')) || ((ch >= 'a') && (ch <= 'z')) || ((ch >= 'A') && (ch <= 'Z'));
@@ -83,7 +108,7 @@ private:
 				// Returning "<specifier><specifier>" if found
 				return result;
 			} else if (isParamNoChar(isl::AbstractFormat<Ch>::_format[result.first + result.second - 1])) {
-				_curArgNo = paramNoByChar(isl::AbstractFormat<Ch>::_format[result.first + result.second - 1]);
+				_curFormatSymbol = isl::AbstractFormat<Ch>::_format[result.first + result.second - 1];
 				_curParams = std::basic_string<Ch>();
 				return result;
 			} else if (isl::AbstractFormat<Ch>::_format[result.first + result.second - 1] == '{') {
@@ -106,7 +131,7 @@ private:
 							if (isParamNoChar(isl::AbstractFormat<Ch>::_format[result.first + result.second])) {
 								++result.second;
 								_curParams = isl::AbstractFormat<Ch>::_format.substr(result.first + 2, result.second - 4);
-								_curArgNo = paramNoByChar(isl::AbstractFormat<Ch>::_format[result.first + result.second - 1]);
+								_curFormatSymbol = isl::AbstractFormat<Ch>::_format[result.first + result.second - 1];
 								return result;
 							} else {
 								result.first += (result.second + 1);
@@ -130,19 +155,21 @@ private:
 			// Returning "<specifier>" instead if "<specifier><specifier>"
 			return std::basic_string<Ch>(1, _formatSpecifier);
 		}
-		return substitute(_curArgNo, _curParams);
+		return substitute(_curFormatSymbol, _curParams);
 	}
 
 	typedef std::vector<Variant> ArgumentsList;
 
 	Ch _formatSpecifier;
 	ArgumentsList _arguments;
-	mutable unsigned int _curArgNo;
+
+	mutable Ch _curFormatSymbol;
 	mutable std::basic_string<Ch> _curParams;
 };
 
-template <> std::basic_string<char> BasicFormat<char>::substitute(unsigned int argNo, const std::basic_string<char>& params) const
+template <> std::basic_string<char> BasicFormat<char>::substitute(char formatSymbol, const std::basic_string<char>& params) const
 {
+	unsigned int argNo = paramNoByChar(formatSymbol);
 	if (argNo >= _arguments.size()) {
 		return std::basic_string<char>();
 	}

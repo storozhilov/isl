@@ -33,7 +33,6 @@ public:
 		do {
 			// Finding token
 			TokenPosition tokenPosition = findToken(startPosition);
-			//std::pair<size_t, size_t> tokenPosition = findToken(startPosition);
 			// Appending to the result characters before token if found or the rest of _format otherwise
 			result.append(_format.substr(startPosition, tokenPosition.first - startPosition));
 			// Exiting if the token is not found
@@ -41,29 +40,19 @@ public:
 				break;
 			}
 			// Appending to the result token replacement
-			//result.append(substituteToken(tokenPosition));
 			result.append(substituteToken(_format.substr(tokenPosition.first, tokenPosition.second)));
 			// Updating start position
 			startPosition = tokenPosition.first + tokenPosition.second;
-			// Exiting if the token was at the end of the _format
-			//if (startPosition >= _format.length()) {
-			//	break;
-			//}
-		//} while (true);
 		} while (startPosition < _format.length());
 		return result;
 	}
 protected:
-//	typedef std::pair<size_t, size_t> TokenPosition;		// <token_start_position, token_length>
-
 	virtual TokenPosition findToken(size_t startPosition = 0) const = 0;
 	virtual std::basic_string<Ch> substituteToken(const std::basic_string<Ch>& token) const = 0;
 
 	std::basic_string<Ch> _format;
 private:
 	AbstractFormat();
-
-//	std::basic_string<Ch> _format;
 };
 
 } // namespace isl
