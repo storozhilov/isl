@@ -9,22 +9,28 @@ namespace isl
 {
 //! Base class for string formatting
 /*!
-  Format stucture:
-    - $<argument_number>
-    - $<format_symbol>
-    - ${<format_arguments>}<argument_number>
-    - ${<format_arguments>}<format_symbol>
+  Format token stucture:
+    - <token_specifier><token_symbol>
+    - <token_specifier>{<token_parameters>}<token_symbol>
 */
 template <typename Ch> class BasicFormat : public AbstractFormat<Ch>
 {
 public:
+	//! Constructs format object
 	/*!
 	  \param format Format string
-	  \param formatSpecifier Format specifier character
+	  \param tokenSpecifier Token specifier character (default is '$')
 	*/	
-	BasicFormat(const std::basic_string<Ch>& format = std::basic_string<Ch>(), Ch formatSpecifier = '$') :
+	BasicFormat(const std::basic_string<Ch>& format, Ch tokenSpecifier = '$') :
 		AbstractFormat<Ch>(format),
-		_formatSpecifier(formatSpecifier),
+		_tokenSpecifier(tokenSpecifier),
+		_arguments(),
+		_curFormatSymbol(),
+		_curParams()
+	{}
+	BasicFormat() :
+		AbstractFormat<Ch>(),
+		_tokenSpecifier('$'),
 		_arguments(),
 		_curFormatSymbol(),
 		_curParams()
@@ -55,21 +61,23 @@ public:
 		return *this;
 	}
 protected:
-	//! Composes string to substitute format token
+	//! Returns string to substitute format token
 	/*!
-	  \param formatSymbol Format symbol
-	  \param params Format parameters
+	  Override this method for custom bevaviour.
+	  \param tokenSymbol Token symbol
+	  \param tokenParams Format parameters
 	  \return String to substitute
 	*/
-	virtual std::basic_string<Ch> substitute(Ch formatSymbol, const std::basic_string<Ch>& params = std::basic_string<Ch>()) const
+	virtual std::basic_string<Ch> substitute(Ch tokenSymbol, const std::basic_string<Ch>& tokenParams = std::basic_string<Ch>()) const
 	{
-		unsigned int argNo = paramNoByChar(formatSymbol);
+		unsigned int argNo = paramNoByChar(tokenSymbol);
 		if (argNo >= _arguments.size()) {
 			return std::basic_string<Ch>();
 		}
-		return _arguments[argNo].format(params);
+		return _arguments[argNo].format(tokenParams);
 	}
 private:
+
 	inline bool isParamNoChar(Ch ch) const
 	{
 		return ((ch >= '0') && (ch <= '9')) || ((ch >= 'a') && (ch <= 'z')) || ((ch >= 'A') && (ch <= 'Z'));
@@ -94,7 +102,7 @@ private:
 				return result;
 			}
 			// Finding format specifier:
-			result.first = isl::AbstractFormat<Ch>::_format.find(_formatSpecifier, result.first);
+			result.first = isl::AbstractFormat<Ch>::_format.find(_tokenSpecifier, result.first);
 			if (result.first == std::basic_string<Ch>::npos) {
 				return result;
 			}
@@ -104,7 +112,7 @@ private:
 			}
 			// Parsing token
 			result.second = 2;
-			if (isl::AbstractFormat<Ch>::_format[result.first + result.second - 1] == _formatSpecifier) {
+			if (isl::AbstractFormat<Ch>::_format[result.first + result.second - 1] == _tokenSpecifier) {
 				// Returning "<specifier><specifier>" if found
 				return result;
 			} else if (isParamNoChar(isl::AbstractFormat<Ch>::_format[result.first + result.second - 1])) {
@@ -151,33 +159,33 @@ private:
 	virtual std::basic_string<Ch> substituteToken(const std::basic_string<Ch>& token) const
 	{
 
-		if ((token.length() == 2) && (token[0] == _formatSpecifier) && (token[1] == _formatSpecifier)) {
-			// Returning "<specifier>" instead if "<specifier><specifier>"
-			return std::basic_string<Ch>(1, _formatSpecifier);
+		if ((token.length() == 2) && (token[0] == _tokenSpecifier) && (token[1] == _tokenSpecifier)) {
+			// Returning "<token_specifier>" if "<token_specifier><token_specifier>" token has been provided
+			return std::basic_string<Ch>(1, _tokenSpecifier);
 		}
 		return substitute(_curFormatSymbol, _curParams);
 	}
 
 	typedef std::vector<Variant> ArgumentsList;
 
-	Ch _formatSpecifier;
+	Ch _tokenSpecifier;
 	ArgumentsList _arguments;
-
 	mutable Ch _curFormatSymbol;
 	mutable std::basic_string<Ch> _curParams;
 };
 
-template <> std::basic_string<char> BasicFormat<char>::substitute(char formatSymbol, const std::basic_string<char>& params) const
+//! Method specialization for one byte character strings
+template <> std::basic_string<char> BasicFormat<char>::substitute(char tokenSymbol, const std::basic_string<char>& tokenParams) const
 {
-	unsigned int argNo = paramNoByChar(formatSymbol);
+	unsigned int argNo = paramNoByChar(tokenSymbol);
 	if (argNo >= _arguments.size()) {
 		return std::basic_string<char>();
 	}
-	return Utf8TextCodec().encode(_arguments[argNo].format(Utf8TextCodec().decode(params)));
+	return Utf8TextCodec().encode(_arguments[argNo].format(Utf8TextCodec().decode(tokenParams)));
 }
 
-typedef BasicFormat<char> Format;
-typedef BasicFormat<wchar_t> WFormat;
+typedef BasicFormat<char> Format;		//! Format definition for one byte character strings
+typedef BasicFormat<wchar_t> WFormat;		//! Format definition for wide character strings
 
 } // namespace isl
 
