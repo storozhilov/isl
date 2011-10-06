@@ -34,26 +34,19 @@ void Log::disconnectTargets()
 	dispatcher.disconnectLogFromDevices(this);
 }
 
-void Log::logMessage(const std::wstring& msg)
+void Log::log(const AbstractLogMessage& msg)
+{
+	dispatcher.logMessage(this, msg.compose());
+}
+
+void Log::log(const std::string& msg)
+{
+	dispatcher.logMessage(this, Utf8TextCodec().decode(msg));
+}
+
+void Log::log(const std::wstring& msg)
 {
 	dispatcher.logMessage(this, msg);
-}
-
-void Log::logDebug(SOURCE_LOCATION_ARGS_DECLARATION, const std::wstring& msg)
-{
-	logMessage(composeSourceLocation(SOURCE_LOCATION_ARGS_PASSTHRU) + (msg.empty() ? std::wstring(L"[Empty message]") : msg));
-}
-
-void Log::logException(const std::exception& expt, SOURCE_LOCATION_ARGS_DECLARATION, const std::wstring& msg)
-{
-	std::wstring str = (dynamic_cast<const Exception *>(&expt)) ? L"isl::Exception instance has been thrown:\n" :
-		L"std::exception instance has been thrown:\n";
-	str += Utf8TextCodec().decode(expt.what());
-	if (!msg.empty()) {
-		str += L'\n';
-		str += msg;
-	}
-	logDebug(SOURCE_LOCATION_ARGS_PASSTHRU, str);
 }
 
 void Log::setPrefix(const std::wstring& newPrefix)

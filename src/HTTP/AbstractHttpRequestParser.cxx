@@ -81,7 +81,7 @@ void AbstractHttpRequestParser::parse(char ch)
 			std::wostringstream msg;
 			msg << L"Request method starts with invalid character " << std::showbase << std::hex <<
 				static_cast<int>(ch) << L" at " << std::dec << _pos << L" position";
-			Http::debugLog.logDebug(SOURCE_LOCATION_ARGS, msg.str());
+			Http::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, msg.str()));
 			throw Exception(HttpError(HttpError::BadRequest(msg.str()), SOURCE_LOCATION_ARGS));
 		}
 		break;
@@ -91,7 +91,7 @@ void AbstractHttpRequestParser::parse(char ch)
 				_method += ch;
 			} else {
 				_state = RequestMethodTooLong;
-				Http::debugLog.logDebug(SOURCE_LOCATION_ARGS, L"Request method is too long");
+				Http::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, L"Request method is too long"));
 				//throw Exception(HttpError(HttpError::RequestMethodTooLong(), SOURCE_LOCATION_ARGS));
 				throw Exception(HttpError(HttpError::BadRequest(L"Request method is too long"), SOURCE_LOCATION_ARGS));
 			}
@@ -103,7 +103,7 @@ void AbstractHttpRequestParser::parse(char ch)
 			std::wostringstream msg;
 			msg << L"Request method contains invalid character " << std::showbase << std::hex <<
 				static_cast<int>(ch) << L" at " << std::dec << _pos << L" position";
-			Http::debugLog.logDebug(SOURCE_LOCATION_ARGS, msg.str());
+			Http::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, msg.str()));
 			throw Exception(HttpError(HttpError::BadRequest(msg.str()), SOURCE_LOCATION_ARGS));
 		}
 		break;
@@ -119,7 +119,7 @@ void AbstractHttpRequestParser::parse(char ch)
 			std::wostringstream msg;
 			msg << L"Request URI starts with invalid character " << std::showbase << std::hex <<
 				static_cast<int>(ch) << L" at " << std::dec << _pos << L" position";
-			Http::debugLog.logDebug(SOURCE_LOCATION_ARGS, msg.str());
+			Http::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, msg.str()));
 			throw Exception(HttpError(HttpError::BadRequest(msg.str()), SOURCE_LOCATION_ARGS));
 		}
 		break;
@@ -130,7 +130,7 @@ void AbstractHttpRequestParser::parse(char ch)
 				_uri += ch;
 			} else {
 				_state = RequestUriTooLong;
-				Http::debugLog.logDebug(SOURCE_LOCATION_ARGS, L"Request URI is too long");
+				Http::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, L"Request URI is too long"));
 				throw Exception(HttpError(HttpError::RequestUriTooLong(), SOURCE_LOCATION_ARGS));
 			}
 		} else if (isSpaceOrTab(ch)) {
@@ -141,7 +141,7 @@ void AbstractHttpRequestParser::parse(char ch)
 			std::wostringstream msg;
 			msg << L"Request URI contains invalid character " << std::showbase << std::hex <<
 				static_cast<int>(ch) << L" at " << std::dec << _pos << L" position";
-			Http::debugLog.logDebug(SOURCE_LOCATION_ARGS, msg.str());
+			Http::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, msg.str()));
 			throw Exception(HttpError(HttpError::BadRequest(msg.str()), SOURCE_LOCATION_ARGS));
 		}
 		break;
@@ -157,7 +157,7 @@ void AbstractHttpRequestParser::parse(char ch)
 			std::wostringstream msg;
 			msg << L"Request HTTP-version starts with invalid character " << std::showbase << std::hex <<
 				static_cast<int>(ch) << L" at " << std::dec << _pos << L" position";
-			Http::debugLog.logDebug(SOURCE_LOCATION_ARGS, msg.str());
+			Http::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, msg.str()));
 			throw Exception(HttpError(HttpError::BadRequest(msg.str()), SOURCE_LOCATION_ARGS));
 		}
 		break;
@@ -174,7 +174,7 @@ void AbstractHttpRequestParser::parse(char ch)
 				_version += ch;
 			} else {
 				_state = RequestVersionTooLong;
-				Http::debugLog.logDebug(SOURCE_LOCATION_ARGS, L"Request version is too long");
+				Http::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, L"Request version is too long"));
 				//throw Exception(HttpError(HttpError::RequestVersionTooLong(), SOURCE_LOCATION_ARGS));
 				throw Exception(HttpError(HttpError::BadRequest(L"Request version is too long"), SOURCE_LOCATION_ARGS));
 			}
@@ -183,7 +183,7 @@ void AbstractHttpRequestParser::parse(char ch)
 			std::wostringstream msg;
 			msg << L"Request HTTP-version contains invalid character " << std::showbase << std::hex <<
 				static_cast<int>(ch) << L" at " << std::dec << _pos << L" position";
-			Http::debugLog.logDebug(SOURCE_LOCATION_ARGS, msg.str());
+			Http::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, msg.str()));
 			throw Exception(HttpError(HttpError::BadRequest(msg.str()), SOURCE_LOCATION_ARGS));
 		}
 		break;
@@ -197,7 +197,7 @@ void AbstractHttpRequestParser::parse(char ch)
 			std::wostringstream msg;
 			msg << L"Request HTTP-version is followed by the invalid character " << std::showbase << std::hex <<
 				static_cast<int>(ch) << L" at " << std::dec << _pos << L" position";
-			Http::debugLog.logDebug(SOURCE_LOCATION_ARGS, msg.str());
+			Http::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, msg.str()));
 			throw Exception(HttpError(HttpError::BadRequest(msg.str()), SOURCE_LOCATION_ARGS));
 		}
 		break;
@@ -209,7 +209,7 @@ void AbstractHttpRequestParser::parse(char ch)
 			std::wostringstream msg;
 			msg << L"Request line's CR is followed by the invalid character " << std::showbase << std::hex <<
 				static_cast<int>(ch) << L" instead of LF at " << std::dec << _pos << L" position";
-			Http::debugLog.logDebug(SOURCE_LOCATION_ARGS, msg.str());
+			Http::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, msg.str()));
 			throw Exception(HttpError(HttpError::BadRequest(msg.str()), SOURCE_LOCATION_ARGS));
 		}
 		break;
@@ -229,13 +229,13 @@ void AbstractHttpRequestParser::parse(char ch)
 			std::wostringstream msg;
 			msg << L"Request header field starts with invalid character " << std::showbase << std::hex <<
 				static_cast<int>(ch) << L" at " << std::dec << _pos << L" position";
-			Http::debugLog.logDebug(SOURCE_LOCATION_ARGS, msg.str());
+			Http::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, msg.str()));
 			throw Exception(HttpError(HttpError::BadRequest(msg.str()), SOURCE_LOCATION_ARGS));
 		}
 		break;
 	case ParsingHeaderFieldName:
 		if (isCarriageReturn(ch)) {
-			Http::debugLog.logDebug(SOURCE_LOCATION_ARGS, L"Request header field is missing ':' separator");
+			Http::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, L"Request header field is missing ':' separator"));
 			throw Exception(HttpError(HttpError::BadRequest(L"Request header field is missing ':' separator"), SOURCE_LOCATION_ARGS));
 		} else if (ch == ':') {
 			_state = ParsingHeaderFieldValue;
@@ -245,7 +245,7 @@ void AbstractHttpRequestParser::parse(char ch)
 				_headerFieldName += ch;
 			} else {
 				_state = RequestHeaderFieldNameTooLong;
-				Http::debugLog.logDebug(SOURCE_LOCATION_ARGS, L"Request header field name is too long");
+				Http::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, L"Request header field name is too long"));
 				//throw Exception(HttpError(HttpError::RequestHeaderFieldNameTooLong(), SOURCE_LOCATION_ARGS));
 				throw Exception(HttpError(HttpError::BadRequest(L"Request header field name is too long"), SOURCE_LOCATION_ARGS));
 			}
@@ -254,7 +254,7 @@ void AbstractHttpRequestParser::parse(char ch)
 			std::wostringstream msg;
 			msg << L"Request header field name contains invalid character " << std::showbase << std::hex <<
 				static_cast<int>(ch) << L" at " << std::dec << _pos << L" position";
-			Http::debugLog.logDebug(SOURCE_LOCATION_ARGS, msg.str());
+			Http::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, msg.str()));
 			throw Exception(HttpError(HttpError::BadRequest(msg.str()), SOURCE_LOCATION_ARGS));
 		}
 		break;
@@ -267,7 +267,7 @@ void AbstractHttpRequestParser::parse(char ch)
 				_headerFieldValue += ch;
 			} else {
 				_state = RequestHeaderFieldValueTooLong;
-				Http::debugLog.logDebug(SOURCE_LOCATION_ARGS, L"Request header field value is too long");
+				Http::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, L"Request header field value is too long"));
 				throw Exception(HttpError(HttpError::BadRequest(L"Request header field value is too long"), SOURCE_LOCATION_ARGS));
 			}
 		} else {
@@ -275,7 +275,7 @@ void AbstractHttpRequestParser::parse(char ch)
 			std::wostringstream msg;
 			msg << L"Request header field value contains invalid character " << std::showbase << std::hex <<
 				static_cast<int>(ch) << L" at " << std::dec << _pos << L" position";
-			Http::debugLog.logDebug(SOURCE_LOCATION_ARGS, msg.str());
+			Http::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, msg.str()));
 			throw Exception(HttpError(HttpError::BadRequest(msg.str()), SOURCE_LOCATION_ARGS));
 		}
 		break;
@@ -287,7 +287,7 @@ void AbstractHttpRequestParser::parse(char ch)
 			std::wostringstream msg;
 			msg << L"Request header field's CR is followed by the invalid character " << std::showbase << std::hex <<
 				static_cast<int>(ch) << L" instead of LF at " << std::dec << _pos << L" position";
-			Http::debugLog.logDebug(SOURCE_LOCATION_ARGS, msg.str());
+			Http::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, msg.str()));
 			throw Exception(HttpError(HttpError::BadRequest(msg.str()), SOURCE_LOCATION_ARGS));
 		}
 		break;
@@ -315,7 +315,7 @@ void AbstractHttpRequestParser::parse(char ch)
 			std::wostringstream msg;
 			msg << L"Request header field starts with invalid character " << std::showbase << std::hex <<
 				static_cast<int>(ch) << L" at " << std::dec << _pos << L" position";
-			Http::debugLog.logDebug(SOURCE_LOCATION_ARGS, msg.str());
+			Http::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, msg.str()));
 			throw Exception(HttpError(HttpError::BadRequest(msg.str()), SOURCE_LOCATION_ARGS));
 		}
 		break;
@@ -331,7 +331,7 @@ void AbstractHttpRequestParser::parse(char ch)
 			std::wostringstream msg;
 			msg << L"Request header's CR is followed by the invalid character " << std::showbase << std::hex <<
 				static_cast<int>(ch) << L" instead of LF at " << std::dec << _pos << L" position";
-			Http::debugLog.logDebug(SOURCE_LOCATION_ARGS, msg.str());
+			Http::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, msg.str()));
 			throw Exception(HttpError(HttpError::BadRequest(msg.str()), SOURCE_LOCATION_ARGS));
 		}
 		break;

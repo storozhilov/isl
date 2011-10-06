@@ -96,32 +96,32 @@ void AbstractTcpListener::ListenerThread::run()
 {
 	// Starting secion
 	TcpSocket serverSocket;
-	Core::debugLog.logDebug(SOURCE_LOCATION_ARGS, L"Server socket has been created");
+	Core::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, L"Server socket has been created"));
 	while (true) {
 		try {
 			if (!_listener.isInState<StartingState>()) {
-				Core::debugLog.logDebug(SOURCE_LOCATION_ARGS,
-						L"Unexpected state detected while starting up. Exiting from subsystem's thread.");
+				Core::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS,
+						L"Unexpected state detected while starting up. Exiting from subsystem's thread."));
 				_listener.setState<IdlingState>();
 				return;
 			}
 			serverSocket.open();
-			Core::debugLog.logDebug(SOURCE_LOCATION_ARGS, L"Server socket has been opened");
+			Core::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, L"Server socket has been opened"));
 			serverSocket.bind(_listener.port(), _listener.interfaces());
-			Core::debugLog.logDebug(SOURCE_LOCATION_ARGS, L"Server socket has been binded");
+			Core::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, L"Server socket has been binded"));
 			serverSocket.listen(_listener.backLog());
-			Core::debugLog.logDebug(SOURCE_LOCATION_ARGS, L"Server socket has been switched to the listening state");
+			Core::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, L"Server socket has been switched to the listening state"));
 			break;
 		} catch (std::exception& e) {
-			Core::errorLog.logException(e, SOURCE_LOCATION_ARGS, L"Starting subsystem error.");
+			Core::errorLog.log(ExceptionLogMessage(SOURCE_LOCATION_ARGS, e, L"Starting subsystem error."));
 			sleep();
 		} catch (...) {
-			Core::errorLog.logDebug(SOURCE_LOCATION_ARGS, L"Starting subsystem unknown error.");
+			Core::errorLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, L"Starting subsystem unknown error."));
 			sleep();
 		}
 	}
 	_listener.setState<RunningState>();
-	Core::debugLog.logDebug(SOURCE_LOCATION_ARGS, L"Subsystem has been successfully started");
+	Core::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, L"Subsystem has been successfully started"));
 	// Running section
 	while (true) {
 		try {
@@ -140,13 +140,13 @@ void AbstractTcpListener::ListenerThread::run()
 			socketAutoPtr.release();
 			if (!_listener._taskDispatcher.perform(task)) {
 				delete task;
-				Core::warningLog.logDebug(SOURCE_LOCATION_ARGS, L"Too many TCP-connection requests");
+				Core::warningLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, L"Too many TCP-connection requests"));
 			}
 		} catch (std::exception& e) {
-			Core::errorLog.logException(e, SOURCE_LOCATION_ARGS, L"Running subsystem error. Stopping subsystem.");
+			Core::errorLog.log(ExceptionLogMessage(SOURCE_LOCATION_ARGS, e, L"Running subsystem error. Stopping subsystem."));
 			break;
 		} catch (...) {
-			Core::errorLog.logDebug(SOURCE_LOCATION_ARGS, L"Running subsystem unknown error. Stopping subsystem.");
+			Core::errorLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, L"Running subsystem unknown error. Stopping subsystem."));
 			break;
 		}
 	}
@@ -164,14 +164,14 @@ bool AbstractTcpListener::ListenerThread::keepRunning()
 	AbstractSubsystem::State listenerState = _listener.state();
 	if (!listenerState.equals<AbstractSubsystem::RunningState>()) {
 		if (listenerState.equals<AbstractSubsystem::StoppingState>()) {
-			Core::debugLog.logDebug(SOURCE_LOCATION_ARGS, L"Stopping state detected - exiting from subsystem's thread.");
+			Core::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, L"Stopping state detected - exiting from subsystem's thread."));
 			return false;
 		} else if (listenerState.equals<AbstractSubsystem::IdlingState>()) {
-			Core::debugLog.logDebug(SOURCE_LOCATION_ARGS, L"Restarting state detected - exiting from subsystem's thread");
+			Core::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, L"Restarting state detected - exiting from subsystem's thread"));
 			return false;
 		} else {
-			Core::warningLog.logDebug(SOURCE_LOCATION_ARGS, L"Unexpected subsystem's state '" +
-					listenerState.value().name() + L"' detected. Reverting to 'Running'.");
+			Core::warningLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS,
+					L"Unexpected subsystem's state '" + listenerState.value().name() + L"' detected. Reverting to 'Running'."));
 			_listener.setState<RunningState>();
 		}
 	}

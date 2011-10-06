@@ -87,7 +87,7 @@ int HTTPRequestParser::parse(const char * data, unsigned int size)
 				_state = BadRequest;
 				std::wostringstream msg;
 				msg << L"Request method starts with invalid character (code = " << static_cast<int>(data[pos]) << L')';
-				AbstractHTTPTask::errorLog.logMessage(msg.str());		// TODO
+				AbstractHTTPTask::errorLog.log(msg.str());		// TODO
 				return pos;
 			}
 			break;
@@ -98,7 +98,7 @@ int HTTPRequestParser::parse(const char * data, unsigned int size)
 					Token requestMethod = findToken(_methodsImplemented, _requestMethodString);
 					if (requestMethod.isNull()) {
 						_state = MethodNotImplemented;
-						AbstractHTTPTask::errorLog.logMessage(L"Request method \"" +
+						AbstractHTTPTask::errorLog.log(L"Request method \"" +
 								Utf8TextCodec().decode(_requestMethodString) + L"\" is not implemented");
 						return pos;
 					}
@@ -106,7 +106,7 @@ int HTTPRequestParser::parse(const char * data, unsigned int size)
 					_request->_uri.clear();
 					_state = ParsingRequestURI;
 					++pos;
-					AbstractHTTPTask::debugLog.logMessage(L"Request method is \"" +
+					AbstractHTTPTask::debugLog.log(L"Request method is \"" +
 							Utf8TextCodec().decode(_requestMethodString) + L"\"");
 					break;
 				} else if (isFitTokens(_methods, _requestMethodString, data[pos])) {
@@ -116,7 +116,7 @@ int HTTPRequestParser::parse(const char * data, unsigned int size)
 					_state = BadRequest;
 					std::wostringstream msg;
 					msg << L"Request method contains invalid character (code = " << static_cast<int>(data[pos]) << L')';
-					AbstractHTTPTask::errorLog.logMessage(msg.str());
+					AbstractHTTPTask::errorLog.log(msg.str());
 					return pos;
 				}
 			}
@@ -135,14 +135,14 @@ int HTTPRequestParser::parse(const char * data, unsigned int size)
 					// TODO Check Request-URI (if needed)
 					if (!parseURI()) {
 						_state = InvalidRequestURI;
-						AbstractHTTPTask::errorLog.logMessage(L"Invalid URI: \"" +
+						AbstractHTTPTask::errorLog.log(L"Invalid URI: \"" +
 								Utf8TextCodec().decode(_request->_uri) + L"\"");
 						return pos;
 					}
 					_httpVersionString.clear();
 					_state = ParsingHTTPVersion;
 					++pos;
-					AbstractHTTPTask::debugLog.logMessage(L"Request-URI is \"" +
+					AbstractHTTPTask::debugLog.log(L"Request-URI is \"" +
 							Utf8TextCodec().decode(_request->_uri) + L"\"");
 					break;
 				} else if (canBeAddedToRequestURI(data[pos])) {
@@ -152,7 +152,7 @@ int HTTPRequestParser::parse(const char * data, unsigned int size)
 					_state = BadRequest;
 					std::wostringstream msg;
 					msg << L"Request-URI contains invalid character (code = " << static_cast<int>(data[pos]) << L')';
-					AbstractHTTPTask::errorLog.logMessage(msg.str());
+					AbstractHTTPTask::errorLog.log(msg.str());
 					return pos;
 				}
 			}
@@ -170,14 +170,14 @@ int HTTPRequestParser::parse(const char * data, unsigned int size)
 					Token httpVersion = findToken(_versionsImplemented, _httpVersionString);
 					if (httpVersion.isNull()) {
 						_state = HTTPVersionNotImplemented;
-						AbstractHTTPTask::errorLog.logMessage(L"HTTP-version \"" +
+						AbstractHTTPTask::errorLog.log(L"HTTP-version \"" +
 								Utf8TextCodec().decode(_httpVersionString) + L"\" is not implemented");
 						return pos;
 					}
 					_request->_version = httpVersion;
 					_state = ParsingHTTPVersionCRLF;
 					++pos;
-					AbstractHTTPTask::debugLog.logMessage(L"HTTP-version is \"" +
+					AbstractHTTPTask::debugLog.log(L"HTTP-version is \"" +
 							Utf8TextCodec().decode(_httpVersionString) + L"\"");
 					break;
 				} else if (isFitTokens(_versions, _httpVersionString, data[pos])) {
@@ -187,7 +187,7 @@ int HTTPRequestParser::parse(const char * data, unsigned int size)
 					_state = BadRequest;
 					std::wostringstream msg;
 					msg << L"HTTP-version contains invalid character (code = " << static_cast<int>(data[pos]) << L')';
-					AbstractHTTPTask::errorLog.logMessage(msg.str());
+					AbstractHTTPTask::errorLog.log(msg.str());
 					return pos;
 				}
 			}
@@ -198,7 +198,7 @@ int HTTPRequestParser::parse(const char * data, unsigned int size)
 				++pos;
 			} else {
 				_state = BadRequest;
-				AbstractHTTPTask::errorLog.logMessage(L"Line feed after carriage return expected");
+				AbstractHTTPTask::errorLog.log(L"Line feed after carriage return expected");
 				return pos;
 			}
 			break;
@@ -216,7 +216,7 @@ int HTTPRequestParser::parse(const char * data, unsigned int size)
 				_state = BadRequest;
 				std::wostringstream msg;
 				msg << L"Header field name is starting with invalid character (code = " << static_cast<int>(data[pos]) << L')';
-				AbstractHTTPTask::errorLog.logMessage(msg.str());
+				AbstractHTTPTask::errorLog.log(msg.str());
 				return pos;
 			}
 			break;
@@ -229,7 +229,7 @@ int HTTPRequestParser::parse(const char * data, unsigned int size)
 				} else if (data[pos] == ':') {
 					_state = ParsingHeaderFieldValue;
 					++pos;
-					AbstractHTTPTask::debugLog.logMessage(L"Request header field name is \"" +
+					AbstractHTTPTask::debugLog.log(L"Request header field name is \"" +
 							Utf8TextCodec().decode(_headerFieldName) + L"\"");
 					break;
 				} else if (String::isToken(data[pos])) {
@@ -239,7 +239,7 @@ int HTTPRequestParser::parse(const char * data, unsigned int size)
 					_state = BadRequest;
 					std::wostringstream msg;
 					msg << L"Header field name contains invalid character (code = " << static_cast<int>(data[pos]) << L')';
-					AbstractHTTPTask::errorLog.logMessage(msg.str());
+					AbstractHTTPTask::errorLog.log(msg.str());
 					return pos;
 				}
 			}
@@ -252,12 +252,12 @@ int HTTPRequestParser::parse(const char * data, unsigned int size)
 				if (data[pos] == ':') {
 					_state = ParsingHeaderFieldValue;
 					++pos;
-					AbstractHTTPTask::debugLog.logMessage(L"Request header field name is \"" +
+					AbstractHTTPTask::debugLog.log(L"Request header field name is \"" +
 							Utf8TextCodec().decode(_headerFieldName) + L"\"");
 					break;
 				} else {
 					_state = BadRequest;
-					AbstractHTTPTask::errorLog.logMessage(L"Missing request header field separator ':'");
+					AbstractHTTPTask::errorLog.log(L"Missing request header field separator ':'");
 					return pos;
 				}
 			}
@@ -275,7 +275,7 @@ int HTTPRequestParser::parse(const char * data, unsigned int size)
 					_state = BadRequest;
 					std::wostringstream msg;
 					msg << L"Header field value contains invalid character (code = " << static_cast<int>(data[pos]) << L')';
-					AbstractHTTPTask::errorLog.logMessage(msg.str());
+					AbstractHTTPTask::errorLog.log(msg.str());
 					return pos;
 				}
 			}
@@ -286,7 +286,7 @@ int HTTPRequestParser::parse(const char * data, unsigned int size)
 				++pos;
 			} else {
 				_state = BadRequest;
-				AbstractHTTPTask::errorLog.logMessage(L"Line feed after carriage return expected");
+				AbstractHTTPTask::errorLog.log(L"Line feed after carriage return expected");
 				return pos;
 			}
 			break;
@@ -297,7 +297,7 @@ int HTTPRequestParser::parse(const char * data, unsigned int size)
 				_state = ParsingHeaderFieldValue;
 				++pos;
 			} else {
-				AbstractHTTPTask::debugLog.logMessage(L"Request header field value is \"" +
+				AbstractHTTPTask::debugLog.log(L"Request header field value is \"" +
 						Utf8TextCodec().decode(_headerFieldValue) + L"\"");
 				String::trim(_headerFieldName);
 				String::trim(_headerFieldValue);
@@ -319,12 +319,12 @@ int HTTPRequestParser::parse(const char * data, unsigned int size)
 				_state = BadRequest;
 				std::wostringstream msg;
 				msg << L"Unexpected symbol after header leading CR (code = " << static_cast<int>(data[pos]) << L')';
-				AbstractHTTPTask::errorLog.logMessage(msg.str());
+				AbstractHTTPTask::errorLog.log(msg.str());
 			}
 			break;
 		case ParsingBody:
 			// TODO
-			AbstractHTTPTask::errorLog.logMessage(L"HTTP-requests with bodies are not implemented yet");
+			AbstractHTTPTask::errorLog.log(L"HTTP-requests with bodies are not implemented yet");
 			return size;
 			//break;
 		default:
@@ -459,7 +459,7 @@ void HTTPRequestParser::parseCookies()
 		std::map<std::string, std::string>::const_iterator pos = _request->_cookies.find(cookieName);
 		if (pos == _request->_cookies.end()) {
 			_request->_cookies.insert(std::make_pair(cookieName, String::urlDecode(cookieValue)));
-			AbstractHTTPTask::debugLog.logMessage(L"Cookie \"" + Utf8TextCodec().decode(cookieName) + L"\"=\"" +
+			AbstractHTTPTask::debugLog.log(L"Cookie \"" + Utf8TextCodec().decode(cookieName) + L"\"=\"" +
 					Utf8TextCodec().decode(String::urlDecode(cookieValue)) + L"\" added to request");
 		}
 		// Passing ';' if found

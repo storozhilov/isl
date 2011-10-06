@@ -3,6 +3,7 @@
 
 #include <isl/Timeout.hxx>
 #include <isl/Mutex.hxx>
+#include <vector>
 
 namespace isl
 {
@@ -11,27 +12,65 @@ namespace isl
  * AbstractIODevice
 ------------------------------------------------------------------------------*/
 
+//! I/O device abstraction with buffered reading facility
 class AbstractIODevice
 {
 public:
 	AbstractIODevice();
 	virtual ~AbstractIODevice();
 
+	//! Opens I/O device
 	void open();
+	//! Closes I/O device
 	void close();
+	//! Inspects if I/O device is open
 	inline bool isOpen() const
 	{
 		return _isOpen;
 	}
+	//! Reads one character from the I/O device
+	/*!
+	    \param ch Reference to the result character
+	    \param timeout Read timeout
+	    \return true if the character has been successfully read and false otherwise
+	*/
+	bool getChar(char& ch, const Timeout& timeout = Timeout());
+	//! Pushes the character back to the I/O device for another reading
+	/*!
+	    \param ch Character to push back
+	*/
+	void ungetChar(char ch);
+	//! Reads data to buffer from the I/O device
+	/*!
+	    \param buffer Pointer to buffer
+	    \param bufferSize Buffer size
+	    \param timeout Read timeout
+	    \return Count of the actually received bytes
+	*/
 	unsigned int read(char * buffer, unsigned int bufferSize, const Timeout& timeout = Timeout());
+	//! Writes character to the I/O device
+ 	/*!
+	    \param ch Character to write
+	    \param timeout Write timeout
+	    \return true if character has been written to the I/O device or false otherwise
+	*/
+	bool putChar(char ch, const Timeout& timeout = Timeout());
+	//! Writes buffered data to the I/O device
+	/*!
+	    \param buffer Pointer to the buffer
+	    \param bufferSize Buffer size
+	    \param timeout Write timeout
+	    \return Count of the actually sent bytes
+	*/
 	unsigned int write(const char * buffer, unsigned int bufferSize, const Timeout& timeout = Timeout());
-
-	virtual Mutex& dataReadMutex() = 0;
-	virtual Mutex& dataWriteMutex() = 0;
 protected:
+	//! Opening I/O device abstract method
 	virtual void openImplementation() = 0;
+	//! Closing I/O device abstract method
 	virtual void closeImplementation() = 0;
+	//! Reading from I/O device abstract method
 	virtual unsigned int readImplementation(char * buffer, unsigned int bufferSize, const Timeout& timeout) = 0;
+	//! Writing to I/O device abstract method
 	virtual unsigned int writeImplementation(const char * buffer, unsigned int bufferSize, const Timeout& timeout) = 0;
 
 	bool _isOpen;
@@ -39,6 +78,17 @@ private:
 	AbstractIODevice(const AbstractIODevice&);							// No copy
 
 	AbstractIODevice& operator=(const AbstractIODevice&);						// No copy
+
+	enum PrivateConstants {
+		ReadBufferSize = 1024,
+		UngetBufferSize = 1024
+	};
+
+	void readToReadBuffer(const Timeout& timeout = Timeout());
+
+	std::vector<char> _readBuffer;
+	unsigned int _readBufferPos;
+	std::vector<char> _ungetBuffer;
 };
 
 } // namespace isl

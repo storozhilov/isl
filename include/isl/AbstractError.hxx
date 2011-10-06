@@ -5,6 +5,7 @@
 #include <memory>
 
 // Yes, macro are used here... Sad, but true...
+// TODO Move this staff to more appropriate place
 #ifdef __GNUC__
 #define SOURCE_LOCATION_ARGS __FILE__, __LINE__, __PRETTY_FUNCTION__
 #else

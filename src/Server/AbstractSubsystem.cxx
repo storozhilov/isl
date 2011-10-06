@@ -28,7 +28,7 @@ void AbstractSubsystem::onCommand(const Command& cmd)
 	} else if (cmd.equals<RestartCommand>()) {
 		onRestartCommand();
 	} else {
-		Core::errorLog.logDebug(SOURCE_LOCATION_ARGS, L"Command '" + cmd.value().name() + L"' is not supported");
+		Core::errorLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, L"Command '" + cmd.value().name() + L"' is not supported"));
 	}
 }
 

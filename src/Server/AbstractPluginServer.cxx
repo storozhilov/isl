@@ -85,27 +85,25 @@ void AbstractPluginServer::loadPlugins()
 		newPlugin.fileName += newPlugin.name;
 		newPlugin.handle = dlopen(newPlugin.fileName.c_str(), RTLD_LAZY);
 		if (!newPlugin.handle) {
-			Core::errorLog.logMessage(L"Error load plugin library '" + Utf8TextCodec().decode(newPlugin.fileName) +
+			Core::errorLog.log(L"Error load plugin library '" + Utf8TextCodec().decode(newPlugin.fileName) +
 					L"\': " + Utf8TextCodec().decode(dlerror()));
 			continue;
 		}
-
-		Core::debugLog.logDebug(SOURCE_LOCATION_ARGS,
-				L"Plugin library '" + Utf8TextCodec().decode(newPlugin.fileName) + L"' loaded successfully");
-
+		Core::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS,
+				L"Plugin library '" + Utf8TextCodec().decode(newPlugin.fileName) + L"' loaded successfully"));
 		newPlugin.createFunc = reinterpret_cast<CreatePluginSubsystemFunction>(dlsym(newPlugin.handle, CreatePluginSubsystemFunctionName));
 		if (!newPlugin.createFunc) {
-			Core::errorLog.logMessage(L"Error create plugin subsystem function lookup '" +
+			Core::errorLog.log(L"Error create plugin subsystem function lookup '" +
 					Utf8TextCodec().decode(CreatePluginSubsystemFunctionName) + L"\' in plugin library '" +
 					Utf8TextCodec().decode(newPlugin.fileName) + L"': " + Utf8TextCodec().decode(dlerror()));
 			continue;
 		}
-		Core::debugLog.logDebug(SOURCE_LOCATION_ARGS, L"Create subsystem function '" +
+		Core::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, L"Create subsystem function '" +
 				Utf8TextCodec().decode(CreatePluginSubsystemFunctionName) + L"\' found in '" +
-				Utf8TextCodec().decode(newPlugin.fileName) + L'\'');
+				Utf8TextCodec().decode(newPlugin.fileName) + L'\''));
 		newPlugin.subsystem = (*newPlugin.createFunc)(*this);
 		_plugins.push_back(newPlugin);
-		Core::debugLog.logDebug(SOURCE_LOCATION_ARGS, L"Plugin '" + Utf8TextCodec().decode(newPlugin.fileName) + L"' loaded successfully");
+		Core::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, L"Plugin '" + Utf8TextCodec().decode(newPlugin.fileName) + L"' loaded successfully"));
 	}
 	_pluginsLoaded = true;
 }
@@ -119,11 +117,11 @@ void AbstractPluginServer::unloadPlugins()
 	for (Plugins::iterator i = _plugins.begin(); i != _plugins.end(); ++i) {
 		delete (*i).subsystem;
 		if (dlclose((*i).handle)) {
-			Core::errorLog.logMessage(L"Error unload plugin '" + Utf8TextCodec().decode((*i).name) + L"' library: " +
+			Core::errorLog.log(L"Error unload plugin '" + Utf8TextCodec().decode((*i).name) + L"' library: " +
 					Utf8TextCodec().decode(dlerror()));
 		}
-		Core::debugLog.logDebug(SOURCE_LOCATION_ARGS, L"Plugin '" + Utf8TextCodec().decode((*i).name) +
-				L"' unloaded successfully");
+		Core::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS,
+				L"Plugin '" + Utf8TextCodec().decode((*i).name) + L"' unloaded successfully"));
 	}
 	_plugins.clear();
 	_pluginsLoaded = false;

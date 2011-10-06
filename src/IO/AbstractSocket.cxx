@@ -24,14 +24,16 @@ namespace isl
 ------------------------------------------------------------------------------*/
 
 AbstractSocket::AbstractSocket() :
-	AbstractAsynchronousIODevice(),
+	AbstractIODevice(),
 	_descriptor(-1)
 {}
 
 AbstractSocket::AbstractSocket(int descriptor) :
-	AbstractAsynchronousIODevice(),
+	AbstractIODevice(),
 	_descriptor(descriptor)
-{}
+{
+	_isOpen = true;
+}
 
 AbstractSocket::~AbstractSocket()
 {
@@ -143,7 +145,7 @@ unsigned int AbstractSocket::writeImplementation(const char * buffer, unsigned i
 void AbstractSocket::closeSocket()
 {
 	if (::close(_descriptor)) {
-		Core::errorLog.logDebug(SOURCE_LOCATION_ARGS, SystemCallError(SystemCallError::Close, errno, SOURCE_LOCATION_ARGS).message());
+		Core::errorLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, SystemCallError(SystemCallError::Close, errno, SOURCE_LOCATION_ARGS).message()));
 	}
 }
 

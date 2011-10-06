@@ -1,7 +1,7 @@
 #ifndef ISL__ABSTRACT_SOCKET__HXX
 #define ISL__ABSTRACT_SOCKET__HXX
 
-#include <isl/AbstractAsynchronousIODevice.hxx>
+#include <isl/AbstractIODevice.hxx>
 #include <list>
 #include <string>
 
@@ -12,9 +12,7 @@ namespace isl
  * AbstractSocket
 ------------------------------------------------------------------------------*/
 
-// TODO To clarify about unix sockets in synchronous/asynchronous context
-
-class AbstractSocket : public AbstractAsynchronousIODevice
+class AbstractSocket : public AbstractIODevice
 {
 public:
 	AbstractSocket();

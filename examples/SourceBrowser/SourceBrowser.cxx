@@ -16,7 +16,7 @@ void SourceBrowser::onStartCommand()
 	_taskDispatcher.start();
 	_listener.start();
 	setState<RunningState>();
-	Core::debugLog.logDebug(SOURCE_LOCATION_ARGS, L"Subsystem has been started");
+	Core::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, L"Subsystem has been started"));
 }
 
 void SourceBrowser::onStopCommand()
@@ -25,7 +25,7 @@ void SourceBrowser::onStopCommand()
 	_listener.stop();
 	_taskDispatcher.stop();
 	setState<IdlingState>();
-	Core::debugLog.logDebug(SOURCE_LOCATION_ARGS, L"Subsystem has been stopped");
+	Core::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, L"Subsystem has been stopped"));
 }
 
 } // namespace isl

@@ -40,12 +40,12 @@ void Worker::run()
 			try {
 				task->execute(*this);
 			} catch (std::exception& e) {
-				Core::errorLog.logException(e, SOURCE_LOCATION_ARGS, L"Task execution error");
+				Core::errorLog.log(ExceptionLogMessage(SOURCE_LOCATION_ARGS, e, L"Task execution error"));
 			} catch (...) {
-				Core::errorLog.logDebug(SOURCE_LOCATION_ARGS, L"Task execution unknown error");
+				Core::errorLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, L"Task execution unknown error"));
 			}
 		} else {
-			Core::warningLog.logDebug(SOURCE_LOCATION_ARGS, L"No task for worker.");
+			Core::warningLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, L"No task for worker."));
 		}
 	}
 	onStop();
@@ -62,14 +62,14 @@ bool Worker::keepRunning()
 	AbstractSubsystem::State taskDispatcherState = _taskDispatcher.state();
 	if (!taskDispatcherState.equals<AbstractSubsystem::RunningState>() && !taskDispatcherState.equals<AbstractSubsystem::StartingState>()) {
 		if (taskDispatcherState.equals<AbstractSubsystem::StoppingState>()) {
-			Core::debugLog.logDebug(SOURCE_LOCATION_ARGS, L"Task dispatcher is stopping - exiting worker thread.");
+			Core::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, L"Task dispatcher is stopping - exiting worker thread."));
 			return false;
 		} else if (taskDispatcherState.equals<AbstractSubsystem::RestartingState>()) {
-			Core::debugLog.logDebug(SOURCE_LOCATION_ARGS, L"Task dispatcher is restarting - exiting worker thread.");
+			Core::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, L"Task dispatcher is restarting - exiting worker thread."));
 			return false;
 		} else {
-			Core::warningLog.logDebug(SOURCE_LOCATION_ARGS,	L"Task dispatcher is in unexpected \"" +
-					taskDispatcherState.value().name() + L"\" state.");
+			Core::warningLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, 
+					L"Task dispatcher is in unexpected \"" + taskDispatcherState.value().name() + L"\" state."));
 		}
 	}
 	return true;

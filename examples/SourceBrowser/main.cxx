@@ -5,20 +5,8 @@
 #include <isl/AbstractHTTPTask.hxx>
 #include "SourceBrowserServer.hxx"
 
-#include <isl/Variant.hxx>
-#include <isl/Format.hxx>
-#include <isl/Utf8TextCodec.hxx>
-#include <iostream>
-#include <stdlib.h>
-
 int main(int argc, char *argv[])
 {
-	std::wcout << isl::WFormat(L"$0, '$1', ${a{b}c}0, $$, ${sdasd{}}_, ${efg}1").arg(isl::Variant(2.5)).arg(isl::Variant(std::wstring(L"foo"))).compose() << std::endl;
-	std::wcout << isl::Utf8TextCodec().decode(isl::Format("$0, '$1', ${a{b}c}0, $$, ${sdasd{}}_, ${efg}1").arg(isl::Variant(2.6)).arg(isl::Variant(std::wstring(L"bar"))).compose()) << std::endl;
-	std::wcout << isl::Utf8TextCodec().decode(isl::Format("$0, '$1', ${a{b}c}0, $$, ${sdasd{}}_, ${efg}1").arg(isl::Variant(2.7)).arg(isl::Variant(std::string("foobar"))).compose()) << std::endl;
-	isl::WFormat();
-	exit(0);
-
 	//isl::Core::daemonize();
 	isl::Core::writePid("sbd.pid");
 	isl::Core::debugLog.setPrefix(L"DEBUG");

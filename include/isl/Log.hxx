@@ -2,6 +2,7 @@
 #define ISL__LOG__HXX
 
 #include <isl/LogDispatcher.hxx>
+#include <isl/LogMessage.hxx>
 #include <isl/ReadWriteLock.hxx>
 #include <isl/Exception.hxx>
 #include <stdexcept>
@@ -23,9 +24,9 @@ public:
 	void connectTarget(const AbstractLogTarget& target);
 	void disconnectTarget(const AbstractLogTarget& target);
 	void disconnectTargets();
-	void logMessage(const std::wstring& msg);
-	void logDebug(SOURCE_LOCATION_ARGS_DECLARATION, const std::wstring& msg);
-	void logException(const std::exception& expt, SOURCE_LOCATION_ARGS_DECLARATION, const std::wstring& msg = std::wstring());
+	void log(const AbstractLogMessage& msg);
+	void log(const std::string& msg);
+	void log(const std::wstring& msg);
 	void setPrefix(const std::wstring& newPrefix);
 	std::wstring prefix() const;
 private:

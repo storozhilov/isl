@@ -451,11 +451,11 @@ void HTTPResponse::NetworkBodyBuffer::flush()
 		buffer += "\r\n";
 		std::wostringstream msg;
 		msg << L"Sending " << buffer.length() << L" bytes of the last of chunk encoded HTTP-response body";
-		AbstractHTTPTask::debugLog.logMessage(msg.str());
+		AbstractHTTPTask::debugLog.log(msg.str());
 		sendBuffer(buffer.data(), buffer.length());
 		msg.str(L"");
 		msg << buffer.length() << L" of " << buffer.length() << L" bytes of of the last of chunk encoded HTTP-response body sent successfully";
-		AbstractHTTPTask::debugLog.logMessage(msg.str());
+		AbstractHTTPTask::debugLog.log(msg.str());
 	}
 }
 
@@ -537,11 +537,11 @@ void HTTPResponse::NetworkBodyBuffer::sendChunk(bool isLastChunk)
 		buffer += "\r\n";
 		std::wostringstream msg;
 		msg << L"Sending " << buffer.length() << L" bytes of HTTP-response header";
-		AbstractHTTPTask::debugLog.logMessage(msg.str());
+		AbstractHTTPTask::debugLog.log(msg.str());
 		sendBuffer(buffer.data(), buffer.length());
 		msg.str(L"");
 		msg << buffer.length() << L" of " << buffer.length() << L" bytes of HTTP-response header sent successfully";
-		AbstractHTTPTask::debugLog.logMessage(msg.str());
+		AbstractHTTPTask::debugLog.log(msg.str());
 		_transferStarted = true;
 	}
 	// Sending the chunk
@@ -552,12 +552,12 @@ void HTTPResponse::NetworkBodyBuffer::sendChunk(bool isLastChunk)
 		}
 		std::wostringstream msg;
 		msg << L"Sending " << _bodyChunk.chunkEncodedSize() << L" bytes of chunk encoded HTTP-response body";
-		AbstractHTTPTask::debugLog.logMessage(msg.str());
+		AbstractHTTPTask::debugLog.log(msg.str());
 		sendBuffer(_bodyChunk.chunkEncodedData(), _bodyChunk.chunkEncodedSize());
 		msg.str(L"");
 		msg << _bodyChunk.chunkEncodedSize() << L" of " << _bodyChunk.chunkEncodedSize() <<
 			L" bytes of chunk encoded HTTP-response body sent successfully";
-		AbstractHTTPTask::debugLog.logMessage(msg.str());
+		AbstractHTTPTask::debugLog.log(msg.str());
 	} else if (!_bodyChunk.isEmpty()) {
 		// Sending body buffer with identity transfer encoding
 		if (transferStartedInitially) {
@@ -569,12 +569,12 @@ void HTTPResponse::NetworkBodyBuffer::sendChunk(bool isLastChunk)
 		}
 		std::wostringstream msg;
 		msg << L"Sending " << _bodyChunk.identityEncodedSize() << L" bytes of identity encoded HTTP-response body";
-		AbstractHTTPTask::debugLog.logMessage(msg.str());
+		AbstractHTTPTask::debugLog.log(msg.str());
 		sendBuffer(_bodyChunk.identityEncodedData(), _bodyChunk.identityEncodedSize());
 		msg.str(L"");
 		msg << _bodyChunk.identityEncodedSize() << L" of " << _bodyChunk.identityEncodedSize() <<
 			L" bytes of identity encoded HTTP-response body sent successfully";
-		AbstractHTTPTask::debugLog.logMessage(msg.str());
+		AbstractHTTPTask::debugLog.log(msg.str());
 	}
 }
 

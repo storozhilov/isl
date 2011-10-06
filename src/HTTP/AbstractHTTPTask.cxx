@@ -37,14 +37,14 @@ void AbstractHTTPTask::executeImplementation(Worker& worker)
 	msg << L"Connection established " << socket().localAddress() << L':' <<
 			socket().localPort() << L" (local) <-> " << socket().remoteAddress() << L':' <<
 			socket().remotePort() << L" (remote) with socket descriptor " << socket().descriptor();
-	Core::debugLog.logDebug(SOURCE_LOCATION_ARGS, msg.str());
+	Core::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, msg.str()));
 	_requestsReceived = 0;
 	while (true) {
 		_request.receive();
 		++_requestsReceived;
 		std::wostringstream sstr;
 		sstr << L"Request for " << Utf8TextCodec().decode(_request.uri()) << L" received from " << socket().remoteAddress();
-		AbstractHTTPTask::accessLog.logMessage(sstr.str());
+		AbstractHTTPTask::accessLog.log(sstr.str());
 		_response.generateAndSend();
 		if (connectionToBeClosed()) {
 			break;

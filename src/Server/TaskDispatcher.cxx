@@ -60,9 +60,9 @@ bool TaskDispatcher::perform(AbstractTask * task)
 		L", overflow available: "  << overflowAbailable << L", overflow detected: " <<
 		((awaitingWorkersCount >= (tasksInPool + 1)) ? 0 : tasksInPool + 1 - awaitingWorkersCount);
 	if (taskPerformed) {
-		Core::debugLog.logDebug(SOURCE_LOCATION_ARGS, oss.str());
+		Core::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, oss.str()));
 	} else {
-		Core::warningLog.logDebug(SOURCE_LOCATION_ARGS, oss.str());
+		Core::warningLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, oss.str()));
 	}
 	return taskPerformed;
 }
@@ -86,7 +86,7 @@ void TaskDispatcher::onStartCommand()
 		(*i)->start();
 	}
 	setState<RunningState>();
-	Core::debugLog.logDebug(SOURCE_LOCATION_ARGS, L"Subsystem has been successfully started");
+	Core::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, L"Subsystem has been successfully started"));
 }
 
 void TaskDispatcher::onStopCommand()
@@ -97,7 +97,7 @@ void TaskDispatcher::onStopCommand()
 		(*i)->join();
 	}
 	setState<IdlingState>();
-	Core::debugLog.logDebug(SOURCE_LOCATION_ARGS, L"Subsystem has been successfully stopped");
+	Core::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, L"Subsystem has been successfully stopped"));
 }
 
 Worker * TaskDispatcher::createWorker(unsigned int workerId)

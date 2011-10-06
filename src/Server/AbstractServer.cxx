@@ -28,19 +28,18 @@ void AbstractServer::run()
 	while (true) {
 		AbstractServer::State newState = awaitState();
 		if (newState.equals<StoppingState>()) {
-			Core::debugLog.logDebug(SOURCE_LOCATION_ARGS, L"Stopping state detected - stopping the server");
+			Core::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, L"Stopping state detected - stopping the server"));
 			onStop();
 			setState<IdlingState>();
-			Core::debugLog.logDebug(SOURCE_LOCATION_ARGS, L"Stopping server completed");
+			Core::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, L"Stopping server completed"));
 			break;
 		} else if (newState.equals<RestartingState>()) {
-			Core::debugLog.logDebug(SOURCE_LOCATION_ARGS, L"Restarting state detected - restarting the server");
+			Core::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, L"Restarting state detected - restarting the server"));
 			onRestart();
 			setState<RunningState>();
-			Core::debugLog.logDebug(SOURCE_LOCATION_ARGS, L"Restarting server completed");
+			Core::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, L"Restarting server completed"));
 		} else {
-			Core::warningLog.logDebug(SOURCE_LOCATION_ARGS, L"Unexpected state '" + newState.value().name() +
-					L"' detected - reverting to 'Running'");
+			Core::warningLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, L"Unexpected state '" + newState.value().name() + L"' detected - reverting to 'Running'"));
 			setState<RunningState>();
 		}
 	}
@@ -54,7 +53,7 @@ void AbstractServer::onRestart()
 
 void AbstractServer::onStartCommand()
 {
-	Core::errorLog.logDebug(SOURCE_LOCATION_ARGS, L"Start command is not supported");
+	Core::errorLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, L"Start command is not implemented"));
 }
 
 void AbstractServer::onStopCommand()
