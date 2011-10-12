@@ -19,14 +19,14 @@ void Core::daemonize()
 {
 	pid_t childPid = ::fork();
 	if (childPid < 0) {
-		throw Exception(SystemCallError(SystemCallError::Fork, childPid, SOURCE_LOCATION_ARGS));
+		throw Exception(SystemCallError(SOURCE_LOCATION_ARGS, SystemCallError::Fork, childPid));
 	}
 	if (childPid > 0) {
 		::exit(0);
 	}
 	pid_t newSessionId = ::setsid();
 	if (newSessionId < 0) {
-		throw Exception(SystemCallError(SystemCallError::SetSid, newSessionId, SOURCE_LOCATION_ARGS));
+		throw Exception(SystemCallError(SOURCE_LOCATION_ARGS, SystemCallError::SetSid, newSessionId));
 	}
 }
 
@@ -34,13 +34,13 @@ void Core::writePid(const char * pidFileName)
 {
 	int fd = ::open(pidFileName, O_WRONLY | O_TRUNC | O_CREAT, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
 	if (fd < 0) {
-		throw Exception(SystemCallError(SystemCallError::Open, errno, SOURCE_LOCATION_ARGS));
+		throw Exception(SystemCallError(SOURCE_LOCATION_ARGS, SystemCallError::Open, errno));
 	}
 	std::ostringstream osstr;
 	osstr << ::getpid();
 	if (::write(fd, osstr.str().data(), osstr.str().size()) < 0) {
 		::close(fd);
-		throw Exception(SystemCallError(SystemCallError::Write, errno, SOURCE_LOCATION_ARGS));
+		throw Exception(SystemCallError(SOURCE_LOCATION_ARGS, SystemCallError::Write, errno));
 	}
 	::close(fd);
 }

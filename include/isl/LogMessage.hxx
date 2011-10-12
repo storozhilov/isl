@@ -14,37 +14,52 @@ namespace isl
 class AbstractLogMessage
 {
 public:
-	AbstractLogMessage()
+	AbstractLogMessage() :
+		_message(),
+		_messageComposed(false)
 	{}
 	virtual ~AbstractLogMessage()
 	{}
 
+	//! Returns log message
+	inline const wchar_t * message() const
+	{
+		if (_messageComposed) {
+			_message = composeMessage();
+			_messageComposed = true;
+		}
+		return _message.c_str();
+	}
+
 	//! Composes & returns log message
-	virtual std::wstring compose() const = 0;
+	virtual std::wstring composeMessage() const = 0;
+private:
+	mutable std::wstring _message;
+	mutable bool _messageComposed;
 };
 
 //! Basic log message (just "for love of the game")
 class LogMessage : public AbstractLogMessage
 {
 public:
-	LogMessage(const std::string& msg) :
+	LogMessage(const std::string& info) :
 		AbstractLogMessage(),
-		_msg(Utf8TextCodec().decode(msg))
+		_info(Utf8TextCodec().decode(info))
 	{}
-	LogMessage(const std::wstring& msg) :
+	LogMessage(const std::wstring& info) :
 		AbstractLogMessage(),
-		_msg(msg)
+		_info(info)
 	{}
 	
 	//! Composes and returns notification log message
-	virtual std::wstring compose() const
+	virtual std::wstring composeMessage() const
 	{
-		return _msg;
+		return _info;
 	}
 private:
 	LogMessage();
 
-	const std::wstring _msg;
+	const std::wstring _info;
 };
 
 //! Debugging log message abstract class
@@ -59,19 +74,19 @@ public:
 	{}
 
 	//! Returns source code filename where the message was created
-	inline std::string file() const
+	inline const char * file() const throw()
 	{
-		return _file;
+		return _file.c_str();
 	}
 	//! Returns source code line where the message was created
-	inline unsigned int line() const
+	inline unsigned int line() const throw()
 	{
 		return _line;
 	}
 	//! Returns source code function where the message was created
-	inline std::string function() const
+	inline const char * function() const throw()
 	{
-		return _function;
+		return _function.c_str();
 	}
 protected:
 	//! Composing string with source code filename, line number and function name help function
@@ -93,29 +108,29 @@ private:
 class DebugLogMessage : public AbstractDebugLogMessage
 {
 public:
-	DebugLogMessage(SOURCE_LOCATION_ARGS_DECLARATION, const std::string& msg) :
+	DebugLogMessage(SOURCE_LOCATION_ARGS_DECLARATION, const std::string& info) :
 		AbstractDebugLogMessage(SOURCE_LOCATION_ARGS_PASSTHRU),
-		_msg(Utf8TextCodec().decode(msg))
+		_info(Utf8TextCodec().decode(info))
 	{}
-	DebugLogMessage(SOURCE_LOCATION_ARGS_DECLARATION, const std::wstring& msg) :
+	DebugLogMessage(SOURCE_LOCATION_ARGS_DECLARATION, const std::wstring& info) :
 		AbstractDebugLogMessage(SOURCE_LOCATION_ARGS_PASSTHRU),
-		_msg(msg)
+		_info(info)
 	{}
 
 	//! Composes and returns debug log message
-	virtual std::wstring compose() const
+	virtual std::wstring composeMessage() const
 	{
 		std::wstring result(composeSourceLocation());
-		result += _msg;
+		result += _info;
 		return result;
 	}
 private:
 	DebugLogMessage();
 
-	const std::wstring _msg;
+	const std::wstring _info;
 };
 
-//! Error log message class
+//! Exception log message class
 class ExceptionLogMessage : public AbstractDebugLogMessage
 {
 public:
@@ -135,16 +150,16 @@ public:
 		_info(info)
 	{}
 
-	//! Composes and returns debug log message
-	virtual std::wstring compose() const
+	//! Composes and returns exception log message (TODO More informative composition?)
+	virtual std::wstring composeMessage() const
 	{
 		std::wstring result(composeSourceLocation());
 		if (!_info.empty()) {
 			result += _info;
 		} else if (dynamic_cast<const Exception *>(&_expt)) {
-			result += L"isl::Exception instance has been thrown";
+			result += L"isl::Exception instance has been thrown with following errors";
 		} else {
-			result += L"std::exception instance has been thrown";
+			result += L"std::exception instance has been thrown with following errors";
 		}
 		result += L":\n";
 		result += Utf8TextCodec().decode(_expt.what());

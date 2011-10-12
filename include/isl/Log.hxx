@@ -15,19 +15,28 @@ namespace isl
 
 class AbstractLogTarget;
 
+//! Thread-safe logging implementation class
 class Log
 {
 public:
 	Log(const std::wstring& prefix = std::wstring());
 	~Log();
 
+	//! Connects target to log
 	void connectTarget(const AbstractLogTarget& target);
+	//! Disconnects target from the log
 	void disconnectTarget(const AbstractLogTarget& target);
+	//! Disconnects all targets from the log
 	void disconnectTargets();
+	//! Logs message
 	void log(const AbstractLogMessage& msg);
+	//! Logs message
 	void log(const std::string& msg);
+	//! Logs message
 	void log(const std::wstring& msg);
+	//! Sets log prefix
 	void setPrefix(const std::wstring& newPrefix);
+	//! Returns log prefix
 	std::wstring prefix() const;
 private:
 	Log(const Log&);							// No copy

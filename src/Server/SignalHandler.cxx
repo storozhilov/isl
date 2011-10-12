@@ -40,7 +40,7 @@ void SignalHandler::onStartCommand()
 	sigset_t blockedSignalMask = _blockedSignals.sigset();
 	if (pthread_sigmask(SIG_SETMASK, &blockedSignalMask, &_initialSignalMask)) {
 		setState<IdlingState>();
-		throw Exception(SystemCallError(SystemCallError::PThreadSigMask, errno, SOURCE_LOCATION_ARGS));
+		throw Exception(SystemCallError(SOURCE_LOCATION_ARGS, SystemCallError::PThreadSigMask, errno));
 	}
 	Core::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, L"Signals have been blocked in the main thread"));
 	_signalHandlerThread.start();
@@ -53,7 +53,7 @@ void SignalHandler::onStopCommand()
 	_signalHandlerThread.join();
 	Core::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, L"Signal handler thread has been stopped"));
 	if (pthread_sigmask(SIG_SETMASK, &_initialSignalMask, 0)) {
-		std::wcerr << SystemCallError(SystemCallError::PThreadSigMask, errno, SOURCE_LOCATION_ARGS).message() << std::endl;
+		std::wcerr << SystemCallError(SOURCE_LOCATION_ARGS, SystemCallError::PThreadSigMask, errno).message() << std::endl;
 	}
 	Core::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, L"Signals have been unblocked in the main thread"));
 	setState<IdlingState>();
@@ -97,7 +97,7 @@ bool SignalHandler::SignalHandlerThread::hasPendingSignals() const
 {
 	sigset_t pendingSignals;
 	if (sigpending(&pendingSignals)) {
-		throw Exception(SystemCallError(SystemCallError::SigPending, errno, SOURCE_LOCATION_ARGS));
+		throw Exception(SystemCallError(SOURCE_LOCATION_ARGS, SystemCallError::SigPending, errno));
 	}
 	for (std::set<int>::const_iterator i = _signalHandler._blockedSignals.signals().begin();
 			i != _signalHandler._blockedSignals.signals().end(); ++i) {
@@ -113,7 +113,7 @@ int SignalHandler::SignalHandlerThread::extractPendingSignal() const
 	sigset_t blockedSignalMask = _signalHandler._blockedSignals.sigset();
 	int pendingSignal;
 	if (sigwait(&blockedSignalMask, &pendingSignal)) {
-		throw Exception(SystemCallError(SystemCallError::SigWait, errno, SOURCE_LOCATION_ARGS));
+		throw Exception(SystemCallError(SOURCE_LOCATION_ARGS, SystemCallError::SigWait, errno));
 	}
 	return pendingSignal;
 }

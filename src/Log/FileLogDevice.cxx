@@ -34,11 +34,11 @@ FileLogDevice::FileLogDevice(const std::string& fileName) :
 {
 	_fileDescriptor = open(_fileName.c_str(), O_WRONLY | O_APPEND | O_CREAT, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
 	if (_fileDescriptor < 0) {
-		throw Exception(SystemCallError(SystemCallError::Open, errno, SOURCE_LOCATION_ARGS));
+		throw Exception(SystemCallError(SOURCE_LOCATION_ARGS, SystemCallError::Open, errno));
 	}
 	struct stat sb;
 	if (fstat(_fileDescriptor, &sb) != 0) {
-		throw Exception(SystemCallError(SystemCallError::FStat, errno, SOURCE_LOCATION_ARGS));
+		throw Exception(SystemCallError(SOURCE_LOCATION_ARGS, SystemCallError::FStat, errno));
 	}
 	_fileDeviceID = sb.st_dev;
 	_fileINodeNumber = sb.st_ino;
@@ -47,7 +47,7 @@ FileLogDevice::FileLogDevice(const std::string& fileName) :
 FileLogDevice::~FileLogDevice()
 {
 	if (close(_fileDescriptor) != 0) {
-		throw Exception(SystemCallError(SystemCallError::Close, errno, SOURCE_LOCATION_ARGS));
+		throw Exception(SystemCallError(SOURCE_LOCATION_ARGS, SystemCallError::Close, errno));
 	}
 }
 
@@ -77,7 +77,7 @@ bool FileLogDevice::serving(const AbstractLogTarget * target) const
 		if (errno == ENOENT) {
 			return false;
 		} else {
-			throw Exception(SystemCallError(SystemCallError::Stat, errno, SOURCE_LOCATION_ARGS));
+			throw Exception(SystemCallError(SOURCE_LOCATION_ARGS, SystemCallError::Stat, errno));
 		}
 	}
 	return (_fileDeviceID == sb.st_dev) && (_fileINodeNumber == sb.st_ino);
@@ -104,7 +104,7 @@ void FileLogDevice::writeMessage(const std::wstring& prefix, const std::wstring&
 		}
 		stringToWrite += '\n';
 		if (write(_fileDescriptor, stringToWrite.data(), stringToWrite.size()) < 0) {
-			throw Exception(SystemCallError(SystemCallError::Write, errno, SOURCE_LOCATION_ARGS));
+			throw Exception(SystemCallError(SOURCE_LOCATION_ARGS, SystemCallError::Write, errno));
 		}
 		isFirstLine = false;
 	} while (curPos != std::wstring::npos);

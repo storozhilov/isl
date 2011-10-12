@@ -5,6 +5,7 @@
 #include <isl/TcpSocket.hxx>
 #include <isl/Exception.hxx>
 #include <isl/SystemCallError.hxx>
+#include <isl/HttpError.hxx>
 #include <isl/FileLogTarget.hxx>
 #include <isl/Core.hxx>
 //#include <isl/Timeout.hxx>
@@ -44,12 +45,19 @@ int main(int argc, char *argv[])
 	isl::Core::debugLog.log(L"std::wstring debug log entry");
 	isl::Core::debugLog.log(isl::LogMessage(L"LogMessage debug log entry"));
 	isl::Core::debugLog.log(isl::DebugLogMessage(SOURCE_LOCATION_ARGS, L"DebugLogMessage debug log entry"));
-	isl::Exception e1(isl::SystemCallError(isl::SystemCallError::PThreadCreate, EAGAIN, SOURCE_LOCATION_ARGS));
+	isl::Exception e1(isl::SystemCallError(SOURCE_LOCATION_ARGS, isl::SystemCallError::PThreadCreate, EAGAIN));
 	isl::Core::debugLog.log(isl::ExceptionLogMessage(SOURCE_LOCATION_ARGS, e1, "ExceptionLogMessage debug log entry"));
 	isl::Core::debugLog.log(isl::ExceptionLogMessage(SOURCE_LOCATION_ARGS, e1));
 	std::runtime_error e2("Foobar");
 	isl::Core::debugLog.log(isl::ExceptionLogMessage(SOURCE_LOCATION_ARGS, e2, L"ExceptionLogMessage debug log entry"));
 	isl::Core::debugLog.log(isl::ExceptionLogMessage(SOURCE_LOCATION_ARGS, e2));
+
+	isl::SystemCallError e3(SOURCE_LOCATION_ARGS, isl::SystemCallError::PThreadCreate, EAGAIN);
+	std::wcout << e3.message() << std::endl;
+	std::wcout << e3.debug() << std::endl;
+	isl::HttpError e4(SOURCE_LOCATION_ARGS, isl::HttpError::BadRequest, L"Very bad request...");
+	std::wcout << e4.message() << std::endl;
+	std::wcout << e4.debug() << std::endl;
 
 	/*isl::DebugLogMessage dlm(SOURCE_LOCATION_ARGS, L"Test message");
 	std::wcout << dlm.compose() << std::endl;

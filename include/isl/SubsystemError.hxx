@@ -6,25 +6,45 @@
 namespace isl
 {
 
-class AbstractSubsystemError : public AbstractError
+class SybsystemError : public AbstractError
 {
 public:
-	AbstractSubsystemError(const std::wstring& message, SOURCE_LOCATION_ARGS_DECLARATION) :
-		AbstractError(message, SOURCE_LOCATION_ARGS_PASSTHRU)
-	{}
-};
+	enum Type {
+		CanNotChangeState
+	};
 
-class CanNotChangeStateSubsystemError : public AbstractSubsystemError
-{
-public:
-	CanNotChangeStateSubsystemError(const std::wstring& message, SOURCE_LOCATION_ARGS_DECLARATION) :
-		AbstractSubsystemError(message, SOURCE_LOCATION_ARGS_PASSTHRU)
+	SybsystemError(SOURCE_LOCATION_ARGS_DECLARATION, Type type, const std::wstring& info = std::wstring()) :
+		AbstractError(SOURCE_LOCATION_ARGS_PASSTHRU, info),
+		_type(type)
 	{}
-	
+
+	inline Type type() const
+	{
+		return _type;
+	}
+
 	virtual AbstractError * clone() const
 	{
-		return new CanNotChangeStateSubsystemError(*this);
+		return new SybsystemError(*this);
 	}
+protected:
+	virtual std::wstring composeMessage() const
+	{
+		std::wstring result;
+		switch (_type) {
+			case CanNotChangeState:
+				result = L"Can not change subsystem state";
+				break;
+			default:
+				result = L"Unknown subsystem error";
+		}
+		appendInfo(result);
+		return result;
+	}
+private:
+	SybsystemError();
+
+	Type _type;
 };
 
 } // namespace isl

@@ -36,7 +36,7 @@ void Log::disconnectTargets()
 
 void Log::log(const AbstractLogMessage& msg)
 {
-	dispatcher.logMessage(this, msg.compose());
+	dispatcher.logMessage(this, msg.message());
 }
 
 void Log::log(const std::string& msg)

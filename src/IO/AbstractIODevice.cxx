@@ -49,7 +49,7 @@ void AbstractIODevice::close()
 bool AbstractIODevice::getChar(char& ch, const Timeout& timeout)
 {
 	if (!_isOpen) {
-		throw Exception(DeviceIsNotOpenIOError(SOURCE_LOCATION_ARGS));
+		throw Exception(IOError(SOURCE_LOCATION_ARGS, IOError::DeviceIsNotOpen));
 	}
 	if (_ungetBuffer.size() > 0) {
 		ch = _ungetBuffer.back();
@@ -71,7 +71,7 @@ bool AbstractIODevice::getChar(char& ch, const Timeout& timeout)
 void AbstractIODevice::ungetChar(char ch)
 {
 	if (!_isOpen) {
-		throw Exception(DeviceIsNotOpenIOError(SOURCE_LOCATION_ARGS));
+		throw Exception(IOError(SOURCE_LOCATION_ARGS, IOError::DeviceIsNotOpen));
 	}
 	if (_readBufferPos > 0) {
 		--_readBufferPos;
@@ -86,7 +86,7 @@ void AbstractIODevice::ungetChar(char ch)
 unsigned int AbstractIODevice::read(char * buffer, unsigned int bufferSize, const Timeout& timeout)
 {
 	if (!_isOpen) {
-		throw Exception(DeviceIsNotOpenIOError(SOURCE_LOCATION_ARGS));
+		throw Exception(IOError(SOURCE_LOCATION_ARGS, IOError::DeviceIsNotOpen));
 	}
 	unsigned int bytesCopied = 0;
 	// Utilizing the unget buffer first
@@ -123,7 +123,7 @@ bool AbstractIODevice::putChar(char ch, const Timeout& timeout)
 unsigned int AbstractIODevice::write(const char * buffer, unsigned int bufferSize, const Timeout& timeout)
 {
 	if (!_isOpen) {
-		throw Exception(DeviceIsNotOpenIOError(SOURCE_LOCATION_ARGS));
+		throw Exception(IOError(SOURCE_LOCATION_ARGS, IOError::DeviceIsNotOpen));
 	}
 	return writeImplementation(buffer, bufferSize, timeout);
 }

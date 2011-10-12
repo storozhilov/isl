@@ -51,12 +51,12 @@ void AbstractSocket::openImplementation()
 	// Making the socket non-blocking
 	int socketFlags = fcntl(_descriptor, F_GETFL, 0);
 	if (socketFlags < 0) {
-		throw Exception(SystemCallError(SystemCallError::Fcntl, errno, SOURCE_LOCATION_ARGS));
+		throw Exception(SystemCallError(SOURCE_LOCATION_ARGS, SystemCallError::Fcntl, errno));
 	}
 	if (!(socketFlags | O_NONBLOCK)) {
 		socketFlags |= O_NONBLOCK;
 		if (fcntl(_descriptor, F_SETFL, socketFlags) < 0) {
-			throw Exception(SystemCallError(SystemCallError::Fcntl, errno, SOURCE_LOCATION_ARGS));
+			throw Exception(SystemCallError(SOURCE_LOCATION_ARGS, SystemCallError::Fcntl, errno));
 		}
 	}
 }
@@ -77,7 +77,7 @@ unsigned int AbstractSocket::readImplementation(char * buffer, unsigned int buff
 	FD_SET(_descriptor, &readDescriptorsSet);
 	int descriptorsCount = pselect(_descriptor + 1, &readDescriptorsSet, NULL, NULL, &readTimeout, NULL);
 	if (descriptorsCount < 0) {
-		throw Exception(SystemCallError(SystemCallError::PSelect, errno, SOURCE_LOCATION_ARGS));
+		throw Exception(SystemCallError(SOURCE_LOCATION_ARGS, SystemCallError::PSelect, errno));
 	} else if (descriptorsCount == 0) {
 		// Timeout expired
 		//throw Exception(TimeoutExpiredIOError(SOURCE_LOCATION_ARGS));
@@ -91,11 +91,11 @@ unsigned int AbstractSocket::readImplementation(char * buffer, unsigned int buff
 		//} else {
 		//	throw Exception(SystemCallError(SystemCallError::Recv, errno, SOURCE_LOCATION_ARGS));
 		//}
-		throw Exception(SystemCallError(SystemCallError::Recv, errno, SOURCE_LOCATION_ARGS));
+		throw Exception(SystemCallError(SOURCE_LOCATION_ARGS, SystemCallError::Recv, errno));
 	} else if (bytesReceived == 0) {
 		// Connection has been aborted by the client.
 		_isOpen = false;
-		throw Exception(ConnectionAbortedIOError(SOURCE_LOCATION_ARGS));
+		throw Exception(IOError(SOURCE_LOCATION_ARGS, IOError::ConnectionAborted));
 	}
 	return bytesReceived;
 }
@@ -112,7 +112,7 @@ unsigned int AbstractSocket::writeImplementation(const char * buffer, unsigned i
 		FD_SET(_descriptor, &writeDescriptorsSet);
 		int descriptorsCount = pselect(_descriptor + 1, NULL, &writeDescriptorsSet, NULL, &writeTimeout, NULL);
 		if (descriptorsCount < 0) {
-			throw Exception(SystemCallError(SystemCallError::PSelect, errno, SOURCE_LOCATION_ARGS));
+			throw Exception(SystemCallError(SOURCE_LOCATION_ARGS, SystemCallError::PSelect, errno));
 		} else if (descriptorsCount == 0) {
 			// Timeout expired
 			//throw Exception(TimeoutExpiredIOError(SOURCE_LOCATION_ARGS));
@@ -122,9 +122,9 @@ unsigned int AbstractSocket::writeImplementation(const char * buffer, unsigned i
 		if (bytesSent < 0) {
 			_isOpen = false;
 			if (errno == EPIPE) {
-				throw Exception(ConnectionAbortedIOError(SOURCE_LOCATION_ARGS));
+				throw Exception(IOError(SOURCE_LOCATION_ARGS, IOError::ConnectionAborted));
 			} else {
-				throw Exception(SystemCallError(SystemCallError::Send, errno, SOURCE_LOCATION_ARGS));
+				throw Exception(SystemCallError(SOURCE_LOCATION_ARGS, SystemCallError::Send, errno));
 			}
 			//if (errno == EAGAIN || errno == EWOULDBLOCK) {
 			//	// No more data available
@@ -135,7 +135,7 @@ unsigned int AbstractSocket::writeImplementation(const char * buffer, unsigned i
 		} else if (bytesSent == 0) {
 			// Connection has been aborted by the client.
 			_isOpen = false;
-			throw Exception(ConnectionAbortedIOError(SOURCE_LOCATION_ARGS));
+			throw Exception(IOError(SOURCE_LOCATION_ARGS, IOError::ConnectionAborted));
 		}
 		totalBytesSent += bytesSent;
 	}
@@ -145,7 +145,7 @@ unsigned int AbstractSocket::writeImplementation(const char * buffer, unsigned i
 void AbstractSocket::closeSocket()
 {
 	if (::close(_descriptor)) {
-		Core::errorLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, SystemCallError(SystemCallError::Close, errno, SOURCE_LOCATION_ARGS).message()));
+		Core::errorLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, SystemCallError(SOURCE_LOCATION_ARGS, SystemCallError::Close, errno).message()));
 	}
 }
 

@@ -44,7 +44,7 @@ void AbstractHttpTask::executeImplementation(Worker& worker)
 void AbstractHttpTask::setMethod(const std::string& method)
 {
 	if (!methodImplemented(method)) {
-		throw Exception(HttpError(HttpError::MethodNotImplemented(method), SOURCE_LOCATION_ARGS));
+		throw Exception(HttpError(SOURCE_LOCATION_ARGS, HttpError::MethodNotImplemented));
 	}
 	//_request.setMethod(method);								// TODO
 }
@@ -57,7 +57,7 @@ void AbstractHttpTask::setUri(const std::string& uri)
 void AbstractHttpTask::setVersion(const std::string& version)
 {
 	if (!versionImplemented(version)) {
-		throw Exception(HttpError(HttpError::VersionNotImplemented(version), SOURCE_LOCATION_ARGS));
+		throw Exception(HttpError(SOURCE_LOCATION_ARGS, HttpError::VersionNotImplemented));
 	}
 	//_request.setVersion(method);								// TODO
 }

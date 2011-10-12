@@ -15,28 +15,28 @@ namespace isl
 ReadWriteLock::ReadWriteLock()
 {
 	if (int errorCode = pthread_rwlock_init(&_lock, NULL)) {
-		throw Exception(SystemCallError(SystemCallError::PThreadRWLockInit, errorCode, SOURCE_LOCATION_ARGS));
+		throw Exception(SystemCallError(SOURCE_LOCATION_ARGS, SystemCallError::PThreadRWLockInit, errorCode));
 	}
 }
 
 ReadWriteLock::~ReadWriteLock()
 {
 	if (int errorCode = pthread_rwlock_destroy(&_lock)) {
-		std::wcerr << SystemCallError(SystemCallError::PThreadRWLockDestroy, errorCode, SOURCE_LOCATION_ARGS).message() << std::endl;
+		std::wcerr << SystemCallError(SOURCE_LOCATION_ARGS, SystemCallError::PThreadRWLockDestroy, errorCode).message() << std::endl;
 	}
 }
 
 void ReadWriteLock::lockForRead()
 {
 	if (int errorCode = pthread_rwlock_rdlock(&_lock)) {
-		throw Exception(SystemCallError(SystemCallError::PThreadRWLockRdLock, errorCode, SOURCE_LOCATION_ARGS));
+		throw Exception(SystemCallError(SOURCE_LOCATION_ARGS, SystemCallError::PThreadRWLockRdLock, errorCode));
 	}
 }
 
 void ReadWriteLock::lockForWrite()
 {
 	if (int errorCode = pthread_rwlock_wrlock(&_lock)) {
-		throw Exception(SystemCallError(SystemCallError::PThreadRWLockWrLock, errorCode, SOURCE_LOCATION_ARGS));
+		throw Exception(SystemCallError(SOURCE_LOCATION_ARGS, SystemCallError::PThreadRWLockWrLock, errorCode));
 	}
 }
 
@@ -49,7 +49,7 @@ bool ReadWriteLock::tryLockForRead()
 		case EBUSY:
 			return false;
 		default:
-			throw Exception(SystemCallError(SystemCallError::PThreadRWLockTryRdLock, errorCode, SOURCE_LOCATION_ARGS));
+			throw Exception(SystemCallError(SOURCE_LOCATION_ARGS, SystemCallError::PThreadRWLockTryRdLock, errorCode));
 	}
 }
 
@@ -66,7 +66,7 @@ bool ReadWriteLock::tryLockForRead(const Timeout& timeout)
 		case ETIMEDOUT:
 			return false;
 		default:
-			throw Exception(SystemCallError(SystemCallError::PThreadRWLockTimedRdLock, errorCode, SOURCE_LOCATION_ARGS));
+			throw Exception(SystemCallError(SOURCE_LOCATION_ARGS, SystemCallError::PThreadRWLockTimedRdLock, errorCode));
 	}
 }
 
@@ -79,7 +79,7 @@ bool ReadWriteLock::tryLockForWrite()
 		case EBUSY:
 			return false;
 		default:
-			throw Exception(SystemCallError(SystemCallError::PThreadRWLockTryWrLock, errorCode, SOURCE_LOCATION_ARGS));
+			throw Exception(SystemCallError(SOURCE_LOCATION_ARGS, SystemCallError::PThreadRWLockTryWrLock, errorCode));
 	}
 }
 
@@ -96,14 +96,14 @@ bool ReadWriteLock::tryLockForWrite(const Timeout& timeout)
 		case ETIMEDOUT:
 			return false;
 		default:
-			throw Exception(SystemCallError(SystemCallError::PThreadRWLockTimedWrLock, errorCode, SOURCE_LOCATION_ARGS));
+			throw Exception(SystemCallError(SOURCE_LOCATION_ARGS, SystemCallError::PThreadRWLockTimedWrLock, errorCode));
 	}
 }
 
 void ReadWriteLock::unlock()
 {
 	if (int errorCode = pthread_rwlock_unlock(&_lock)) {
-		throw Exception(SystemCallError(SystemCallError::PThreadRWLockUnlock, errorCode, SOURCE_LOCATION_ARGS));
+		throw Exception(SystemCallError(SOURCE_LOCATION_ARGS, SystemCallError::PThreadRWLockUnlock, errorCode));
 	}
 }
 

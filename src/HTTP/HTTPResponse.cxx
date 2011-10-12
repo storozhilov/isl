@@ -529,8 +529,8 @@ void HTTPResponse::NetworkBodyBuffer::sendChunk(bool isLastChunk)
 			responseHeader.insert(Header::value_type("Set-Cookie", cookieHeaderFieldValue));
 		}
 		// Composing header
-		std::string buffer(_response._version.value().asString() + ' ' + _response._statusCode.value().codeStr() + ' ' +
-				_response._statusCode.value().reason() + "\r\n");
+		std::string buffer(_response._version.constValue().asString() + ' ' + _response._statusCode.constValue().codeStr() + ' ' +
+				_response._statusCode.constValue().reason() + "\r\n");
 		for (HTTPMessage::Header::const_iterator i = responseHeader.begin(); i != responseHeader.end(); ++i) {
 			buffer += ((*i).first + ": " + (*i).second + "\r\n");
 		}

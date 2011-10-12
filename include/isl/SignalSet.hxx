@@ -48,21 +48,21 @@ public:
 	inline void clear()
 	{
 		if (sigemptyset(&_set)) {
-			throw Exception(SystemCallError(SystemCallError::SigEmptySet, errno, SOURCE_LOCATION_ARGS));
+			throw Exception(SystemCallError(SOURCE_LOCATION_ARGS, SystemCallError::SigEmptySet, errno));
 		}
 		_signals.clear();
 	}
 	inline void add(int signo)
 	{
 		if (sigaddset(&_set, signo)) {
-			throw Exception(SystemCallError(SystemCallError::SigAddSet, errno, SOURCE_LOCATION_ARGS));
+			throw Exception(SystemCallError(SOURCE_LOCATION_ARGS, SystemCallError::SigAddSet, errno));
 		}
 		_signals.insert(signo);
 	}
 	inline void remove(int signo)
 	{
 		if (sigdelset(&_set, signo)) {
-			throw Exception(SystemCallError(SystemCallError::SigDelSet, errno, SOURCE_LOCATION_ARGS));
+			throw Exception(SystemCallError(SOURCE_LOCATION_ARGS, SystemCallError::SigDelSet, errno));
 		}
 	}
 	inline bool contains(int signo) const

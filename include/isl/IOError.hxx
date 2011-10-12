@@ -6,42 +6,53 @@
 namespace isl
 {
 
-class AbstractIOError : public AbstractError
+class IOError : public AbstractError
 {
 public:
-	AbstractIOError(const std::wstring& message, SOURCE_LOCATION_ARGS_DECLARATION);
-private:
-	AbstractIOError();
-};
+	enum Type {
+		TimeoutExpired,
+		ConnectionAborted,
+		DeviceIsNotOpen
+	};
 
-class TimeoutExpiredIOError : public AbstractIOError
-{
-public:
-	TimeoutExpiredIOError(SOURCE_LOCATION_ARGS_DECLARATION);
-	
-	virtual AbstractError * clone() const;
-private:
-	TimeoutExpiredIOError();
-};
+	IOError(SOURCE_LOCATION_ARGS_DECLARATION, Type type, const std::wstring& info = std::wstring()) :
+		AbstractError(SOURCE_LOCATION_ARGS_PASSTHRU, info),
+		_type(type)
+	{}
 
-class ConnectionAbortedIOError : public AbstractIOError
-{
-public:
-	ConnectionAbortedIOError(SOURCE_LOCATION_ARGS_DECLARATION);
-	
-	virtual AbstractError * clone() const;
-private:
-	ConnectionAbortedIOError();
-};
+	inline Type type() const
+	{
+		return _type;
+	}
 
-class DeviceIsNotOpenIOError : public AbstractIOError
-{
-public:
-	DeviceIsNotOpenIOError(SOURCE_LOCATION_ARGS_DECLARATION);
-	
-	virtual AbstractError * clone() const;
+	virtual AbstractError * clone() const
+	{
+		return new IOError(*this);
+	}
+protected:
+	virtual std::wstring composeMessage() const
+	{
+		std::wstring result;
+		switch (_type) {
+			case TimeoutExpired:
+				result = L"Timeout expired on I/O-device";
+				break;
+			case ConnectionAborted:
+				result = L"Connection aborted on I/O-device";
+				break;
+			case DeviceIsNotOpen:
+				result = L"I/O-device is not open";
+				break;
+			default:
+				result = L"Unknown I/O-error";
+		}
+		appendInfo(result);
+		return result;
+	}
 private:
-	DeviceIsNotOpenIOError();
+	IOError();
+
+	Type _type;
 };
 
 } // namespace isl

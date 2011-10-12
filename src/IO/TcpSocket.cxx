@@ -51,13 +51,13 @@ TcpSocket::TcpSocket(int descriptor) :
 			_isOpen = true;
 			return;
 		}
-		throw Exception(SystemCallError(SystemCallError::GetSockName, errno, SOURCE_LOCATION_ARGS));
+		throw Exception(SystemCallError(SOURCE_LOCATION_ARGS, SystemCallError::GetSockName, errno));
 	}
 	_isOpen = true;
 	_connected = true;
 	char remoteAddressBuf[INET6_ADDRSTRLEN];
 	if (!inet_ntop(AF_INET, &remoteAddress.sin_addr, remoteAddressBuf, INET6_ADDRSTRLEN)) {
-		throw Exception(SystemCallError(SystemCallError::InetNToP, errno, SOURCE_LOCATION_ARGS));
+		throw Exception(SystemCallError(SOURCE_LOCATION_ARGS, SystemCallError::InetNToP, errno));
 	}
 	_remoteAddress = Utf8TextCodec().decode(remoteAddressBuf);
 	_remotePort = ntohs(remoteAddress.sin_port);
@@ -65,11 +65,11 @@ TcpSocket::TcpSocket(int descriptor) :
 	struct sockaddr_in localAddress;
 	socklen_t localAddressSize = sizeof(localAddress);
 	if (getsockname(descriptor, reinterpret_cast<struct sockaddr *>(&localAddress), &localAddressSize)) {
-		throw Exception(SystemCallError(SystemCallError::GetSockName, errno, SOURCE_LOCATION_ARGS));
+		throw Exception(SystemCallError(SOURCE_LOCATION_ARGS, SystemCallError::GetSockName, errno));
 	}
 	char localAddressBuf[INET6_ADDRSTRLEN];
 	if (!inet_ntop(AF_INET, &localAddress.sin_addr, localAddressBuf, INET6_ADDRSTRLEN)) {
-		throw Exception(SystemCallError(SystemCallError::InetNToP, errno, SOURCE_LOCATION_ARGS));
+		throw Exception(SystemCallError(SOURCE_LOCATION_ARGS, SystemCallError::InetNToP, errno));
 	}
 	_localAddress = Utf8TextCodec().decode(localAddressBuf);
 	_localPort = ntohs(localAddress.sin_port);
@@ -85,7 +85,7 @@ TcpSocket::TcpSocket(int descriptor) :
 void TcpSocket::bind(unsigned int port, const std::list<std::wstring>& interfaces)
 {
 	if (!isOpen()) {
-		throw Exception(DeviceIsNotOpenIOError(SOURCE_LOCATION_ARGS));
+		throw Exception(IOError(SOURCE_LOCATION_ARGS, IOError::DeviceIsNotOpen));
 	}
 	sockaddr_in addr;
 	bzero(&addr, sizeof(addr));
@@ -93,24 +93,24 @@ void TcpSocket::bind(unsigned int port, const std::list<std::wstring>& interface
 	addr.sin_port = htons(port);
 	addr.sin_addr.s_addr = htonl(INADDR_ANY);					// TODO Handle 'interfaces' parameter
 	if (::bind(descriptor(), reinterpret_cast<struct sockaddr *>(&addr), sizeof(addr)) != 0) {
-		throw Exception(SystemCallError(SystemCallError::Bind, errno, SOURCE_LOCATION_ARGS));
+		throw Exception(SystemCallError(SOURCE_LOCATION_ARGS, SystemCallError::Bind, errno));
 	}
 }
 
 void TcpSocket::listen(unsigned int backLog)
 {
 	if (!isOpen()) {
-		throw Exception(DeviceIsNotOpenIOError(SOURCE_LOCATION_ARGS));
+		throw Exception(IOError(SOURCE_LOCATION_ARGS, IOError::DeviceIsNotOpen));
 	}
 	if (::listen(descriptor(), backLog) != 0) {
-		throw Exception(SystemCallError(SystemCallError::Listen, errno, SOURCE_LOCATION_ARGS));
+		throw Exception(SystemCallError(SOURCE_LOCATION_ARGS, SystemCallError::Listen, errno));
 	}
 }
 
 TcpSocket * TcpSocket::accept(const Timeout& timeout)
 {
 	if (!isOpen()) {
-		throw Exception(DeviceIsNotOpenIOError(SOURCE_LOCATION_ARGS));
+		throw Exception(IOError(SOURCE_LOCATION_ARGS, IOError::DeviceIsNotOpen));
 	}
 	// Waiting for incoming connection
 	timespec selectTimeout;
@@ -124,22 +124,22 @@ TcpSocket * TcpSocket::accept(const Timeout& timeout)
 		// Timeout expired
 		return 0;
 	} else if (descriptorsCount < 0) {
-		throw Exception(SystemCallError(SystemCallError::PSelect, errno, SOURCE_LOCATION_ARGS));
+		throw Exception(SystemCallError(SOURCE_LOCATION_ARGS, SystemCallError::PSelect, errno));
 	}
 	// Extracting and returning pending connection
 	int pendingSocketDescriptor = ::accept(descriptor(), NULL, NULL);
 	if (pendingSocketDescriptor < 0) {
-		throw Exception(SystemCallError(SystemCallError::Accept, errno, SOURCE_LOCATION_ARGS));
+		throw Exception(SystemCallError(SOURCE_LOCATION_ARGS, SystemCallError::Accept, errno));
 	}
 	// Making the socket non-blocking
 	int pendingSocketFlags = fcntl(pendingSocketDescriptor, F_GETFL, 0);
 	if (pendingSocketFlags < 0) {
-		throw Exception(SystemCallError(SystemCallError::Fcntl, errno, SOURCE_LOCATION_ARGS));
+		throw Exception(SystemCallError(SOURCE_LOCATION_ARGS, SystemCallError::Fcntl, errno));
 	}
 	if (!(pendingSocketFlags | O_NONBLOCK)) {
 		pendingSocketFlags |= O_NONBLOCK;
 		if (fcntl(pendingSocketDescriptor, F_SETFL, pendingSocketFlags) < 0) {
-			throw Exception(SystemCallError(SystemCallError::Fcntl, errno, SOURCE_LOCATION_ARGS));
+			throw Exception(SystemCallError(SOURCE_LOCATION_ARGS, SystemCallError::Fcntl, errno));
 		}
 	}
 	return new TcpSocket(pendingSocketDescriptor);
@@ -148,7 +148,7 @@ TcpSocket * TcpSocket::accept(const Timeout& timeout)
 void TcpSocket::connect(const std::wstring& address, unsigned int port)
 {
 	if (!isOpen()) {
-		throw Exception(DeviceIsNotOpenIOError(SOURCE_LOCATION_ARGS));
+		throw Exception(IOError(SOURCE_LOCATION_ARGS, IOError::DeviceIsNotOpen));
 	}
 	struct sockaddr_in remoteAddress;
 	socklen_t remoteAddressSize = sizeof(remoteAddress);
@@ -159,7 +159,7 @@ void TcpSocket::connect(const std::wstring& address, unsigned int port)
 	}
 	//if (::connect(descriptor(), &remoteAddress, sizeof(remoteAddress))) {
 	if (::connect(descriptor(), reinterpret_cast<struct sockaddr *>(&remoteAddress), sizeof(remoteAddress))) {
-		throw Exception(SystemCallError(SystemCallError::Connect, errno, SOURCE_LOCATION_ARGS));
+		throw Exception(SystemCallError(SOURCE_LOCATION_ARGS, SystemCallError::Connect, errno));
 	}
 
 
@@ -183,7 +183,7 @@ int TcpSocket::createDescriptor()
 {
 	int newDescriptor = socket(PF_INET, SOCK_STREAM, 0);
 	if (newDescriptor < 0) {
-		throw Exception(SystemCallError(SystemCallError::Socket, errno, SOURCE_LOCATION_ARGS));
+		throw Exception(SystemCallError(SOURCE_LOCATION_ARGS, SystemCallError::Socket, errno));
 	}
 	return newDescriptor;
 }

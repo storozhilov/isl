@@ -63,7 +63,7 @@ void AbstractPluginServer::loadPlugins()
 	//}
 	struct stat fileInfo;
 	if (stat(_pluginsPath.c_str(), &fileInfo) != 0) {
-		throw Exception(SystemCallError(SystemCallError::Stat, errno, SOURCE_LOCATION_ARGS));
+		throw Exception(SystemCallError(SOURCE_LOCATION_ARGS, SystemCallError::Stat, errno));
 	}
 	if (!S_ISDIR(fileInfo.st_mode)) {
 		// TODO
@@ -72,7 +72,7 @@ void AbstractPluginServer::loadPlugins()
 	struct ::dirent **nameList;
 	int pluginsAmount = scandir(_pluginsPath.c_str(), &nameList, AbstractPluginServer_filterDirEntry, alphasort);
 	if (pluginsAmount < 0) {
-		throw Exception(SystemCallError(SystemCallError::ScanDir, errno, SOURCE_LOCATION_ARGS));
+		throw Exception(SystemCallError(SOURCE_LOCATION_ARGS, SystemCallError::ScanDir, errno));
 	}
 	NameListReleaser releaser(nameList, pluginsAmount);
 	for (int i = 0; i < pluginsAmount; ++i) {

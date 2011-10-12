@@ -95,7 +95,7 @@ void SourceBrowserGenerator::generateImplementation()
 			}
 			itemName += namelist[i]->d_name;
 			if (stat(itemName.c_str(), &itemInfo) != 0) {
-				throw Exception(SystemCallError(SystemCallError::Stat, errno, SOURCE_LOCATION_ARGS));
+				throw Exception(SystemCallError(SOURCE_LOCATION_ARGS, SystemCallError::Stat, errno));
 			}
 			if (S_ISDIR(itemInfo.st_mode) && strcmp(namelist[i]->d_name, ".") && strcmp(namelist[i]->d_name, "..")) {
 				response().outputBuffer().write(

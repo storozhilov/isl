@@ -39,7 +39,7 @@ void AbstractServer::run()
 			setState<RunningState>();
 			Core::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, L"Restarting server completed"));
 		} else {
-			Core::warningLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, L"Unexpected state '" + newState.value().name() + L"' detected - reverting to 'Running'"));
+			Core::warningLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, L"Unexpected state '" + newState.constValue().name() + L"' detected - reverting to 'Running'"));
 			setState<RunningState>();
 		}
 	}

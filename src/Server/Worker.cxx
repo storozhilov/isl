@@ -2,6 +2,7 @@
 #include <isl/TaskDispatcher.hxx>
 #include <isl/Core.hxx>
 #include <isl/Exception.hxx>
+#include <memory>
 
 namespace isl
 {

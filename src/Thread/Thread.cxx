@@ -27,14 +27,14 @@ void Thread::start()
 		{
 			MutexLocker locker(awaitStartupCond.mutex());
 			if (int errorCode = pthread_create(&_thread, NULL, Thread_execute, this)) {
-				throw Exception(SystemCallError(SystemCallError::PThreadCreate, errorCode, SOURCE_LOCATION_ARGS));
+				throw Exception(SystemCallError(SOURCE_LOCATION_ARGS, SystemCallError::PThreadCreate, errorCode));
 			}
 			awaitStartupCond.wait();
 		}
 		_awaitStartupCond = 0;
 	} else {
 		if (int errorCode = pthread_create(&_thread, NULL, Thread_execute, this)) {
-			throw Exception(SystemCallError(SystemCallError::PThreadCreate, errorCode, SOURCE_LOCATION_ARGS));
+			throw Exception(SystemCallError(SOURCE_LOCATION_ARGS, SystemCallError::PThreadCreate, errorCode));
 		}
 	}
 }
@@ -45,7 +45,7 @@ void Thread::join()
 		return;
 	}
 	if (int errorCode = pthread_join(_thread, NULL)) {
-		throw Exception(SystemCallError(SystemCallError::PThreadJoin, errorCode, SOURCE_LOCATION_ARGS));
+		throw Exception(SystemCallError(SOURCE_LOCATION_ARGS, SystemCallError::PThreadJoin, errorCode));
 	}
 }
 

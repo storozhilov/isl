@@ -38,10 +38,11 @@ void Exception::addError(const AbstractError& error)
 		_debug += L'\n';
 		_what += '\n';
 	}
-	_errors.push_back(error.clone());
-	_message += error.message();
-	_debug += error.debug();
-	_what += Utf8TextCodec().encode(error.message());
+	AbstractError * newError = error.clone();
+	_errors.push_back(newError);
+	_message += newError->message();
+	_debug += newError->debug();
+	_what += newError->what();
 }
 
 const wchar_t * Exception::message() const throw()

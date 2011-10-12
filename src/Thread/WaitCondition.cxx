@@ -17,14 +17,14 @@ WaitCondition::WaitCondition() :
 	_mutex()
 {
 	if (int errorCode = pthread_cond_init(&_cond, NULL)) {
-		throw Exception(SystemCallError(SystemCallError::PThreadCondInit, errorCode, SOURCE_LOCATION_ARGS));
+		throw Exception(SystemCallError(SOURCE_LOCATION_ARGS, SystemCallError::PThreadCondInit, errorCode));
 	}
 }
 
 WaitCondition::~WaitCondition()
 {
 	if (int errorCode = pthread_cond_destroy(&_cond)) {
-		std::wcerr << SystemCallError(SystemCallError::PThreadCondDestroy, errorCode, SOURCE_LOCATION_ARGS).message() << std::endl;
+		std::wcerr << SystemCallError(SOURCE_LOCATION_ARGS, SystemCallError::PThreadCondDestroy, errorCode).message() << std::endl;
 	}
 }
 
@@ -36,7 +36,7 @@ Mutex& WaitCondition::mutex()
 void WaitCondition::wait()
 {
 	if (int errorCode = pthread_cond_wait(&_cond, &(_mutex._mutex))) {
-		throw Exception(SystemCallError(SystemCallError::PThreadCondWait, errorCode, SOURCE_LOCATION_ARGS));
+		throw Exception(SystemCallError(SOURCE_LOCATION_ARGS, SystemCallError::PThreadCondWait, errorCode));
 	}
 }
 
@@ -53,21 +53,21 @@ bool WaitCondition::wait(const Timeout& timeout)
 		case ETIMEDOUT:
 			return false;
 		default:
-			throw Exception(SystemCallError(SystemCallError::PThreadCondTimedWait, errorCode, SOURCE_LOCATION_ARGS));
+			throw Exception(SystemCallError(SOURCE_LOCATION_ARGS, SystemCallError::PThreadCondTimedWait, errorCode));
 	}
 }
 
 void WaitCondition::wakeOne()
 {
 	if (int errorCode = pthread_cond_signal(&_cond)) {
-		throw Exception(SystemCallError(SystemCallError::PThreadCondSignal, errorCode, SOURCE_LOCATION_ARGS));
+		throw Exception(SystemCallError(SOURCE_LOCATION_ARGS, SystemCallError::PThreadCondSignal, errorCode));
 	}
 }
 
 void WaitCondition::wakeAll()
 {
 	if (int errorCode = pthread_cond_broadcast(&_cond)) {
-		throw Exception(SystemCallError(SystemCallError::PThreadCondBroadcast, errorCode, SOURCE_LOCATION_ARGS));
+		throw Exception(SystemCallError(SOURCE_LOCATION_ARGS, SystemCallError::PThreadCondBroadcast, errorCode));
 	}
 }
 

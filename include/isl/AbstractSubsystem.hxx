@@ -20,7 +20,7 @@ public:
 	AbstractSubsystem(AbstractSubsystem * owner);
 	virtual ~AbstractSubsystem();
 
-	// Subsystem states
+	//! Base class for subsystem state "Extensible Enum" values
 	class AbstractState
 	{
 	public:
@@ -59,9 +59,10 @@ public:
 		virtual AbstractState * clone() const { return new RestartingState(*this); }
 		virtual std::wstring name() const { return L"Restarting"; }
 	};
+	//! Subsystem states "Extensible Enum"
 	typedef Enum<AbstractState> State;
 
-	// Subsystem commands
+	//! Base class for subsystem command "Extensible Enum" values
 	class AbstractCommand
 	{
 	public:
@@ -88,6 +89,7 @@ public:
 		virtual AbstractCommand * clone() const { return new RestartCommand(*this); }
 		virtual std::wstring name() const { return L"Restart"; }
 	};
+	//! Subsystem commands "Extensible Enum"
 	typedef Enum<AbstractCommand> Command;
 
 	inline void start()
