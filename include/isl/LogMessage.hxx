@@ -2,7 +2,6 @@
 #define ISL__LOG_MESSAGE__HXX
 
 #include <isl/AbstractError.hxx>
-#include <isl/Utf8TextCodec.hxx>
 #include <isl/Exception.hxx>
 #include <string>
 #include <sstream>
@@ -24,7 +23,7 @@ public:
 	//! Returns log message
 	inline const wchar_t * message() const
 	{
-		if (_messageComposed) {
+		if (!_messageComposed) {
 			_message = composeMessage();
 			_messageComposed = true;
 		}
@@ -44,7 +43,7 @@ class LogMessage : public AbstractLogMessage
 public:
 	LogMessage(const std::string& info) :
 		AbstractLogMessage(),
-		_info(Utf8TextCodec().decode(info))
+		_info(String::utf8Decode(info))
 	{}
 	LogMessage(const std::wstring& info) :
 		AbstractLogMessage(),
@@ -93,7 +92,7 @@ protected:
 	std::wstring composeSourceLocation() const
 	{
 		std::wostringstream sstr;
-		sstr << Utf8TextCodec().decode(_file) << L'(' << _line << L"), " << Utf8TextCodec().decode(_function) << L": ";
+		sstr << String::utf8Decode(_file) << L'(' << _line << L"), " << String::utf8Decode(_function) << L": ";
 		return sstr.str();
 	}
 private:
@@ -110,7 +109,7 @@ class DebugLogMessage : public AbstractDebugLogMessage
 public:
 	DebugLogMessage(SOURCE_LOCATION_ARGS_DECLARATION, const std::string& info) :
 		AbstractDebugLogMessage(SOURCE_LOCATION_ARGS_PASSTHRU),
-		_info(Utf8TextCodec().decode(info))
+		_info(String::utf8Decode(info))
 	{}
 	DebugLogMessage(SOURCE_LOCATION_ARGS_DECLARATION, const std::wstring& info) :
 		AbstractDebugLogMessage(SOURCE_LOCATION_ARGS_PASSTHRU),
@@ -142,7 +141,7 @@ public:
 	ExceptionLogMessage(SOURCE_LOCATION_ARGS_DECLARATION, const std::exception& expt, const std::string& info) :
 		AbstractDebugLogMessage(SOURCE_LOCATION_ARGS_PASSTHRU),
 		_expt(expt),
-		_info(Utf8TextCodec().decode(info))
+		_info(String::utf8Decode(info))
 	{}
 	ExceptionLogMessage(SOURCE_LOCATION_ARGS_DECLARATION, const std::exception& expt, const std::wstring& info) :
 		AbstractDebugLogMessage(SOURCE_LOCATION_ARGS_PASSTHRU),
@@ -162,7 +161,7 @@ public:
 			result += L"std::exception instance has been thrown with following errors";
 		}
 		result += L":\n";
-		result += Utf8TextCodec().decode(_expt.what());
+		result += String::utf8Decode(_expt.what());
 		return result;
 	}
 private:

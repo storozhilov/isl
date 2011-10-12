@@ -1,5 +1,4 @@
 #include <isl/Exception.hxx>
-#include <isl/Utf8TextCodec.hxx>
 
 namespace isl
 {

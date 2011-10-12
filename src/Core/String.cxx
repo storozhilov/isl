@@ -164,16 +164,12 @@ std::string String::urlDecode(const std::string &str)
 	return decodedString;
 }
 
-void String::replace(std::string &str, const std::string& find, const std::string& replace)
+void String::replaceAll(std::string &str, const std::string& find, const std::string& replace)
 {
-	while (true) {
-		size_t pos = str.find(find);
-		if (pos == std::string::npos) {
-			break;
-		}
+	size_t pos;
+	while ((pos = str.find(find)) != std::string::npos) {
 		str.replace(pos, find.length(), replace);
 	}
-
 }
 
 std::wstring String::asciiToWString(const std::string& str)
@@ -190,16 +186,13 @@ std::string String::wstringToAscii(const std::wstring& str)
 	return oss.str();
 }
 
-/*void String::utf8ToWString(std::wstring& dest, const char * source, int size)
+void String::utf8Encode(std::string& dest, const wchar_t * source, size_t size)
 {
 	dest.clear();
 	if (!source) {
 		return;
 	}
-	if (size < 0) {
-		size = strlen(source);
-	}
-	dest.reserve(size);							// Worst case
+	dest.reserve(size);							// Best case
 	int pos = 0;
 	// Skip utf8-encoded byte order mark if exists
 	if ((size >= 3) && (static_cast<unsigned char>(source[0]) == 0xEF) && (static_cast<unsigned char>(source[1]) == 0xBB) &&
@@ -277,26 +270,38 @@ std::string String::wstringToAscii(const std::wstring& str)
 	}
 }
 
-void String::utf8ToWString(std::wstring& dest, const std::string& source)
+void String::utf8Encode(std::string& dest, const wchar_t * source)
 {
-	utf8ToWString(dest, source.data(), source.size());
+	utf8Encode(dest, source, (source) ? wcslen(source) : 0);
 }
 
-std::wstring String::utf8ToWString(const char * str, int size)
+void String::utf8Encode(std::string& dest, const std::wstring& source)
 {
-	std::wstring result;
-	utf8ToWString(result, str, size);
-	return result;
+	utf8Encode(dest, source.data(), source.size());
 }
 
-std::wstring String::utf8ToWString(const std::string& str)
+std::string String::utf8Encode(const wchar_t * source, size_t size)
 {
-	std::wstring result;
-	utf8ToWString(result, str);
-	return result;
+	std::string dest;
+	utf8Encode(dest, source, size);
+	return dest;
 }
 
-void String::wstringToUtf8(std::string& dest, const wchar_t * source, size_t size)
+std::string String::utf8Encode(const wchar_t * source)
+{
+	std::string dest;
+	utf8Encode(dest, source, (source) ? wcslen(source) : 0);
+	return dest;
+}
+
+std::string String::utf8Encode(const std::wstring& source)
+{
+	std::string dest;
+	utf8Encode(dest, source.data(), source.length());
+	return dest;
+}
+
+void String::utf8Decode(std::wstring& dest, const char * source, size_t size)
 {
 	dest.clear();
 	if (!source) {
@@ -337,22 +342,35 @@ void String::wstringToUtf8(std::string& dest, const wchar_t * source, size_t siz
 	}
 }
 
-void String::wstringToUtf8(std::string& dest, const wchar_t * source)
+void String::utf8Decode(std::wstring& dest, const char * source)
 {
-	size_t size = (source) ? wcslen(source) : 0;
-	wstringToUtf8(dest, source, size);
+	utf8Decode(dest, source, (source) ? strlen(source) : 0);
 }
 
-void String::wstringToUtf8(std::string& dest, const std::wstring& source)
+void String::utf8Decode(std::wstring& dest, const std::string& source)
 {
-	wstringToUtf8(dest, source.data(), source.size());
+	utf8Decode(dest, source.data(), source.size());
 }
 
-std::string String::wstringToUtf8(const std::wstring& str)
+std::wstring String::utf8Decode(const char * source, size_t size)
 {
-	std::string result;
-	wstringToUtf8(result, str);
-	return result;
-}*/
+	std::wstring dest;
+	utf8Decode(dest, source, size);
+	return dest;
+}
+
+std::wstring String::utf8Decode(const char * source)
+{
+	std::wstring dest;
+	utf8Decode(dest, source, (source) ? strlen(source) : 0);
+	return dest;
+}
+
+std::wstring String::utf8Decode(const std::string& source)
+{
+	std::wstring dest;
+	utf8Decode(dest, source.data(), source.length());
+	return dest;
+}
 
 } // namespace isl

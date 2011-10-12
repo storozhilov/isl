@@ -2,7 +2,7 @@
 #define ISL__ABSTRACT_ERROR__HXX
 
 #include <isl/Debug.hxx>
-#include <isl/Utf8TextCodec.hxx>
+#include <isl/String.hxx>
 #include <string>
 #include <sstream>
 
@@ -78,8 +78,12 @@ public:
 	//! Clones an error object.
 	/*!
 	    You should implement this method in the following manner:
-
-	    return new YourErrorClass(*this);
+<pre>...
+AbstractError * YourErrorClass::clone() const
+{
+	return new YourErrorClass(*this);
+}
+...</pre>
 	*/
 	virtual AbstractError * clone() const = 0;
 protected:
@@ -87,7 +91,7 @@ protected:
 	std::wstring composeSourceLocation() const
 	{
 		std::wostringstream sstr;
-		sstr << Utf8TextCodec().decode(_file) << L'(' << _line << L"), " << Utf8TextCodec().decode(_function) << L": ";
+		sstr << String::utf8Decode(_file) << L'(' << _line << L"), " << String::utf8Decode(_function) << L": ";
 		return sstr.str();
 	}
 	//! Appending info() to the error message helper function
@@ -109,7 +113,7 @@ private:
 		if (!_messageComposed) {
 			_message = composeMessage();
 			_debug = composeSourceLocation() + _message;
-			_what = Utf8TextCodec().encode(_message);
+			_what = String::utf8Encode(_message);
 			_messageComposed = true;
 		}
 	}
@@ -127,4 +131,3 @@ private:
 } // namespace isl
 
 #endif
-

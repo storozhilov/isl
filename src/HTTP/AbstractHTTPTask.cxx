@@ -1,6 +1,5 @@
 #include <isl/AbstractHTTPTask.hxx>
 #include <isl/Core.hxx>
-#include <isl/Utf8TextCodec.hxx>
 
 namespace isl
 {
@@ -43,7 +42,7 @@ void AbstractHTTPTask::executeImplementation(Worker& worker)
 		_request.receive();
 		++_requestsReceived;
 		std::wostringstream sstr;
-		sstr << L"Request for " << Utf8TextCodec().decode(_request.uri()) << L" received from " << socket().remoteAddress();
+		sstr << L"Request for " << String::utf8Decode(_request.uri()) << L" received from " << socket().remoteAddress();
 		AbstractHTTPTask::accessLog.log(sstr.str());
 		_response.generateAndSend();
 		if (connectionToBeClosed()) {

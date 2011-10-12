@@ -2,7 +2,6 @@
 #include <isl/FileLogTarget.hxx>
 #include <isl/Exception.hxx>
 #include <isl/SystemCallError.hxx>
-#include <isl/Utf8TextCodec.hxx>
 #include <iostream>
 #include <iomanip>
 #include <sstream>
@@ -98,9 +97,9 @@ void FileLogDevice::writeMessage(const std::wstring& prefix, const std::wstring&
 		curPos = (endlPos == std::wstring::npos) ? std::wstring::npos : ((crlfPos < crPos) ? endlPos + 2 : endlPos + 1);
 		std::string stringToWrite;
 		if (isFirstLine) {
-			stringToWrite = Utf8TextCodec().encode((_prefixNew.empty()) ? firstLineFormat.str() : _firstLinePrefixedFormat.str());
+			stringToWrite = String::utf8Encode((_prefixNew.empty()) ? firstLineFormat.str() : _firstLinePrefixedFormat.str());
 		} else {
-			stringToWrite = Utf8TextCodec().encode((_prefixNew.empty()) ? _secondLineFormat.str() : _secondLinePrefixedFormat.str());
+			stringToWrite = String::utf8Encode((_prefixNew.empty()) ? _secondLineFormat.str() : _secondLinePrefixedFormat.str());
 		}
 		stringToWrite += '\n';
 		if (write(_fileDescriptor, stringToWrite.data(), stringToWrite.size()) < 0) {

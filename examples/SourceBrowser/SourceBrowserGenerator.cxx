@@ -1,6 +1,5 @@
 #include "SourceBrowserGenerator.hxx"
 #include <isl/NameListReleaser.hxx>
-#include <isl/Utf8TextCodec.hxx>
 #include <isl/Exception.hxx>
 #include <isl/SystemCallError.hxx>
 #include <isl/String.hxx>
@@ -28,7 +27,7 @@ SourceBrowserGenerator::SourceBrowserGenerator(AbstractHTTPTask * task, const st
 void SourceBrowserGenerator::generateImplementation()
 {
 	response().setHeaderField("Content-type", "text/html", true);
-	std::string filename(Utf8TextCodec().encode(_rootPath));
+	std::string filename(String::utf8Encode(_rootPath));
 	filename += request().uri();
 	struct stat fileInfo;
 	if (stat(filename.c_str(), &fileInfo) != 0) {
@@ -63,9 +62,9 @@ void SourceBrowserGenerator::generateImplementation()
 			fstr.read(buffer, 1024);
 			unsigned int bytesRead = fstr.gcount();
 			std::string str(buffer, bytesRead);
-			String::replace(str, "<", "&lt;");
-			String::replace(str, ">", "&gt;");
-			String::replace(str, "\"", "&quot;");
+			String::replaceAll(str, "<", "&lt;");
+			String::replaceAll(str, ">", "&gt;");
+			String::replaceAll(str, "\"", "&quot;");
 			response().outputBuffer().write(str);
 		}
 		response().outputBuffer().write(

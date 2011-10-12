@@ -1,5 +1,4 @@
 #include <isl/Log.hxx>
-#include <isl/Utf8TextCodec.hxx>
 #include <iostream>
 
 namespace isl
@@ -41,7 +40,7 @@ void Log::log(const AbstractLogMessage& msg)
 
 void Log::log(const std::string& msg)
 {
-	dispatcher.logMessage(this, Utf8TextCodec().decode(msg));
+	dispatcher.logMessage(this, String::utf8Decode(msg));
 }
 
 void Log::log(const std::wstring& msg)
@@ -64,8 +63,8 @@ std::wstring Log::prefix() const
 std::wstring Log::composeSourceLocation(SOURCE_LOCATION_ARGS_DECLARATION)
 {
 	std::wostringstream sstr;
-	sstr << Utf8TextCodec().decode(SOURCE_LOCATION_ARGS_FILE) << L'(' << SOURCE_LOCATION_ARGS_LINE << L"), " <<
-		Utf8TextCodec().decode(SOURCE_LOCATION_ARGS_FUNCTION) << L": ";
+	sstr << String::utf8Decode(SOURCE_LOCATION_ARGS_FILE) << L'(' << SOURCE_LOCATION_ARGS_LINE << L"), " <<
+		String::utf8Decode(SOURCE_LOCATION_ARGS_FUNCTION) << L": ";
 	return sstr.str();
 }
 

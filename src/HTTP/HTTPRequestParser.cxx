@@ -2,7 +2,6 @@
 #include <isl/HTTPRequest.hxx>
 #include <isl/AbstractHTTPTask.hxx>
 #include <isl/String.hxx>
-#include <isl/Utf8TextCodec.hxx>
 #include <sstream>
 #include <stdexcept>
 
@@ -99,7 +98,7 @@ int HTTPRequestParser::parse(const char * data, unsigned int size)
 					if (requestMethod.isNull()) {
 						_state = MethodNotImplemented;
 						AbstractHTTPTask::errorLog.log(L"Request method \"" +
-								Utf8TextCodec().decode(_requestMethodString) + L"\" is not implemented");
+								String::utf8Decode(_requestMethodString) + L"\" is not implemented");
 						return pos;
 					}
 					_request->_method = requestMethod;
@@ -107,7 +106,7 @@ int HTTPRequestParser::parse(const char * data, unsigned int size)
 					_state = ParsingRequestURI;
 					++pos;
 					AbstractHTTPTask::debugLog.log(L"Request method is \"" +
-							Utf8TextCodec().decode(_requestMethodString) + L"\"");
+							String::utf8Decode(_requestMethodString) + L"\"");
 					break;
 				} else if (isFitTokens(_methods, _requestMethodString, data[pos])) {
 					_requestMethodString += data[pos];
@@ -136,14 +135,14 @@ int HTTPRequestParser::parse(const char * data, unsigned int size)
 					if (!parseURI()) {
 						_state = InvalidRequestURI;
 						AbstractHTTPTask::errorLog.log(L"Invalid URI: \"" +
-								Utf8TextCodec().decode(_request->_uri) + L"\"");
+								String::utf8Decode(_request->_uri) + L"\"");
 						return pos;
 					}
 					_httpVersionString.clear();
 					_state = ParsingHTTPVersion;
 					++pos;
 					AbstractHTTPTask::debugLog.log(L"Request-URI is \"" +
-							Utf8TextCodec().decode(_request->_uri) + L"\"");
+							String::utf8Decode(_request->_uri) + L"\"");
 					break;
 				} else if (canBeAddedToRequestURI(data[pos])) {
 					_request->_uri += data[pos];
@@ -171,14 +170,14 @@ int HTTPRequestParser::parse(const char * data, unsigned int size)
 					if (httpVersion.isNull()) {
 						_state = HTTPVersionNotImplemented;
 						AbstractHTTPTask::errorLog.log(L"HTTP-version \"" +
-								Utf8TextCodec().decode(_httpVersionString) + L"\" is not implemented");
+								String::utf8Decode(_httpVersionString) + L"\" is not implemented");
 						return pos;
 					}
 					_request->_version = httpVersion;
 					_state = ParsingHTTPVersionCRLF;
 					++pos;
 					AbstractHTTPTask::debugLog.log(L"HTTP-version is \"" +
-							Utf8TextCodec().decode(_httpVersionString) + L"\"");
+							String::utf8Decode(_httpVersionString) + L"\"");
 					break;
 				} else if (isFitTokens(_versions, _httpVersionString, data[pos])) {
 					_httpVersionString += data[pos];
@@ -230,7 +229,7 @@ int HTTPRequestParser::parse(const char * data, unsigned int size)
 					_state = ParsingHeaderFieldValue;
 					++pos;
 					AbstractHTTPTask::debugLog.log(L"Request header field name is \"" +
-							Utf8TextCodec().decode(_headerFieldName) + L"\"");
+							String::utf8Decode(_headerFieldName) + L"\"");
 					break;
 				} else if (String::isToken(data[pos])) {
 					_headerFieldName += data[pos];
@@ -253,7 +252,7 @@ int HTTPRequestParser::parse(const char * data, unsigned int size)
 					_state = ParsingHeaderFieldValue;
 					++pos;
 					AbstractHTTPTask::debugLog.log(L"Request header field name is \"" +
-							Utf8TextCodec().decode(_headerFieldName) + L"\"");
+							String::utf8Decode(_headerFieldName) + L"\"");
 					break;
 				} else {
 					_state = BadRequest;
@@ -298,7 +297,7 @@ int HTTPRequestParser::parse(const char * data, unsigned int size)
 				++pos;
 			} else {
 				AbstractHTTPTask::debugLog.log(L"Request header field value is \"" +
-						Utf8TextCodec().decode(_headerFieldValue) + L"\"");
+						String::utf8Decode(_headerFieldValue) + L"\"");
 				String::trim(_headerFieldName);
 				String::trim(_headerFieldValue);
 				parseCookies();
@@ -459,8 +458,8 @@ void HTTPRequestParser::parseCookies()
 		std::map<std::string, std::string>::const_iterator pos = _request->_cookies.find(cookieName);
 		if (pos == _request->_cookies.end()) {
 			_request->_cookies.insert(std::make_pair(cookieName, String::urlDecode(cookieValue)));
-			AbstractHTTPTask::debugLog.log(L"Cookie \"" + Utf8TextCodec().decode(cookieName) + L"\"=\"" +
-					Utf8TextCodec().decode(String::urlDecode(cookieValue)) + L"\" added to request");
+			AbstractHTTPTask::debugLog.log(L"Cookie \"" + String::utf8Decode(cookieName) + L"\"=\"" +
+					String::utf8Decode(String::urlDecode(cookieValue)) + L"\" added to request");
 		}
 		// Passing ';' if found
 		if (i < _headerFieldValue.length()) {

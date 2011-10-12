@@ -3,7 +3,6 @@
 #include <isl/Exception.hxx>
 #include <isl/HttpError.hxx>
 #include <isl/String.hxx>
-#include <isl/Utf8TextCodec.hxx>
 #include <sstream>
 
 namespace isl

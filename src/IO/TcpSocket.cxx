@@ -3,7 +3,6 @@
 #include <isl/Exception.hxx>
 #include <isl/SystemCallError.hxx>
 #include <isl/IOError.hxx>
-#include <isl/Utf8TextCodec.hxx>
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <arpa/inet.h>
@@ -59,7 +58,7 @@ TcpSocket::TcpSocket(int descriptor) :
 	if (!inet_ntop(AF_INET, &remoteAddress.sin_addr, remoteAddressBuf, INET6_ADDRSTRLEN)) {
 		throw Exception(SystemCallError(SOURCE_LOCATION_ARGS, SystemCallError::InetNToP, errno));
 	}
-	_remoteAddress = Utf8TextCodec().decode(remoteAddressBuf);
+	_remoteAddress = String::utf8Decode(remoteAddressBuf);
 	_remotePort = ntohs(remoteAddress.sin_port);
 	// Obtaining local address/port
 	struct sockaddr_in localAddress;
@@ -71,7 +70,7 @@ TcpSocket::TcpSocket(int descriptor) :
 	if (!inet_ntop(AF_INET, &localAddress.sin_addr, localAddressBuf, INET6_ADDRSTRLEN)) {
 		throw Exception(SystemCallError(SOURCE_LOCATION_ARGS, SystemCallError::InetNToP, errno));
 	}
-	_localAddress = Utf8TextCodec().decode(localAddressBuf);
+	_localAddress = String::utf8Decode(localAddressBuf);
 	_localPort = ntohs(localAddress.sin_port);
 	// Setting opened state to true;
 	//_isOpen = true;
@@ -154,7 +153,7 @@ void TcpSocket::connect(const std::wstring& address, unsigned int port)
 	socklen_t remoteAddressSize = sizeof(remoteAddress);
 	remoteAddress.sin_family = AF_INET;
 	remoteAddress.sin_port = htons(port);
-	if (!inet_aton(Utf8TextCodec().encode(address).c_str(), &remoteAddress.sin_addr)) {
+	if (!inet_aton(String::utf8Encode(address).c_str(), &remoteAddress.sin_addr)) {
 		throw std::runtime_error("Invalid peer address");				// TODO Use isl::Exception
 	}
 	//if (::connect(descriptor(), &remoteAddress, sizeof(remoteAddress))) {

@@ -1,7 +1,7 @@
 #ifndef ISL__VARIANT__HXX
 #define ISL__VARIANT__HXX
 
-#include <isl/Utf8TextCodec.hxx>
+#include <isl/String.hxx>
 #include <stdexcept>
 #include <iostream>
 #include <string>
@@ -303,11 +303,11 @@ template <> class VariantOperator <std::string>
 public:
 	static std::wstring serialize(const std::string& value)
 	{
-		return Utf8TextCodec().decode(value);
+		return String::utf8Decode(value);
 	}
 	static std::string deserialize(const std::wstring serializedValue)
 	{
-		return Utf8TextCodec().encode(serializedValue);
+		return String::utf8Encode(serializedValue);
 	}
 	static int typeId()
 	{

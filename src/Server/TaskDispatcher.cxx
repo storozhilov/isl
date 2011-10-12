@@ -2,7 +2,6 @@
 #include <isl/Mutex.hxx>
 #include <isl/Core.hxx>
 #include <isl/Exception.hxx>
-#include <isl/Utf8TextCodec.hxx>
 #include <exception>
 #include <sstream>
 #include <memory>
