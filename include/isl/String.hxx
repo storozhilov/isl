@@ -13,6 +13,7 @@ public:
 	// Character functions (TODO Move them to Char class?)
 	static bool isChar(unsigned char ch);
 	static bool isAlpha(unsigned char ch);
+	static bool isAlpha(unsigned wchar_t ch);
 	static bool isUpperAlpha(unsigned char ch);
 	static bool isLowerAlpha(unsigned char ch);
 	static bool isDigit(unsigned char ch);

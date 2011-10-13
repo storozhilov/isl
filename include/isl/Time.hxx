@@ -1,7 +1,6 @@
 #ifndef ISL__TIME__HXX
 #define ISL__TIME__HXX
 
-#include <isl/FormattedString.hxx>
 #include <string>
 #include <time.h>
 
@@ -20,7 +19,8 @@ public:
 	int minute() const;
 	int second() const;
 	int msecond() const;
-	std::wstring toString(const std::wstring& format) const;
+	std::string toString(const std::string& format) const;
+	std::wstring toWString(const std::wstring& format) const;
 	bool setTime(int hour, int minute, int second, int millisecond = 0);
 	void setNull();
 	Time addMSeconds(int nmseconds) const;
@@ -67,7 +67,6 @@ private:
 
 	int _millisecond;
 	
-	friend class FormattedWString<Time>;
 	friend class DateTime;
 };
 

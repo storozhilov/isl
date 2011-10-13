@@ -8,6 +8,8 @@
 #include <isl/HttpError.hxx>
 #include <isl/FileLogTarget.hxx>
 #include <isl/Core.hxx>
+#include <isl/Time.hxx>
+#include <isl/ArgumentsFormatter.hxx>
 //#include <isl/Timeout.hxx>
 //#include <isl/FileLogTarget.hxx>
 //#include <isl/Core.hxx>
@@ -39,7 +41,7 @@ int main(int argc, char *argv[])
 {
 	std::cout << "Test executable has been started" << std::endl;
 
-	isl::Core::debugLog.setPrefix(L"DEBUG");
+	/*isl::Core::debugLog.setPrefix(L"DEBUG");
 	isl::Core::debugLog.connectTarget(isl::FileLogTarget("test.log"));
 	isl::Core::debugLog.log("std::string debug log entry");
 	isl::Core::debugLog.log(L"std::wstring debug log entry");
@@ -57,7 +59,19 @@ int main(int argc, char *argv[])
 	std::wcout << e3.debug() << std::endl;
 	isl::HttpError e4(SOURCE_LOCATION_ARGS, isl::HttpError::BadRequest, L"Very bad request...");
 	std::wcout << e4.message() << std::endl;
-	std::wcout << e4.debug() << std::endl;
+	std::wcout << e4.debug() << std::endl;*/
+
+	isl::Time t(isl::Time::now());
+	std::wcout << t.toWString(L"%H:%M:%S") << std::endl;
+	std::wcout << t.toWString(L"%I:%M:%S") << std::endl;
+	std::wcout << t.toWString(L"%l:%M:%S") << std::endl;
+	std::wcout << t.toWString(L"%T") << std::endl;
+	std::wcout << t.toWString(L"%R") << std::endl;
+
+	//isl::Variant v(1);
+	std::wcout << isl::WArgumentsFormatter(L"int value = $0, string value = '$1', double value = $2").arg(isl::Variant(1)).arg(isl::Variant(std::wstring(L"FooBar"))).arg(isl::Variant(24.5)).compose() << std::endl;
+	//std::cout << isl::ArgumentsFormatter("int value = $0, string value = '$1'").arg(isl::Variant(1)).arg(isl::Variant(std::string("FooBar"))).compose() << std::endl;
+	//std::cout << isl::ArgumentsFormatter("int value = $0, string value = '$1'").arg(isl::Variant(1)).arg(isl::Variant(std::wstring(L"FooBar"))).compose() << std::endl;
 
 	/*isl::DebugLogMessage dlm(SOURCE_LOCATION_ARGS, L"Test message");
 	std::wcout << dlm.compose() << std::endl;

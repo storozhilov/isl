@@ -1,10 +1,181 @@
 #include <isl/Time.hxx>
+#include <isl/AbstractDateTimeFormatter.hxx>
 #include <sstream>
 #include <iomanip>
 #include <sys/time.h>
 
 namespace isl
 {
+
+/*------------------------------------------------------------------------------
+ * BasicTimeFormatter
+ * ---------------------------------------------------------------------------*/
+
+template <typename Ch> class BasicTimeFormatter : public AbstractDateTimeFormatter<Ch>
+{
+public:
+	BasicTimeFormatter(const std::basic_string<Ch>& format, const Time& time, Ch tokenSpecifier = '%') :
+		AbstractDateTimeFormatter<Ch>(format, tokenSpecifier),
+		_time(time)
+	{}
+private:
+	BasicTimeFormatter();
+
+	virtual std::basic_string<Ch> substitute(Ch tokenSymbol) const;
+
+	const Time& _time;
+};
+
+typedef BasicTimeFormatter<char> TimeFormatter;
+typedef BasicTimeFormatter<wchar_t> WTimeFormatter;
+
+template <> std::string TimeFormatter::substitute(char tokenSymbol) const
+{
+	std::ostringstream oss;
+	switch (tokenSymbol) {
+		case 'H':
+			// hour (00..23)
+			oss << std::setfill('0') << std::setw(2) << _time.hour();
+			break;
+		case 'I':
+			// hour (01..12)
+			oss << std::setfill('0') << std::setw(2) << ((_time.hour() > 12) ? _time.hour() - 12 : _time.hour());
+			break;
+		case 'k':
+			// hour ( 0..23)
+			oss << _time.hour();
+			break;
+		case 'l':
+			// hour ( 1..12)
+			oss << ((_time.hour() > 12) ? _time.hour() - 12 : _time.hour());
+			break;
+		case 'M':
+			// minute (00..59)
+			oss << std::setfill('0') << std::setw(2) << _time.minute();
+			break;
+		case 'n':
+			// a newline
+			oss << '\n';
+		case 'N':
+			// nanoseconds (000000000..999999999)
+			// TODO
+			oss << "['" << tokenSymbol << "' token is not implemented yet]";
+			break;
+		case 'p':
+			// locale's equivalent of either AM or PM; blank if not known
+			// TODO
+			oss << "['" << tokenSymbol << "' token is not implemented yet]";
+			break;
+		case 'P':
+			// like %p, but lower case
+			// TODO
+			oss << "['" << tokenSymbol << "' token is not implemented yet]";
+			break;
+		case 'r':
+			// locale's 12-hour clock time (e.g., 11:11:04 PM)
+			// TODO
+			oss << "['" << tokenSymbol << "' token is not implemented yet]";
+			break;
+		case 'R':
+			// 24-hour hour and minute; same as %H:%M
+			oss << std::setfill('0') << std::setw(2) << _time.hour() << ':' << std::setw(2) << _time.minute();
+			break;
+		case 's':
+			// seconds since 1970-01-01 00:00:00 UTC
+			// TODO
+			oss << "['" << tokenSymbol << "' token is not implemented yet]";
+			break;
+		case 'S':
+			// second (00..60)
+			oss << std::setfill('0') << std::setw(2) << _time.second();
+			break;
+		case 't':
+			// a tab
+			oss << '\t';
+		case 'T':
+			// time; same as %H:%M:%S
+			oss << std::setfill('0') << std::setw(2) << _time.hour() << ':' <<
+				std::setw(2) << _time.minute() << ':' << std::setw(2) << _time.second();
+			break;
+		default:
+			oss << "[Invalid token: '" << tokenSymbol << "']";
+	}
+	return oss.str();
+}
+
+template <> std::wstring WTimeFormatter::substitute(wchar_t tokenSymbol) const
+{
+	std::wostringstream oss;
+	switch (tokenSymbol) {
+		case 'H':
+			// hour (00..23)
+			oss << std::setfill(L'0') << std::setw(2) << _time.hour();
+			break;
+		case 'I':
+			// hour (01..12)
+			oss << std::setfill(L'0') << std::setw(2) << ((_time.hour() > 12) ? _time.hour() - 12 : _time.hour());
+			break;
+		case 'k':
+			// hour ( 0..23)
+			oss << _time.hour();
+			break;
+		case 'l':
+			// hour ( 1..12)
+			oss << ((_time.hour() > 12) ? _time.hour() - 12 : _time.hour());
+			break;
+		case 'M':
+			// minute (00..59)
+			oss << std::setfill(L'0') << std::setw(2) << _time.minute();
+			break;
+		case 'n':
+			// a newline
+			oss << L'\n';
+		case 'N':
+			// nanoseconds (000000000..999999999)
+			// TODO
+			oss << L"['" << tokenSymbol << L"' token is not implemented yet]";
+			break;
+		case 'p':
+			// locale's equivalent of either AM or PM; blank if not known
+			// TODO
+			oss << L"['" << tokenSymbol << L"' token is not implemented yet]";
+			break;
+		case 'P':
+			// like %p, but lower case
+			// TODO
+			oss << L"['" << tokenSymbol << L"' token is not implemented yet]";
+			break;
+		case 'r':
+			// locale's 12-hour clock time (e.g., 11:11:04 PM)
+			// TODO
+			oss << L"['" << tokenSymbol << L"' token is not implemented yet]";
+			break;
+		case 'R':
+			// 24-hour hour and minute; same as %H:%M
+			oss << std::setfill(L'0') << std::setw(2) << _time.hour() << ':' << std::setw(2) << _time.minute();
+			break;
+		case 's':
+			// seconds since 1970-01-01 00:00:00 UTC
+			// TODO
+			oss << L"['" << tokenSymbol << L"' token is not implemented yet]";
+			break;
+		case 'S':
+			// second (00..60)
+			oss << std::setfill(L'0') << std::setw(2) << _time.second();
+			break;
+		case 't':
+			// a tab
+			oss << L'\t';
+		case 'T':
+			// time; same as %H:%M:%S
+			oss << std::setfill(L'0') << std::setw(2) << _time.hour() << L':' <<
+				std::setw(2) << _time.minute() << L':' << std::setw(2) << _time.second();
+			break;
+		default:
+			oss << L"[Invalid token: '" << tokenSymbol << L"']";
+	}
+	return oss.str();
+}
 
 /*------------------------------------------------------------------------------
  * Time
@@ -50,14 +221,22 @@ int Time::msecond() const
 	return (isValid()) ? _millisecond % 1000 : 0;
 }
 
-std::wstring Time::toString(const std::wstring& format) const
+std::string Time::toString(const std::string& format) const
 {
 	if (isNull()) {
-		return L"null";
+		return "[null]";
 	}
-	Formatter formatter(*this);
-	FormattedWString<Formatter> fs(formatter, &Formatter::substitute, format);
-	return fs.str();
+	TimeFormatter formatter(format, *this);
+	return formatter.compose();
+}
+
+std::wstring Time::toWString(const std::wstring& format) const
+{
+	if (isNull()) {
+		return L"[null]";
+	}
+	WTimeFormatter formatter(format, *this);
+	return formatter.compose();
 }
 
 bool Time::setTime(int hour, int minute, int second, int millisecond)

@@ -3,6 +3,7 @@
 #include <iomanip>
 #include <string.h>
 #include <wchar.h>
+#include <wctype.h>
 
 namespace isl
 {
@@ -15,6 +16,11 @@ bool String::isChar(unsigned char ch)
 bool String::isAlpha(unsigned char ch)
 {
 	return isalpha(ch);
+}
+
+bool String::isAlpha(unsigned wchar_t ch)
+{
+	return iswalpha(ch);
 }
 
 bool String::isUpperAlpha(unsigned char ch)

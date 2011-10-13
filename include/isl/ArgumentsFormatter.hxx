@@ -1,19 +1,20 @@
-#ifndef ISL__FORMAT__HXX
-#define ISL__FORMAT__HXX
+#ifndef ISL__ARGUMENTS_FORMATTER__HXX
+#define ISL__ARGUMENTS_FORMATTER__HXX
 
-#include <isl/AbstractFormat.hxx>
+#include <isl/AbstractFormatter.hxx>
 #include <isl/Variant.hxx>
+#include <isl/String.hxx>
 #include <vector>
 
 namespace isl
 {
-//! Base class for string formatting
+//! Base class for arguments formatting
 /*!
   Format token stucture:
     - <token_specifier><token_symbol>
     - <token_specifier>{<token_parameters>}<token_symbol>
 */
-template <typename Ch> class BasicFormat : public AbstractFormat<Ch>
+template <typename Ch> class BasicArgumentsFormatter : public AbstractFormatter<Ch>
 {
 public:
 	//! Constructs format object
@@ -21,15 +22,15 @@ public:
 	  \param format Format string
 	  \param tokenSpecifier Token specifier character (default is '$')
 	*/	
-	BasicFormat(const std::basic_string<Ch>& format, Ch tokenSpecifier = '$') :
-		AbstractFormat<Ch>(format),
+	BasicArgumentsFormatter(const std::basic_string<Ch>& format, Ch tokenSpecifier = '$') :
+		AbstractFormatter<Ch>(format),
 		_tokenSpecifier(tokenSpecifier),
 		_arguments(),
 		_curFormatSymbol(),
 		_curParams()
 	{}
-	BasicFormat() :
-		AbstractFormat<Ch>(),
+	BasicArgumentsFormatter() :
+		AbstractFormatter<Ch>(),
 		_tokenSpecifier('$'),
 		_arguments(),
 		_curFormatSymbol(),
@@ -41,21 +42,21 @@ public:
 	  \param argValue Argument value
 	  \return Reference to the format object
 	*/
-	typename isl::BasicFormat<Ch>& appendArgument(const Variant& argValue)
+	typename isl::BasicArgumentsFormatter<Ch>& appendArgument(const Variant& argValue)
 	{
 		_arguments.push_back(argValue);
 		return *this;
 	}
 	//! Appends argument to the format
 	/*!
-	  Alias for isl::BasicFormat<Ch>& appendArgument(const Variant&)
+	  Alias for isl::BasicArgumentsFormatter<Ch>& appendArgument(const Variant&)
 	*/
-	inline typename isl::BasicFormat<Ch>& arg(const Variant& argValue)
+	inline typename isl::BasicArgumentsFormatter<Ch>& arg(const Variant& argValue)
 	{
 		return appendArgument(argValue);
 	}
 	//! Clears format arguments
-	typename isl::BasicFormat<Ch>& resetArguments()
+	typename isl::BasicArgumentsFormatter<Ch>& resetArguments()
 	{
 		_arguments.clear();
 		return *this;
@@ -68,14 +69,14 @@ protected:
 	  \param tokenParams Format parameters
 	  \return String to substitute
 	*/
-	virtual std::basic_string<Ch> substitute(Ch tokenSymbol, const std::basic_string<Ch>& tokenParams = std::basic_string<Ch>()) const
-	{
+	virtual std::basic_string<Ch> substitute(Ch tokenSymbol, const std::basic_string<Ch>& tokenParams = std::basic_string<Ch>()) const;
+	/*{
 		unsigned int argNo = paramNoByChar(tokenSymbol);
 		if (argNo >= _arguments.size()) {
 			return std::basic_string<Ch>();
 		}
 		return _arguments[argNo].format(tokenParams);
-	}
+	}*/
 private:
 
 	inline bool isParamNoChar(Ch ch) const
@@ -93,53 +94,53 @@ private:
 		}
 	}
 
-	virtual typename isl::AbstractFormat<Ch>::TokenPosition findToken(size_t startPosition = 0) const
+	virtual typename isl::AbstractFormatter<Ch>::TokenPosition findToken(size_t startPosition = 0) const
 	{
-		typename isl::AbstractFormat<Ch>::TokenPosition result(startPosition, 0);
+		typename isl::AbstractFormatter<Ch>::TokenPosition result(startPosition, 0);
 		while (true) {
-			if (result.first >= (isl::AbstractFormat<Ch>::_format.length() - 1)) {
+			if (result.first >= (isl::AbstractFormatter<Ch>::_format.length() - 1)) {
 				result.first = std::basic_string<Ch>::npos;
 				return result;
 			}
 			// Finding format specifier:
-			result.first = isl::AbstractFormat<Ch>::_format.find(_tokenSpecifier, result.first);
+			result.first = isl::AbstractFormatter<Ch>::_format.find(_tokenSpecifier, result.first);
 			if (result.first == std::basic_string<Ch>::npos) {
 				return result;
 			}
-			if (result.first >= (isl::AbstractFormat<Ch>::_format.length() - 1)) {
+			if (result.first >= (isl::AbstractFormatter<Ch>::_format.length() - 1)) {
 				result.first = std::basic_string<Ch>::npos;
 				return result;
 			}
 			// Parsing token
 			result.second = 2;
-			if (isl::AbstractFormat<Ch>::_format[result.first + result.second - 1] == _tokenSpecifier) {
+			if (isl::AbstractFormatter<Ch>::_format[result.first + result.second - 1] == _tokenSpecifier) {
 				// Returning "<specifier><specifier>" if found
 				return result;
-			} else if (isParamNoChar(isl::AbstractFormat<Ch>::_format[result.first + result.second - 1])) {
-				_curFormatSymbol = isl::AbstractFormat<Ch>::_format[result.first + result.second - 1];
+			} else if (isParamNoChar(isl::AbstractFormatter<Ch>::_format[result.first + result.second - 1])) {
+				_curFormatSymbol = isl::AbstractFormatter<Ch>::_format[result.first + result.second - 1];
 				_curParams = std::basic_string<Ch>();
 				return result;
-			} else if (isl::AbstractFormat<Ch>::_format[result.first + result.second - 1] == '{') {
+			} else if (isl::AbstractFormatter<Ch>::_format[result.first + result.second - 1] == '{') {
 				// Parsing format parameters
 				int internalLevelsCount = 0;
 				while (true) {
 					++result.second;
-					if ((result.first + result.second) > isl::AbstractFormat<Ch>::_format.length()) {
+					if ((result.first + result.second) > isl::AbstractFormatter<Ch>::_format.length()) {
 						result.first = std::basic_string<Ch>::npos;
 						return result;
 					}
-					if (isl::AbstractFormat<Ch>::_format[result.first + result.second - 1] == '{') {
+					if (isl::AbstractFormatter<Ch>::_format[result.first + result.second - 1] == '{') {
 						++internalLevelsCount;
-					} else if ((isl::AbstractFormat<Ch>::_format[result.first + result.second - 1] == '}')) {
+					} else if ((isl::AbstractFormatter<Ch>::_format[result.first + result.second - 1] == '}')) {
 						if (internalLevelsCount <= 0) {
-							if ((result.first + result.second + 1) > isl::AbstractFormat<Ch>::_format.length()) {
+							if ((result.first + result.second + 1) > isl::AbstractFormatter<Ch>::_format.length()) {
 								result.first = std::basic_string<Ch>::npos;
 								return result;
 							}
-							if (isParamNoChar(isl::AbstractFormat<Ch>::_format[result.first + result.second])) {
+							if (isParamNoChar(isl::AbstractFormatter<Ch>::_format[result.first + result.second])) {
 								++result.second;
-								_curParams = isl::AbstractFormat<Ch>::_format.substr(result.first + 2, result.second - 4);
-								_curFormatSymbol = isl::AbstractFormat<Ch>::_format[result.first + result.second - 1];
+								_curParams = isl::AbstractFormatter<Ch>::_format.substr(result.first + 2, result.second - 4);
+								_curFormatSymbol = isl::AbstractFormatter<Ch>::_format[result.first + result.second - 1];
 								return result;
 							} else {
 								result.first += (result.second + 1);
@@ -175,17 +176,27 @@ private:
 };
 
 //! Method specialization for one byte character strings
-template <> std::basic_string<char> BasicFormat<char>::substitute(char tokenSymbol, const std::basic_string<char>& tokenParams) const
+template <> std::basic_string<char> BasicArgumentsFormatter<char>::substitute(char tokenSymbol, const std::basic_string<char>& tokenParams) const
 {
 	unsigned int argNo = paramNoByChar(tokenSymbol);
 	if (argNo >= _arguments.size()) {
 		return std::basic_string<char>();
 	}
-	return Utf8TextCodec().encode(_arguments[argNo].format(Utf8TextCodec().decode(tokenParams)));
+	return String::utf8Encode(_arguments[argNo].format(String::utf8Decode(tokenParams)));
 }
 
-typedef BasicFormat<char> Format;		//! Format definition for one byte character strings
-typedef BasicFormat<wchar_t> WFormat;		//! Format definition for wide character strings
+//! Method specialization for one wide character strings
+template <> std::basic_string<wchar_t> BasicArgumentsFormatter<wchar_t>::substitute(wchar_t tokenSymbol, const std::basic_string<wchar_t>& tokenParams) const
+{
+	unsigned int argNo = paramNoByChar(tokenSymbol);
+	if (argNo >= _arguments.size()) {
+		return std::basic_string<wchar_t>();
+	}
+	return _arguments[argNo].format(tokenParams);
+}
+
+typedef BasicArgumentsFormatter<char> ArgumentsFormatter;		//! For one byte character strings
+typedef BasicArgumentsFormatter<wchar_t> WArgumentsFormatter;		//! For wide character strings
 
 } // namespace isl
 

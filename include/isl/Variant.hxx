@@ -36,34 +36,60 @@ public:
 	static AbstractVariantFormatter * createFormatter();
 };
 
-/*------------------------------------------------------------------------------
- * Variant
- * ---------------------------------------------------------------------------*/
+//! C++ extensible Variant implementation with user types support
+/*!
+    In order to "variantize" variables of your type you should:
 
+    - Implement an isl::AbstractVariantFormatter's descensdant which should know how to format variables of your type;
+    - Reserve an integer value as an ID for your type (should be not less than isl::Variant::UserType);
+    - Specialize isl::VariantOperator<T> class definition for your type, where you should define:
+      - How to serialize values of your type by redefinintion of std::wstring isl::VariantOperator<T>::serialize(const T& value);
+      - How to deserialize values of your type by redefinintion of T isl::VariantOperator<T>::deserialize(const std::wstring& serializedValue);
+      - What ID to return for your type by redefinintion of int isl::VariantOperator<T>::typeId();
+      - What formatter to create for your type by redefinition of AbstractVariantFormatter * isl::VariantOperator<T>::createFormatter().
+
+    Note: String variant values should be constructed in the followed manner:
+
+<pre>...
+isl::Variant v1(std::string("Variant with one byte character string"));
+isl::Variant v2(std::wstring(L"Variant with wide character string"));
+...</pre>
+*/
 class Variant
 {
 public:
-	enum Type {
+	//! IDs for supported variant value types
+	enum TypeId {
+		//! Special type for NULL values
 		NullType = 0x00,
+		//! Integer variant type ID
 		IntegerType = 0x01,
+		//! Double variant type ID
 		DoubleType = 0x02,
+		//! String variant type ID
 		StringType = 0x03,
+		//! Wide String variant type ID
 		WStringType = 0x04,
 		// TODO Other types
-		// User types should start from here:
+		//! Lower boundary for user variant type IDs
 		UserType = 0x80
 	};
 
 	Variant();
+	//! Type-based copying constructor
 	template <typename T> Variant(const T& value);
+	//! Copying constructor
 	Variant(const Variant& rhs);
 
+	//! Assignment operator
 	Variant& operator=(const Variant& rhs);
 
+	//! Returns true if the Variant holds NULL value
 	bool isNull() const
 	{
 		return _typeId == NullType;
 	}
+	//! Fetches value of the requested type
 	template <typename T> T value() const
 	{
 		if ((_typeId != VariantOperator<T>::typeId()) || (_typeId == NullType)) {
@@ -71,22 +97,29 @@ public:
 		}
 		return VariantOperator<T>::deserialize(_serializedValue);
 	}
+	//! Sets value
 	template <typename T> void setValue(const T& newValue)
 	{
 		_formatter.reset(VariantOperator<T>::createFormatter());
 		_typeId = VariantOperator<T>::typeId();
 		_serializedValue = VariantOperator<T>::serialize(newValue);
 	}
+	//! Type-based assignment operator
 	template <typename T> Variant& operator=(const T& newValue)
 	{
 		setValue<T>(newValue);
 		return *this;
 	}
+	//! Resets Variant to be holding NULL value
 	void resetValue();
+	//! Returns serialized repesentation of the value
 	inline std::wstring serializedValue() const
 	{
 		return _serializedValue;
 	}
+	//! Formats Variant's value to one byte character string
+	inline std::string format(const std::string& fmt) const;
+	//! Formats Variant's value to wide character string
 	inline std::wstring format(const std::wstring& fmt) const;
 private:
 	int _typeId;
@@ -107,7 +140,7 @@ public:
 	{}
 
 	virtual AbstractVariantFormatter * clone() const = 0;
-	virtual std::wstring format(const Variant& var, const std::wstring& fmt) const = 0;
+	virtual std::wstring compose(const Variant& var, const std::wstring& fmt) const = 0;
 };
 
 class NullVariantFormatter : public AbstractVariantFormatter
@@ -121,9 +154,9 @@ public:
 	{
 		return new NullVariantFormatter(*this);
 	}
-	virtual std::wstring format(const Variant& var, const std::wstring& fmt) const
+	virtual std::wstring compose(const Variant& var, const std::wstring& fmt) const
 	{
-		return L"[NULL]";
+		return L"[null]";
 	}
 };
 
@@ -175,9 +208,14 @@ void Variant::resetValue()
 	_serializedValue.clear();
 }
 
+std::string Variant::format(const std::string& fmt) const
+{
+	return (_formatter.get()) ? String::utf8Encode(_formatter->compose(*this, String::utf8Decode(fmt))) : std::string("[ERROR: Empty formatter!]");
+}
+
 std::wstring Variant::format(const std::wstring& fmt) const
 {
-	return (_formatter.get()) ? _formatter->format(*this, fmt) : std::wstring(L"[ERROR: Empty formatter!]");
+	return (_formatter.get()) ? _formatter->compose(*this, fmt) : std::wstring(L"[ERROR: Empty formatter!]");
 }
 
 /*------------------------------------------------------------------------------
@@ -199,7 +237,7 @@ public:
 	{
 		return new IntegerVariantFormatter(*this);
 	}
-	virtual std::wstring format(const Variant& var, const std::wstring& fmt) const
+	virtual std::wstring compose(const Variant& var, const std::wstring& fmt) const
 	{
 		// TODO Handle fmt
 		return var.serializedValue();
@@ -245,7 +283,7 @@ public:
 	{
 		return new DoubleVariantFormatter(*this);
 	}
-	virtual std::wstring format(const Variant& var, const std::wstring& fmt) const
+	virtual std::wstring compose(const Variant& var, const std::wstring& fmt) const
 	{
 		// TODO Handle fmt
 		return var.serializedValue();
@@ -291,7 +329,7 @@ public:
 	{
 		return new StringVariantFormatter(*this);
 	}
-	virtual std::wstring format(const Variant& var, const std::wstring& fmt) const
+	virtual std::wstring compose(const Variant& var, const std::wstring& fmt) const
 	{
 		// TODO Handle fmt
 		return var.serializedValue();
@@ -332,7 +370,7 @@ public:
 	{
 		return new WStringVariantFormatter(*this);
 	}
-	virtual std::wstring format(const Variant& var, const std::wstring& fmt) const
+	virtual std::wstring compose(const Variant& var, const std::wstring& fmt) const
 	{
 		// TODO Handle fmt
 		return var.serializedValue();

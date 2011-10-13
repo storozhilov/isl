@@ -1,5 +1,5 @@
-#ifndef ISL__ABSTRACT_FORMAT__HXX
-#define ISL__ABSTRACT_FORMAT__HXX
+#ifndef ISL__ABSTRACT_FORMATER__HXX
+#define ISL__ABSTRACT_FORMATER__HXX
 
 #include <string>
 
@@ -10,7 +10,7 @@ namespace isl
 /*!
   In order to implement your custom format you should override findToken() and substituteToken() methods
 */
-template <typename Ch> class AbstractFormat
+template <typename Ch> class AbstractFormatter
 {
 protected:
 	//! Token position: <token_start_position, token_length>
@@ -20,14 +20,14 @@ public:
 	/*!
 	  \param format Format string
 	*/
-	AbstractFormat(const std::basic_string<Ch>& format = std::basic_string<Ch>()) :
+	AbstractFormatter(const std::basic_string<Ch>& format = std::basic_string<Ch>()) :
 		_format(format)
 	{}
-	virtual ~AbstractFormat()
+	virtual ~AbstractFormatter()
 	{}
 	
 	//! Returns format string
-	std::basic_string<Ch> format() const
+	inline std::basic_string<Ch> format() const
 	{
 		return _format;
 	}
@@ -35,7 +35,7 @@ public:
 	/*!
 	  \param newFormat New format string value
 	*/
-	void setFormat(const std::basic_string<Ch>& newFormat)
+	inline void setFormat(const std::basic_string<Ch>& newFormat)
 	{
 		_format = newFormat;
 	}
@@ -79,7 +79,7 @@ protected:
 
 	std::basic_string<Ch> _format;
 //private:
-//	AbstractFormat();
+//	AbstractFormatter();
 };
 
 } // namespace isl
