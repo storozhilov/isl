@@ -23,7 +23,7 @@ FileLogDevice::FileLogDevice(const std::string& fileName) :
 	_fileDescriptor(0),
 	_fileDeviceID(0),
 	_fileINodeNumber(0),
-	firstLineFormat(*this, &FileLogDevice::substitute, L"%t: %s"),
+	_firstLineFormat(*this, &FileLogDevice::substitute, L"%t: %s"),
 	_firstLinePrefixedFormat(*this, &FileLogDevice::substitute, L"%t: [%p] %s"),
 	_secondLineFormat(*this, &FileLogDevice::substitute, L"%t> %s"),
 	_secondLinePrefixedFormat(*this, &FileLogDevice::substitute, L"%t> [%p] %s"),
@@ -54,7 +54,7 @@ std::wstring FileLogDevice::substitute(wchar_t fmt, const std::wstring& param)
 {
 	switch (fmt) {
 		case L't':
-			return _timestampNew.toString(L"%2Y-%1M-%1D %1h:%1m:%1s.%1z");
+			return _timestampNew.toWString(L"%Y-%m-%d %H:%M:%S");
 		case L's':
 			return _currentLineNew;
 		case L'p':
@@ -85,6 +85,8 @@ bool FileLogDevice::serving(const AbstractLogTarget * target) const
 
 void FileLogDevice::writeMessage(const std::wstring& prefix, const std::wstring& msg)
 {
+	// TODO Use 'isl::ArgumentsFormatter' class
+	//static const char * firstLineFormat = ""
 	_timestampNew = DateTime::now();
 	_prefixNew = prefix;
 	bool isFirstLine = true;
@@ -97,7 +99,7 @@ void FileLogDevice::writeMessage(const std::wstring& prefix, const std::wstring&
 		curPos = (endlPos == std::wstring::npos) ? std::wstring::npos : ((crlfPos < crPos) ? endlPos + 2 : endlPos + 1);
 		std::string stringToWrite;
 		if (isFirstLine) {
-			stringToWrite = String::utf8Encode((_prefixNew.empty()) ? firstLineFormat.str() : _firstLinePrefixedFormat.str());
+			stringToWrite = String::utf8Encode((_prefixNew.empty()) ? _firstLineFormat.str() : _firstLinePrefixedFormat.str());
 		} else {
 			stringToWrite = String::utf8Encode((_prefixNew.empty()) ? _secondLineFormat.str() : _secondLinePrefixedFormat.str());
 		}

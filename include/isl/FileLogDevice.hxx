@@ -33,7 +33,7 @@ private:
 	int _fileDeviceID;
 	int _fileINodeNumber;
 
-	FormattedWString<FileLogDevice> firstLineFormat;
+	FormattedWString<FileLogDevice> _firstLineFormat;
 	FormattedWString<FileLogDevice> _firstLinePrefixedFormat;
 	FormattedWString<FileLogDevice> _secondLineFormat;
 	FormattedWString<FileLogDevice> _secondLinePrefixedFormat;

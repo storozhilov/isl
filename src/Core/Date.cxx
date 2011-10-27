@@ -1,8 +1,10 @@
 #include <isl/Date.hxx>
+#include <isl/Exception.hxx>
+#include <isl/SystemCallError.hxx>
 #include <algorithm>
-#include <sstream>
-#include <iomanip>
 #include <time.h>
+#include <sys/time.h>
+#include <errno.h>
 
 namespace isl
 {
@@ -11,8 +13,10 @@ namespace isl
  * Date
  * ---------------------------------------------------------------------------*/
 
-const char * Date::monthGMTNames[] = { "", "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec" };
-const char * Date::daysOfWeekGMTNames[] = {"", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"};
+const char * Date::IsoInputFormat = "%Y-%m-%d";
+const wchar_t * Date::IsoInputWFormat = L"%Y-%m-%d";
+const char * Date::IsoOutputFormat = "%Y-%m-%d";
+const wchar_t * Date::IsoOutputWFormat = L"%Y-%m-%d";
 const int Date::_monthDays[] = { 0, 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31 };
 
 Date::Date() :
@@ -46,8 +50,9 @@ int Date::day() const
 	return _day;
 }
 
-int Date::dayOfWeek() const
+int Date::dayOfWeek(bool mondayStartsWeek) const
 {
+	// TODO Handle 'mondayStartsWeek' param
 	if (_dayNumber < 0) {
 		return ((_dayNumber - 2) % 7) + 7;
 	} else if (_dayNumber > 0) {
@@ -62,14 +67,15 @@ int Date::dayOfYear() const
 	return (_dayNumber - Date(_year, 1, 1)._dayNumber + 1);
 }
 
-int Date::weekNumber() const
+int Date::weekNumber(bool mondayStartsWeek) const
 {
 	int actualYear;
-	return weekNumber(actualYear);
+	return weekNumber(actualYear, mondayStartsWeek);
 }
 	
-int Date::weekNumber(int& actualYear) const
+int Date::weekNumber(int& actualYear, bool mondayStartsWeek) const
 {
+	// TODO Handle 'mondayStartsWeek' param
 	if (isNull()) {
 		return 0;
 	}
@@ -220,14 +226,40 @@ Date Date::addYears(int nyears) const
 	return Date(y, _month, std::min(_day, daysInMonth(y, _month)));
 }
 
-std::wstring Date::toString(const std::wstring& format) const
+std::string Date::toString(const std::string& format) const
 {
 	if (isNull()) {
-		return L"null";
+		return "[null]";
 	}
-	Formatter formatter(*this);
-	FormattedWString<Formatter> fs(formatter, &Formatter::substitute, format);
-	return fs.str();
+	tm bdt;
+	bdt.tm_sec = 0;
+	bdt.tm_min = 0;
+	bdt.tm_hour = 0;
+	bdt.tm_mday = day();
+	bdt.tm_mon = month() - 1;
+	bdt.tm_year = year() - 1900;
+	bdt.tm_wday = dayOfWeek(false) - 1;
+	bdt.tm_yday = dayOfYear() - 1;
+	bdt.tm_isdst = 0;
+	bdt.tm_gmtoff = 0;
+	bdt.tm_zone = 0;
+	char buf[FormatBufferSize];
+	size_t len = strftime(buf, FormatBufferSize, format.c_str(), &bdt);
+	if (len <= 0) {
+		throw Exception(SystemCallError(SOURCE_LOCATION_ARGS, SystemCallError::StrFTime, errno, L"Time formatting error"));
+	}
+	return std::string(buf, len);
+}
+
+std::wstring Date::toWString(const std::wstring& format) const
+{
+	return String::utf8Decode(toString(String::utf8Encode(format)));
+}
+
+time_t Date::secondsFromEpoch() const
+{
+	Date epoch(1970, 1, 1);
+	return epoch.daysTo(*this) * SecondsPerDay;
 }
 
 bool Date::operator==(const Date& other) const
@@ -303,14 +335,50 @@ int Date::daysInMonth(int year, int month)
 		return (month == 2 && isLeapYear(year)) ? 29 : _monthDays[month];
 	}
 }
+
+Date Date::fromSecondsFromEpoch(time_t nsecs, bool isLocalTime)
+{
+	tm bdt;
+	if (isLocalTime) {
+		if (localtime_r(&nsecs, &bdt) == NULL) {
+			throw Exception(SystemCallError(SOURCE_LOCATION_ARGS, SystemCallError::LocalTimeR, errno, L"Error converting time_t to local time"));
+		}
+	} else {
+		if (gmtime_r(&nsecs, &bdt) == NULL) {
+			throw Exception(SystemCallError(SOURCE_LOCATION_ARGS, SystemCallError::LocalTimeR, errno, L"Error converting time_t to GMT"));
+		}
+	}
+	return Date(bdt.tm_year + 1900, bdt.tm_mon + 1, bdt.tm_mday);
+}
+
 Date Date::now()
 {
-	time_t curTime;
-	time(&curTime);
-	tzset();
-	tm localTime;
-	localtime_r(&curTime, &localTime);
-	return Date(localTime.tm_year + 1900, localTime.tm_mon + 1, localTime.tm_mday);
+	struct timeval tv;
+	struct timezone tz;
+	if (gettimeofday(&tv, &tz) != 0) {
+		throw Exception(SystemCallError(SOURCE_LOCATION_ARGS, SystemCallError::GetTimeOfDay, errno, L"Fetching time of day error"));
+	}
+	tm bdt;
+	if (localtime_r(&(tv.tv_sec), &bdt) == NULL) {
+		throw Exception(SystemCallError(SOURCE_LOCATION_ARGS, SystemCallError::LocalTimeR, errno, L"Error converting time_t to local time"));
+	}
+	return Date(bdt.tm_year + 1900, bdt.tm_mon + 1, bdt.tm_mday);
+}
+
+Date Date::fromString(const std::string& str, const std::string& fmt)
+{
+	tm bdt;
+	memset(&bdt, 0, sizeof(struct tm));
+	// TODO Correct parsing error handling!
+	if (strptime(str.c_str(), fmt.c_str(), &bdt) == NULL) {
+		throw Exception(SystemCallError(SOURCE_LOCATION_ARGS, SystemCallError::StrPTime, errno, L"Error parsing date value"));
+	}
+	return Date(bdt.tm_year + 1900, bdt.tm_mon + 1, bdt.tm_mday);
+}
+
+Date Date::fromWString(const std::wstring& str, const std::wstring& fmt)
+{
+	return fromString(String::utf8Encode(str), String::utf8Encode(fmt));
 }
 
 int Date::dayNumberFromDate(int year, int month, int day)
@@ -394,70 +462,6 @@ void Date::dateFromDayNumber(int dayNumber, int& year, int& month, int& day)
 		month = 0;
 		day = 0;
 	}
-}
-
-/*------------------------------------------------------------------------------
- * Date::Formatter
- * ---------------------------------------------------------------------------*/
-
-Date::Formatter::Formatter(const Date& date) :
-	_date(date)
-{}
-
-std::wstring Date::Formatter::substitute(wchar_t fmt, const std::wstring& param)
-{
-	std::wostringstream sstr;
-	switch (fmt) {
-		case L'D':
-			if (param == L"1") {						// Day of month with leading zero
-				sstr << std::setfill(L'0') << std::setw(2) << _date._day;
-			} else if (param.empty()) {					// Day of month
-				sstr << _date._day;
-			} else {
-				sstr << L"[Unknown format parameters: '" << param << L"']";
-			}
-			break;
-		case L'M':
-			if (param == L"1") {						// Month number with leading zero
-				sstr << std::setfill(L'0') << std::setw(2) << _date._month;
-			} else if (param == L"2") {					// Month GMT name
-				sstr << Date::monthGMTNames[_date._month];
-			} else if (param.empty()) {					// Month number
-				sstr << _date._month;
-			} else {
-				sstr << L"[Unknown format parameters: '" << param << L"']";
-			}
-			break;
-		case L'Y':
-			if (param == L"1") {						// Year number as two digits with leading zero
-				if (_date._year >= 2000 && _date._year < 2100) {
-					sstr << std::setfill(L'0') << std::setw(2) << (_date._year / 2);
-				} else {
-					sstr << _date._year;
-				}
-			} else if (param == L"2") {					// Year number as for digits with leading zeros
-				sstr << std::setfill(L'0') << std::setw(4) << _date._year;
-			} else if (param.empty()) {					// Year number
-				sstr << _date._year;
-			} else {
-				sstr << L"[Unknown format parameters: '" << param << L"']";
-			}
-			break;
-		case L'W':
-			if (param == L"1") {						// Week number
-				sstr << _date.weekNumber();
-			} else if (param == L"2") {					// Day of week GMT name
-				sstr << Date::daysOfWeekGMTNames[_date.dayOfWeek()];
-			} else if (param.empty()) {					// Day of week number
-				sstr << _date.dayOfWeek();
-			} else {
-				sstr << "L[Unknown format parameters: '" << param << L"']";
-			}
-			break;
-		default:
-			sstr << L"[Unknown format symbol: '" << fmt << L"']";
-	}
-	return sstr.str();
 }
 
 } // namespace isl

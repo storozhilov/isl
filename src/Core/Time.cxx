@@ -1,192 +1,29 @@
 #include <isl/Time.hxx>
-#include <isl/AbstractDateTimeFormatter.hxx>
-#include <sstream>
-#include <iomanip>
+#include <isl/Exception.hxx>
+#include <isl/SystemCallError.hxx>
 #include <sys/time.h>
+#include <errno.h>
 
 namespace isl
 {
 
 /*------------------------------------------------------------------------------
- * BasicTimeFormatter
- * ---------------------------------------------------------------------------*/
-
-template <typename Ch> class BasicTimeFormatter : public AbstractDateTimeFormatter<Ch>
-{
-public:
-	BasicTimeFormatter(const std::basic_string<Ch>& format, const Time& time, Ch tokenSpecifier = '%') :
-		AbstractDateTimeFormatter<Ch>(format, tokenSpecifier),
-		_time(time)
-	{}
-private:
-	BasicTimeFormatter();
-
-	virtual std::basic_string<Ch> substitute(Ch tokenSymbol) const;
-
-	const Time& _time;
-};
-
-typedef BasicTimeFormatter<char> TimeFormatter;
-typedef BasicTimeFormatter<wchar_t> WTimeFormatter;
-
-template <> std::string TimeFormatter::substitute(char tokenSymbol) const
-{
-	std::ostringstream oss;
-	switch (tokenSymbol) {
-		case 'H':
-			// hour (00..23)
-			oss << std::setfill('0') << std::setw(2) << _time.hour();
-			break;
-		case 'I':
-			// hour (01..12)
-			oss << std::setfill('0') << std::setw(2) << ((_time.hour() > 12) ? _time.hour() - 12 : _time.hour());
-			break;
-		case 'k':
-			// hour ( 0..23)
-			oss << _time.hour();
-			break;
-		case 'l':
-			// hour ( 1..12)
-			oss << ((_time.hour() > 12) ? _time.hour() - 12 : _time.hour());
-			break;
-		case 'M':
-			// minute (00..59)
-			oss << std::setfill('0') << std::setw(2) << _time.minute();
-			break;
-		case 'n':
-			// a newline
-			oss << '\n';
-		case 'N':
-			// nanoseconds (000000000..999999999)
-			// TODO
-			oss << "['" << tokenSymbol << "' token is not implemented yet]";
-			break;
-		case 'p':
-			// locale's equivalent of either AM or PM; blank if not known
-			// TODO
-			oss << "['" << tokenSymbol << "' token is not implemented yet]";
-			break;
-		case 'P':
-			// like %p, but lower case
-			// TODO
-			oss << "['" << tokenSymbol << "' token is not implemented yet]";
-			break;
-		case 'r':
-			// locale's 12-hour clock time (e.g., 11:11:04 PM)
-			// TODO
-			oss << "['" << tokenSymbol << "' token is not implemented yet]";
-			break;
-		case 'R':
-			// 24-hour hour and minute; same as %H:%M
-			oss << std::setfill('0') << std::setw(2) << _time.hour() << ':' << std::setw(2) << _time.minute();
-			break;
-		case 's':
-			// seconds since 1970-01-01 00:00:00 UTC
-			// TODO
-			oss << "['" << tokenSymbol << "' token is not implemented yet]";
-			break;
-		case 'S':
-			// second (00..60)
-			oss << std::setfill('0') << std::setw(2) << _time.second();
-			break;
-		case 't':
-			// a tab
-			oss << '\t';
-		case 'T':
-			// time; same as %H:%M:%S
-			oss << std::setfill('0') << std::setw(2) << _time.hour() << ':' <<
-				std::setw(2) << _time.minute() << ':' << std::setw(2) << _time.second();
-			break;
-		default:
-			oss << "[Invalid token: '" << tokenSymbol << "']";
-	}
-	return oss.str();
-}
-
-template <> std::wstring WTimeFormatter::substitute(wchar_t tokenSymbol) const
-{
-	std::wostringstream oss;
-	switch (tokenSymbol) {
-		case 'H':
-			// hour (00..23)
-			oss << std::setfill(L'0') << std::setw(2) << _time.hour();
-			break;
-		case 'I':
-			// hour (01..12)
-			oss << std::setfill(L'0') << std::setw(2) << ((_time.hour() > 12) ? _time.hour() - 12 : _time.hour());
-			break;
-		case 'k':
-			// hour ( 0..23)
-			oss << _time.hour();
-			break;
-		case 'l':
-			// hour ( 1..12)
-			oss << ((_time.hour() > 12) ? _time.hour() - 12 : _time.hour());
-			break;
-		case 'M':
-			// minute (00..59)
-			oss << std::setfill(L'0') << std::setw(2) << _time.minute();
-			break;
-		case 'n':
-			// a newline
-			oss << L'\n';
-		case 'N':
-			// nanoseconds (000000000..999999999)
-			// TODO
-			oss << L"['" << tokenSymbol << L"' token is not implemented yet]";
-			break;
-		case 'p':
-			// locale's equivalent of either AM or PM; blank if not known
-			// TODO
-			oss << L"['" << tokenSymbol << L"' token is not implemented yet]";
-			break;
-		case 'P':
-			// like %p, but lower case
-			// TODO
-			oss << L"['" << tokenSymbol << L"' token is not implemented yet]";
-			break;
-		case 'r':
-			// locale's 12-hour clock time (e.g., 11:11:04 PM)
-			// TODO
-			oss << L"['" << tokenSymbol << L"' token is not implemented yet]";
-			break;
-		case 'R':
-			// 24-hour hour and minute; same as %H:%M
-			oss << std::setfill(L'0') << std::setw(2) << _time.hour() << ':' << std::setw(2) << _time.minute();
-			break;
-		case 's':
-			// seconds since 1970-01-01 00:00:00 UTC
-			// TODO
-			oss << L"['" << tokenSymbol << L"' token is not implemented yet]";
-			break;
-		case 'S':
-			// second (00..60)
-			oss << std::setfill(L'0') << std::setw(2) << _time.second();
-			break;
-		case 't':
-			// a tab
-			oss << L'\t';
-		case 'T':
-			// time; same as %H:%M:%S
-			oss << std::setfill(L'0') << std::setw(2) << _time.hour() << L':' <<
-				std::setw(2) << _time.minute() << L':' << std::setw(2) << _time.second();
-			break;
-		default:
-			oss << L"[Invalid token: '" << tokenSymbol << L"']";
-	}
-	return oss.str();
-}
-
-/*------------------------------------------------------------------------------
  * Time
  * ---------------------------------------------------------------------------*/
 
+const char * Time::IsoInputFormat = "%H:%M:%S";
+const wchar_t * Time::IsoInputWFormat = L"%H:%M:%S";
+const char * Time::IsoOutputFormat = "%H:%M:%S";
+const wchar_t * Time::IsoOutputWFormat = L"%H:%M:%S";
+
 Time::Time() :
-	_millisecond(0)
+	_millisecond(NullTime),
+	_gmtOffset(0)
 {}
 
-Time::Time(int hour, int minute, int second, int millisecond) :
-	_millisecond(NullTime)
+Time::Time(int hour, int minute, int second, int millisecond, int gmtOffset) :
+	_millisecond(NullTime),
+	_gmtOffset(gmtOffset)
 {
 	setTime(hour, minute, second, millisecond);
 }
@@ -226,17 +63,34 @@ std::string Time::toString(const std::string& format) const
 	if (isNull()) {
 		return "[null]";
 	}
-	TimeFormatter formatter(format, *this);
-	return formatter.compose();
+	tm bdt;
+	bdt.tm_sec = second();
+	bdt.tm_min = minute();
+	bdt.tm_hour = hour();
+	bdt.tm_mday = 0;
+	bdt.tm_mon = 0;
+	bdt.tm_year = 0;
+	bdt.tm_wday = 0;
+	bdt.tm_yday = 0;
+	bdt.tm_isdst = 0;
+	bdt.tm_gmtoff = _gmtOffset;
+	bdt.tm_zone = 0;
+	char buf[FormatBufferSize];
+	size_t len = strftime(buf, FormatBufferSize, format.c_str(), &bdt);
+	if (len <= 0) {
+		throw Exception(SystemCallError(SOURCE_LOCATION_ARGS, SystemCallError::StrFTime, errno, L"Time formatting error"));
+	}
+	return std::string(buf, len);
 }
 
 std::wstring Time::toWString(const std::wstring& format) const
 {
-	if (isNull()) {
-		return L"[null]";
-	}
-	WTimeFormatter formatter(format, *this);
-	return formatter.compose();
+	return String::utf8Decode(toString(String::utf8Encode(format)));
+}
+
+time_t Time::secondsFromEpoch() const
+{
+	return _millisecond / 1000;
 }
 
 bool Time::setTime(int hour, int minute, int second, int millisecond)
@@ -330,15 +184,33 @@ int Time::elapsed() const
 	return n;
 }
 
+Time Time::fromSecondsFromEpoch(time_t nsecs, bool isLocalTime)
+{
+	tm bdt;
+	if (isLocalTime) {
+		if (localtime_r(&nsecs, &bdt) == NULL) {
+			throw Exception(SystemCallError(SOURCE_LOCATION_ARGS, SystemCallError::LocalTimeR, errno, L"Error converting time_t to local time"));
+		}
+	} else {
+		if (gmtime_r(&nsecs, &bdt) == NULL) {
+			throw Exception(SystemCallError(SOURCE_LOCATION_ARGS, SystemCallError::LocalTimeR, errno, L"Error converting time_t to GMT"));
+		}
+	}
+	return Time(bdt.tm_hour, bdt.tm_min, bdt.tm_sec, bdt.tm_gmtoff);
+}
+
 Time Time::now()
 {
 	struct timeval tv;
-	gettimeofday(&tv, 0);
-	time_t timeFromEpoch = tv.tv_sec;
-	tzset();
-	tm localTime;
-	localtime_r(&timeFromEpoch, &localTime);
-	return Time(localTime.tm_hour, localTime.tm_min, localTime.tm_sec, tv.tv_usec / 1000);
+	struct timezone tz;
+	if (gettimeofday(&tv, &tz) != 0) {
+		throw Exception(SystemCallError(SOURCE_LOCATION_ARGS, SystemCallError::GetTimeOfDay, errno, L"Fetching time of day error"));
+	}
+	tm bdt;
+	if (localtime_r(&(tv.tv_sec), &bdt) == NULL) {
+		throw Exception(SystemCallError(SOURCE_LOCATION_ARGS, SystemCallError::LocalTimeR, errno, L"Error converting time_t to local time"));
+	}
+	return Time(bdt.tm_hour, bdt.tm_min, bdt.tm_sec, tv.tv_usec / 1000, bdt.tm_gmtoff);
 }
 
 bool Time::operator==(const Time& other) const
@@ -396,58 +268,20 @@ bool Time::isValid(int hour, int minute, int second, int millisecond)
 	return false;
 }
 
-/*------------------------------------------------------------------------------
- * Time::Formatter
- * ---------------------------------------------------------------------------*/
-
-Time::Formatter::Formatter(const Time& time) :
-	_time(time)
-{}
-
-std::wstring Time::Formatter::substitute(wchar_t fmt, const std::wstring& param)
+Time Time::fromString(const std::string& str, const std::string& fmt)
 {
-	std::wostringstream sstr;
-	switch (fmt) {
-		case L'h':
-			if (param == L"1") {						// Hour with leading zero
-				sstr << std::setfill(L'0') << std::setw(2) << _time.hour();
-			} else if (param.empty()) {					// Hour
-				sstr << _time.hour();
-			} else {
-				sstr << L"[Unknown format parameters: '" << param << L"']";
-			}
-			break;
-		case L'm':
-			if (param == L"1") {						// Minute with leading zero
-				sstr << std::setfill(L'0') << std::setw(2) << _time.minute();
-			} else if (param.empty()) {					// Minute
-				sstr << _time.minute();
-			} else {
-				sstr << L"[Unknown format parameters: '" << param << L"']";
-			}
-			break;
-		case L's':
-			if (param == L"1") {						// Second with leading zero
-				sstr << std::setfill(L'0') << std::setw(2) << _time.second();
-			} else if (param.empty()) {					// Second
-				sstr << _time.second();
-			} else {
-				sstr << L"[Unknown format parameters: '" << param << L"']";
-			}
-			break;
-		case L'z':
-			if (param == L"1") {						// Milliseconds with two leading zeros
-				sstr << std::setfill(L'0') << std::setw(3) << _time.msecond();
-			} else if (param.empty()) {					// Milliseconds
-				sstr << _time.msecond();
-			} else {
-				sstr << L"[Unknown format parameters: '" << param << L"']";
-			}
-			break;
-		default:
-			sstr << L"[Unknown format symbol: '" << fmt << L"']";
+	tm bdt;
+	memset(&bdt, 0, sizeof(struct tm));
+	// TODO Correct parsing error handling!
+	if (strptime(str.c_str(), fmt.c_str(), &bdt) == NULL) {
+		throw Exception(SystemCallError(SOURCE_LOCATION_ARGS, SystemCallError::StrPTime, errno, L"Error parsing time value"));
 	}
-	return sstr.str();
+	return Time(bdt.tm_hour, bdt.tm_min, bdt.tm_sec);
+}
+
+Time Time::fromWString(const std::wstring& str, const std::wstring& fmt)
+{
+	return fromString(String::utf8Encode(str), String::utf8Encode(fmt));
 }
 
 } // namespace isl

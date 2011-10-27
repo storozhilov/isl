@@ -8,8 +8,10 @@
 #include <isl/HttpError.hxx>
 #include <isl/FileLogTarget.hxx>
 #include <isl/Core.hxx>
+#include <isl/DateTime.hxx>
 #include <isl/Time.hxx>
-#include <isl/ArgumentsFormatter.hxx>
+#include <isl/Date.hxx>
+#include <isl/VariantFormatter.hxx>
 //#include <isl/Timeout.hxx>
 //#include <isl/FileLogTarget.hxx>
 //#include <isl/Core.hxx>
@@ -37,9 +39,30 @@
 //#define BUFFERED_READING false
 #define BUFFERED_READING true
 
+void testDateTime()
+{
+	const wchar_t * wfmt = L"%Y-%m-%d %H:%M:%S %z";
+	isl::DateTime dt1 = isl::DateTime::now();
+	std::wcout << dt1.toWString(wfmt) << std::endl;
+	std::wcout << dt1.toWString(isl::DateTime::HttpOutputWFormat) << std::endl;
+	isl::Time t1 = isl::Time::now();
+	std::wcout << t1.toWString(wfmt) << std::endl;
+}
+
+void testVariant()
+{
+	isl::Variant v(1);
+	std::wcout << isl::VariantWFormatter(L"int value = $0, string value = '$1', double value = $2, date value = $3, time value = $4, datetime value = $5").arg(isl::Variant(1)).arg(isl::Variant(std::wstring(L"FooBar"))).arg(isl::Variant(24.5)).arg(isl::Variant(isl::Date::now())).arg(isl::Variant(isl::Time::now())).arg(isl::Variant(isl::DateTime::now())).compose() << std::endl;
+	//std::cout << isl::ArgumentsFormatter("int value = $0, string value = '$1'").arg(isl::Variant(1)).arg(isl::Variant(std::string("FooBar"))).compose() << std::endl;
+	//std::cout << isl::ArgumentsFormatter("int value = $0, string value = '$1'").arg(isl::Variant(1)).arg(isl::Variant(std::wstring(L"FooBar"))).compose() << std::endl;
+}
+
 int main(int argc, char *argv[])
 {
 	std::cout << "Test executable has been started" << std::endl;
+
+	testDateTime();
+	testVariant();
 
 	/*isl::Core::debugLog.setPrefix(L"DEBUG");
 	isl::Core::debugLog.connectTarget(isl::FileLogTarget("test.log"));
@@ -61,17 +84,47 @@ int main(int argc, char *argv[])
 	std::wcout << e4.message() << std::endl;
 	std::wcout << e4.debug() << std::endl;*/
 
-	isl::Time t(isl::Time::now());
+	/*isl::Time t(isl::Time::now());
 	std::wcout << t.toWString(L"%H:%M:%S") << std::endl;
 	std::wcout << t.toWString(L"%I:%M:%S") << std::endl;
 	std::wcout << t.toWString(L"%l:%M:%S") << std::endl;
 	std::wcout << t.toWString(L"%T") << std::endl;
 	std::wcout << t.toWString(L"%R") << std::endl;
+	std::cout << t.toString("%H:%M:%S") << std::endl;
+	std::cout << t.toString("%I:%M:%S") << std::endl;
+	std::cout << t.toString("%l:%M:%S") << std::endl;
+	std::cout << t.toString("%T") << std::endl;
+	std::cout << t.toString("%R") << std::endl;
+
+	const wchar_t * wfmt = L"%b, %B, %a, %A, %C, %d, %D, %e, %F, %g, %G, %h, %j, %m, %u, %U, %V, %w, %W, %x, %y, %Y";
+	const char * fmt = "%b, %B, %a, %A, %C, %d, %D, %e, %F, %g, %G, %h, %j, %m, %u, %U, %V, %w, %W, %x, %y, %Y";
+	isl::Date d1(isl::Date::now());
+	isl::Date d2(1999, 12, 26);
+	isl::Date d3(1999, 12, 27);
+	isl::Date d4(2000, 1, 1);
+	std::wcout << d1.toWString(wfmt) << std::endl;
+	std::wcout << d2.toWString(wfmt) << std::endl;
+	std::wcout << d3.toWString(wfmt) << std::endl;
+	std::wcout << d4.toWString(wfmt) << std::endl;
+	std::cout << d1.toString(fmt) << std::endl;
+	std::cout << d2.toString(fmt) << std::endl;
+	std::cout << d3.toString(fmt) << std::endl;
+	std::cout << d4.toString(fmt) << std::endl;
+	//std::wcout << d1.secondsFromEpoch() << ", " << time(NULL) << std::endl;
+	//isl::Date d3(1999, 12, 26);
+	//std::wcout << d3.toWString(wfmt) << std::endl;
+	//isl::Date d4(1999, 12, 27);
+	//std::wcout << d4.toWString(wfmt) << std::endl;
+	//isl::Date d2(2000, 1, 1);
+	//std::wcout << d2.toWString(wfmt) << std::endl;
+	////isl::Date d5(1970, 1, 3);
+	//isl::Date d5(1969, 12, 31);
+	//std::wcout << d5.secondsFromEpoch() << std::endl;
 
 	//isl::Variant v(1);
 	std::wcout << isl::WArgumentsFormatter(L"int value = $0, string value = '$1', double value = $2").arg(isl::Variant(1)).arg(isl::Variant(std::wstring(L"FooBar"))).arg(isl::Variant(24.5)).compose() << std::endl;
 	//std::cout << isl::ArgumentsFormatter("int value = $0, string value = '$1'").arg(isl::Variant(1)).arg(isl::Variant(std::string("FooBar"))).compose() << std::endl;
-	//std::cout << isl::ArgumentsFormatter("int value = $0, string value = '$1'").arg(isl::Variant(1)).arg(isl::Variant(std::wstring(L"FooBar"))).compose() << std::endl;
+	//std::cout << isl::ArgumentsFormatter("int value = $0, string value = '$1'").arg(isl::Variant(1)).arg(isl::Variant(std::wstring(L"FooBar"))).compose() << std::endl;*/
 
 	/*isl::DebugLogMessage dlm(SOURCE_LOCATION_ARGS, L"Test message");
 	std::wcout << dlm.compose() << std::endl;

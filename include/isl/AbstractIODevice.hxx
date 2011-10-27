@@ -80,8 +80,16 @@ private:
 	AbstractIODevice& operator=(const AbstractIODevice&);						// No copy
 
 	enum PrivateConstants {
+#ifdef ISL__IO_DEVICE_READ_BUFFER_SIZE
+		ReadBufferSize = ISL__IO_DEVICE_READ_BUFFER_SIZE,
+#else
 		ReadBufferSize = 1024,
+#endif
+#ifdef ISL__IO_DEVICE_UNGET_BUFFER_SIZE
+		UngetBufferSize = ISL__IO_DEVICE_UNGET_BUFFER_SIZE
+#else
 		UngetBufferSize = 1024
+#endif
 	};
 
 	void readToReadBuffer(const Timeout& timeout = Timeout());

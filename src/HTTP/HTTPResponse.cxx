@@ -494,8 +494,7 @@ void HTTPResponse::NetworkBodyBuffer::sendChunk(bool isLastChunk)
 		responseHeader.erase("Set-Cookie");
 		responseHeader.erase("Transfer-Encoding");
 		// Setting common headers
-		// TODO Use AsciiTextCodec
-		responseHeader.insert(Header::value_type("Date", String::utf8Encode(DateTime::now().toGMT())));
+		responseHeader.insert(Header::value_type("Date", DateTime::now().toString(DateTime::HttpOutputFormat)));
 		responseHeader.insert(Header::value_type("Server", _response._serverSignature));
 		if (_response._task->connectionToBeClosed()) {
 			responseHeader.insert(Header::value_type("Connection", "close"));
@@ -513,8 +512,7 @@ void HTTPResponse::NetworkBodyBuffer::sendChunk(bool isLastChunk)
 		for (HTTPResponse::Cookies::const_iterator i = _response._cookies.begin(); i != _response._cookies.end(); ++i) {
 			std::string cookieHeaderFieldValue((*i).name + "=" + String::urlEncode((*i).value));
 			if ((*i).expires.isValid()) {
-				// TODO Use AsciiTextCodec
-				cookieHeaderFieldValue += ("; expires=" + String::utf8Encode((*i).expires.toGMT()));
+				cookieHeaderFieldValue += ("; expires=" + (*i).expires.toString(DateTime::HttpOutputFormat));
 			}
 			if (!(*i).path.empty()) {
 				cookieHeaderFieldValue += ("; path=" + String::urlEncode((*i).path));

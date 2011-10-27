@@ -1,5 +1,5 @@
-#ifndef ISL__ARGUMENTS_FORMATTER__HXX
-#define ISL__ARGUMENTS_FORMATTER__HXX
+#ifndef ISL__VARIANT_FORMATTER__HXX
+#define ISL__VARIANT_FORMATTER__HXX
 
 #include <isl/AbstractFormatter.hxx>
 #include <isl/Variant.hxx>
@@ -14,7 +14,7 @@ namespace isl
     - <token_specifier><token_symbol>
     - <token_specifier>{<token_parameters>}<token_symbol>
 */
-template <typename Ch> class BasicArgumentsFormatter : public AbstractFormatter<Ch>
+template <typename Ch> class BasicVariantFormatter : public AbstractFormatter<Ch>
 {
 public:
 	//! Constructs format object
@@ -22,14 +22,14 @@ public:
 	  \param format Format string
 	  \param tokenSpecifier Token specifier character (default is '$')
 	*/	
-	BasicArgumentsFormatter(const std::basic_string<Ch>& format, Ch tokenSpecifier = '$') :
+	BasicVariantFormatter(const std::basic_string<Ch>& format, Ch tokenSpecifier = '$') :
 		AbstractFormatter<Ch>(format),
 		_tokenSpecifier(tokenSpecifier),
 		_arguments(),
 		_curFormatSymbol(),
 		_curParams()
 	{}
-	BasicArgumentsFormatter() :
+	BasicVariantFormatter() :
 		AbstractFormatter<Ch>(),
 		_tokenSpecifier('$'),
 		_arguments(),
@@ -42,21 +42,21 @@ public:
 	  \param argValue Argument value
 	  \return Reference to the format object
 	*/
-	typename isl::BasicArgumentsFormatter<Ch>& appendArgument(const Variant& argValue)
+	typename isl::BasicVariantFormatter<Ch>& appendArgument(const Variant& argValue)
 	{
 		_arguments.push_back(argValue);
 		return *this;
 	}
 	//! Appends argument to the format
 	/*!
-	  Alias for isl::BasicArgumentsFormatter<Ch>& appendArgument(const Variant&)
+	  Alias for isl::BasicVariantFormatter<Ch>& appendArgument(const Variant&)
 	*/
-	inline typename isl::BasicArgumentsFormatter<Ch>& arg(const Variant& argValue)
+	inline typename isl::BasicVariantFormatter<Ch>& arg(const Variant& argValue)
 	{
 		return appendArgument(argValue);
 	}
 	//! Clears format arguments
-	typename isl::BasicArgumentsFormatter<Ch>& resetArguments()
+	typename isl::BasicVariantFormatter<Ch>& resetArguments()
 	{
 		_arguments.clear();
 		return *this;
@@ -70,13 +70,6 @@ protected:
 	  \return String to substitute
 	*/
 	virtual std::basic_string<Ch> substitute(Ch tokenSymbol, const std::basic_string<Ch>& tokenParams = std::basic_string<Ch>()) const;
-	/*{
-		unsigned int argNo = paramNoByChar(tokenSymbol);
-		if (argNo >= _arguments.size()) {
-			return std::basic_string<Ch>();
-		}
-		return _arguments[argNo].format(tokenParams);
-	}*/
 private:
 
 	inline bool isParamNoChar(Ch ch) const
@@ -176,7 +169,7 @@ private:
 };
 
 //! Method specialization for one byte character strings
-template <> std::basic_string<char> BasicArgumentsFormatter<char>::substitute(char tokenSymbol, const std::basic_string<char>& tokenParams) const
+template <> std::basic_string<char> BasicVariantFormatter<char>::substitute(char tokenSymbol, const std::basic_string<char>& tokenParams) const
 {
 	unsigned int argNo = paramNoByChar(tokenSymbol);
 	if (argNo >= _arguments.size()) {
@@ -186,7 +179,7 @@ template <> std::basic_string<char> BasicArgumentsFormatter<char>::substitute(ch
 }
 
 //! Method specialization for one wide character strings
-template <> std::basic_string<wchar_t> BasicArgumentsFormatter<wchar_t>::substitute(wchar_t tokenSymbol, const std::basic_string<wchar_t>& tokenParams) const
+template <> std::basic_string<wchar_t> BasicVariantFormatter<wchar_t>::substitute(wchar_t tokenSymbol, const std::basic_string<wchar_t>& tokenParams) const
 {
 	unsigned int argNo = paramNoByChar(tokenSymbol);
 	if (argNo >= _arguments.size()) {
@@ -195,8 +188,8 @@ template <> std::basic_string<wchar_t> BasicArgumentsFormatter<wchar_t>::substit
 	return _arguments[argNo].format(tokenParams);
 }
 
-typedef BasicArgumentsFormatter<char> ArgumentsFormatter;		//! For one byte character strings
-typedef BasicArgumentsFormatter<wchar_t> WArgumentsFormatter;		//! For wide character strings
+typedef BasicVariantFormatter<char> VariantFormatter;			//! For one byte character strings
+typedef BasicVariantFormatter<wchar_t> VariantWFormatter;		//! For wide character strings
 
 } // namespace isl
 

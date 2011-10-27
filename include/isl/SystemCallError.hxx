@@ -72,6 +72,9 @@ public:
 		Time,
 		GMTimeR,
 		LocalTimeR,
+		StrFTime,
+		StrPTime,
+		GetTimeOfDay,
 		// System calls
 		Fork,
 		GetPid,
@@ -214,6 +217,12 @@ public:
 				return L"gmtime(3)";
 			case LocalTimeR:
 				return L"localtime_r(3)";
+			case StrFTime:
+				return L"strftime(3)";
+			case StrPTime:
+				return L"strptime(3)";
+			case GetTimeOfDay:
+				return L"gettimeofday(2)";
 			// System calls
 			case Fork:
 				return L"fork(2)";
