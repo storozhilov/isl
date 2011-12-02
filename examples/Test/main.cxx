@@ -12,6 +12,7 @@
 #include <isl/Time.hxx>
 #include <isl/Date.hxx>
 #include <isl/VariantFormatter.hxx>
+#include <isl/HttpRequestStreamReader.hxx>
 //#include <isl/Timeout.hxx>
 //#include <isl/FileLogTarget.hxx>
 //#include <isl/Core.hxx>
@@ -35,7 +36,7 @@
 #define LISTEN_PORT 8081
 #define LISTEN_BACKLOG 10
 #define ACCEPT_SECONDS_TIMEOUT 1
-#define READ_SECONDS_TIMEOUT 5
+#define READ_SECONDS_TIMEOUT 60
 //#define BUFFERED_READING false
 #define BUFFERED_READING true
 
@@ -53,16 +54,91 @@ void testVariant()
 {
 	isl::Variant v(1);
 	std::wcout << isl::VariantWFormatter(L"int value = $0, string value = '$1', double value = $2, date value = $3, time value = $4, datetime value = $5").arg(isl::Variant(1)).arg(isl::Variant(std::wstring(L"FooBar"))).arg(isl::Variant(24.5)).arg(isl::Variant(isl::Date::now())).arg(isl::Variant(isl::Time::now())).arg(isl::Variant(isl::DateTime::now())).compose() << std::endl;
+	std::wcout << isl::VariantWFormatter(L"char value = $0, wchar_t value = $1").arg(isl::Variant('i')).arg(isl::Variant(L's')).compose() << std::endl;
+	std::wcout << isl::VariantWFormatter(L"char value = $0, wchar_t value = $1").arg('i').arg(L's').compose() << std::endl;
 	//std::cout << isl::ArgumentsFormatter("int value = $0, string value = '$1'").arg(isl::Variant(1)).arg(isl::Variant(std::string("FooBar"))).compose() << std::endl;
 	//std::cout << isl::ArgumentsFormatter("int value = $0, string value = '$1'").arg(isl::Variant(1)).arg(isl::Variant(std::wstring(L"FooBar"))).compose() << std::endl;
+}
+
+void testHttpRequestStreamReader()
+{
+	isl::TcpSocket s;
+	s.open();
+	s.bind(LISTEN_PORT);
+	s.listen(LISTEN_BACKLOG);
+	//char buf[BUFFER_SIZE];
+	while (true) {
+		isl::TcpSocket * ss = s.accept(isl::Timeout(ACCEPT_SECONDS_TIMEOUT));
+		if (!ss) {
+			std::cout << "Listen timeout has been expired" << std::endl;
+			continue;
+		}
+		isl::HttpRequestStreamReader r(*ss);
+		char buf[BUFFER_SIZE];
+		std::string body;
+		try {
+			while (!r.requestCompleted()) {
+				if (r.invalidRequest()) {
+					throw std::runtime_error("Invalid request");
+				}
+				unsigned int bytesRead = r.read(buf, BUFFER_SIZE, isl::Timeout(READ_SECONDS_TIMEOUT));
+				if (bytesRead > 0) {
+					body.append(buf, bytesRead);
+				}
+			}
+		} catch (std::exception& e) {
+			std::cerr << "Error occured: '" << e.what() << '\'' << std::endl;
+		} catch (...) {
+			std::cerr << "Unknown error occured." << std::endl;
+		}
+		std::cout << "HTTP-request has been read. Method: '" << r.method() << "', uri: '" << r.uri() << "', version: '" << r.version() << "'. Headers:" << std::endl;
+		isl::HttpRequestStreamReader::Header header = r.header();
+		for (isl::HttpRequestStreamReader::Header::const_iterator i = header.begin(); i != header.end(); ++i) {
+			std::cout << "\t'" << i->first << "': '" << i->second << '\'' << std::endl;
+		}
+		/*while (true) {
+			try {
+				ss->ungetChar('r');
+				ss->ungetChar('a');
+				SS->ungetChar('B');
+				ss->ungetChar('o');
+				ss->ungetChar('o');
+				ss->ungetChar('F');
+
+				if (BUFFERED_READING) {
+					unsigned int bytesRead = ss->read(buf, BUFFER_SIZE, isl::Timeout(READ_SECONDS_TIMEOUT));
+					if (bytesRead <= 0) {
+						std::cout << "Read timeout has been expired" << std::endl;
+					} else {
+						std::cout << std::string(buf, bytesRead) << std::endl;
+					}
+				} else {
+					char ch;
+					if (ss->getChar(ch, isl::Timeout(READ_SECONDS_TIMEOUT))) {
+						std::cout << ch;
+						if (ch == 10) {
+							std::cout << std::flush;
+						}
+					} else {
+						std::cout << "Read timeout has been expired" << std::endl;
+					}
+				}
+			} catch (isl::Exception& e) {
+				std::cerr << e.what() << std::endl;
+				break;
+			}
+		}*/
+		delete ss;
+	}
 }
 
 int main(int argc, char *argv[])
 {
 	std::cout << "Test executable has been started" << std::endl;
 
-	testDateTime();
+	//testDateTime();
 	testVariant();
+	//testHttpRequestStreamReader();
 
 	/*isl::Core::debugLog.setPrefix(L"DEBUG");
 	isl::Core::debugLog.connectTarget(isl::FileLogTarget("test.log"));

@@ -94,7 +94,7 @@ AbstractTcpListener::ListenerThread::ListenerThread(AbstractTcpListener& listene
 
 void AbstractTcpListener::ListenerThread::run()
 {
-	// Starting secion
+	// Starting section
 	TcpSocket serverSocket;
 	Core::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, L"Server socket has been created"));
 	while (true) {
@@ -137,9 +137,9 @@ void AbstractTcpListener::ListenerThread::run()
 				continue;
 			}
 			AbstractTcpTask * task = _listener.createTask(socketAutoPtr.get());
-			socketAutoPtr.release();
-			if (!_listener._taskDispatcher.perform(task)) {
-				delete task;
+			if (_listener._taskDispatcher.perform(task)) {
+				socketAutoPtr.release();
+			} else {
 				Core::warningLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, L"Too many TCP-connection requests"));
 			}
 		} catch (std::exception& e) {

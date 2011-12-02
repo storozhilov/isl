@@ -25,6 +25,8 @@ public:
 	bool perform(AbstractTask * task);
 	unsigned int availableTaskOverflow() const;
 	void setAvailableTaskOverflow(unsigned int newValue);
+protected:
+	virtual Worker * createWorker(unsigned int workerId);
 private:
 	TaskDispatcher();
 	TaskDispatcher(const TaskDispatcher&);							// No copy
@@ -36,7 +38,7 @@ private:
 
 	virtual void onStartCommand();
 	virtual void onStopCommand();
-	virtual Worker * createWorker(unsigned int workerId);
+	//virtual Worker * createWorker(unsigned int workerId);
 
 	unsigned int _workersCount;
 	WaitCondition _taskCond;

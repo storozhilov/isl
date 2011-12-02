@@ -8,7 +8,7 @@
 
 namespace isl
 {
-//! Base class for arguments formatting
+//! Base class for Variant objects formatting
 /*!
   Format token stucture:
     - <token_specifier><token_symbol>
@@ -188,7 +188,7 @@ template <> std::basic_string<wchar_t> BasicVariantFormatter<wchar_t>::substitut
 	return _arguments[argNo].format(tokenParams);
 }
 
-typedef BasicVariantFormatter<char> VariantFormatter;			//! For one byte character strings
+typedef BasicVariantFormatter<char> VariantFormatter;			//! For narrow character strings
 typedef BasicVariantFormatter<wchar_t> VariantWFormatter;		//! For wide character strings
 
 } // namespace isl

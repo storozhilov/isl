@@ -2,8 +2,9 @@
 #include <isl/Mutex.hxx>
 #include <isl/Core.hxx>
 #include <isl/Exception.hxx>
+#include <isl/VariantFormatter.hxx>
 #include <exception>
-#include <sstream>
+//#include <sstream>
 #include <memory>
 
 namespace isl
@@ -54,7 +55,7 @@ bool TaskDispatcher::perform(AbstractTask * task)
 			taskPerformed = true;
 		}
 	}
-	std::wostringstream oss;
+	/*std::wostringstream oss;
 	oss << L"Workers awaiting: " << awaitingWorkersCount << L", tasks in pool: " << (tasksInPool + 1) <<
 		L", overflow available: "  << overflowAbailable << L", overflow detected: " <<
 		((awaitingWorkersCount >= (tasksInPool + 1)) ? 0 : tasksInPool + 1 - awaitingWorkersCount);
@@ -62,6 +63,13 @@ bool TaskDispatcher::perform(AbstractTask * task)
 		Core::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, oss.str()));
 	} else {
 		Core::warningLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, oss.str()));
+	}*/
+	VariantWFormatter fmt(L"Workers awaiting: $0, tasks in pool: $1, available overflow: $2, detected overflow: $3");
+	fmt.arg(awaitingWorkersCount).arg(tasksInPool + 1).arg(overflowAbailable).arg((awaitingWorkersCount >= (tasksInPool + 1)) ? 0 : tasksInPool + 1 - awaitingWorkersCount);
+	if (taskPerformed) {
+		Core::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, fmt.compose()));
+	} else {
+		Core::warningLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, fmt.compose()));
 	}
 	return taskPerformed;
 }

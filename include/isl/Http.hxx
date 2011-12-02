@@ -15,11 +15,6 @@ public:
 	static Log accessLog;
 };
 
-Log Http::errorLog;
-Log Http::warningLog;
-Log Http::debugLog;
-Log Http::accessLog;
-
 } // namespace isl
 
 #endif

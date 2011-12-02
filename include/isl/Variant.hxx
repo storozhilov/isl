@@ -4,6 +4,7 @@
 #include <isl/String.hxx>
 #include <isl/Date.hxx>
 #include <isl/Time.hxx>
+#include <isl/DateTime.hxx>
 #include <stdexcept>
 #include <iostream>
 #include <string>
@@ -68,20 +69,24 @@ public:
 	enum TypeId {
 		//! Special type for NULL values
 		NullType = 0x00,
+		//! Character variant type ID
+		CharType = 0x01,
+		//! Wide character variant type ID
+		WCharType = 0x02,
 		//! Integer variant type ID
-		IntegerType = 0x01,
+		IntegerType = 0x03,
 		//! Double variant type ID
-		DoubleType = 0x02,
+		DoubleType = 0x04,
 		//! String variant type ID
-		StringType = 0x03,
+		StringType = 0x05,
 		//! Wide String variant type ID
-		WStringType = 0x04,
+		WStringType = 0x06,
 		//! Date type ID
-		DateType = 0x05,
+		DateType = 0x07,
 		//! Time type ID
-		TimeType = 0x06,
+		TimeType = 0x08,
 		//! DateTime type ID
-		DateTimeType = 0x07,
+		DateTimeType = 0x09,
 		// TODO Other types
 		//! Lower boundary for user variant type IDs
 		UserType = 0x80
@@ -238,6 +243,88 @@ std::wstring Variant::format(const std::wstring& fmt) const
  * VariantOperator template specifications for basic types
  * TODO Other types
  * ---------------------------------------------------------------------------*/
+
+// char
+
+template <> class VariantOperator <char>
+{
+private:
+	class CharFormatter : public AbstractVariantFormatter
+	{
+	public:
+		CharFormatter() :
+			AbstractVariantFormatter()
+		{}
+
+		virtual AbstractVariantFormatter * clone() const
+		{
+			return new CharFormatter(*this);
+		}
+		virtual std::wstring compose(const Variant& var, const std::wstring& fmt) const
+		{
+			// TODO Handle fmt
+			return var.serializedValue();
+		}
+	};
+public:
+	static std::wstring serialize(const char& value)
+	{
+		return std::wstring(1, value);
+	}
+	static char deserialize(const std::wstring& serializedValue)
+	{
+		return (serializedValue.length() > 0) ? serializedValue[0] : '\0';
+	}
+	static int typeId()
+	{
+		return Variant::CharType;
+	}
+	static AbstractVariantFormatter * createFormatter()
+	{
+		return new CharFormatter();
+	}
+};
+
+// wchar_t
+
+template <> class VariantOperator <wchar_t>
+{
+private:
+	class WCharFormatter : public AbstractVariantFormatter
+	{
+	public:
+		WCharFormatter() :
+			AbstractVariantFormatter()
+		{}
+
+		virtual AbstractVariantFormatter * clone() const
+		{
+			return new WCharFormatter(*this);
+		}
+		virtual std::wstring compose(const Variant& var, const std::wstring& fmt) const
+		{
+			// TODO Handle fmt
+			return var.serializedValue();
+		}
+	};
+public:
+	static std::wstring serialize(const wchar_t& value)
+	{
+		return std::wstring(1, value);
+	}
+	static wchar_t deserialize(const std::wstring& serializedValue)
+	{
+		return (serializedValue.length() > 0) ? serializedValue[0] : L'\0';
+	}
+	static int typeId()
+	{
+		return Variant::WCharType;
+	}
+	static AbstractVariantFormatter * createFormatter()
+	{
+		return new WCharFormatter();
+	}
+};
 
 // int
 
