@@ -12,6 +12,7 @@ namespace isl
 
 /*------------------------------------------------------------------------------
  * AbstractSubsystem
+ * TODO REMOVE THIS ROCKET SCIENCE!!! :)
 ------------------------------------------------------------------------------*/
 
 class AbstractSubsystem
@@ -175,6 +176,78 @@ private:
 	mutable WaitCondition _stateCond;
 	Mutex _commandMutex;
 };
+
+namespace exp
+{
+
+//! Subsystem generalization class
+class AbstractSubsystem
+{
+public:
+	//! Subsystem state constants
+	enum State {
+		IdlingState,		//!< Subsystem is idling
+		StartingState,		//!< Subsystem is starting up
+		RunningState,		//!< Subsystem is running
+		StoppingState		//!< Subsystem is shutting down
+	};
+	//! Constructs a new subsystem
+	/*!
+	  \param owner The owner subsystem of the new subsystem
+	*/
+	AbstractSubsystem(AbstractSubsystem * owner) :
+		_owner(owner),
+		_state(IdlingState),
+		_stateCond()
+	{}
+	//! Virtual destructor cause class is virtual
+	virtual ~AbstractSubsystem();
+	//! Thread-safely returns subsystem's state
+	inline State state() const
+	{
+		MutexLocker locker(_stateCond.mutex());
+		return _state;
+	}
+	//! Awaits for subsystem's state to be set to passed one during a passed timeout
+	/*!
+	  \param state State to wait for
+	  \param timeout Timeout of waiting
+	  \return True if state has been set to the passed one
+	*/
+	inline bool awaitState(State state, Timeout timeout)
+	{
+
+		MutexLocker locker(_stateCond.mutex());
+		if (_state == state) {
+			return true;
+		}
+		_stateCond.wait(timeout);
+		return _state == state;
+	}
+	//! Starting subsystem abstract virtual method to override in descendants
+	virtual void start() = 0;
+	//! Stopping subsystem abstract virtual method to override in descendants
+	virtual void stop() = 0;
+protected:
+	//! Thread-safely sets subsystem's state
+	inline void setState(State newState)
+	{
+		MutexLocker locker(_stateCond.mutex());
+		_state = newState;
+		_stateCond.wakeAll();
+	}
+private:
+	AbstractSubsystem();
+	AbstractSubsystem(const AbstractSubsystem&);							// No copy
+
+	AbstractSubsystem& operator=(const AbstractSubsystem&);						// No copy
+
+	AbstractSubsystem * _owner;
+	State _state;
+	mutable WaitCondition _stateCond;
+};
+
+}
 
 } // namespace isl
 
