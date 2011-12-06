@@ -4,8 +4,12 @@
 #include <isl/ReadWriteLock.hxx>
 #include <isl/Mutex.hxx>
 #include <isl/WaitCondition.hxx>
+#include <isl/Core.hxx>
+#include <isl/Debug.hxx>
 #include <isl/Enum.hxx>
 #include <string>
+
+#include <stdexcept>
 
 namespace isl
 {
@@ -194,6 +198,7 @@ public:
 	//! Constructs a new subsystem
 	/*!
 	  \param owner The owner subsystem of the new subsystem
+	  TODO Registration in the owner subsystem
 	*/
 	AbstractSubsystem(AbstractSubsystem * owner) :
 		_owner(owner),
@@ -201,38 +206,80 @@ public:
 		_stateCond()
 	{}
 	//! Virtual destructor cause class is virtual
-	virtual ~AbstractSubsystem();
+	/*!
+	  TODO Unregistration in the owner subsystem
+	*/
+	virtual ~AbstractSubsystem()
+	{}
 	//! Thread-safely returns subsystem's state
 	inline State state() const
 	{
 		MutexLocker locker(_stateCond.mutex());
 		return _state;
 	}
-	//! Awaits for subsystem's state to be set to passed one during a passed timeout
+	//! Awaits once for subsystem's state to be set to passed one during a passed timeout
 	/*!
 	  \param state State to wait for
-	  \param timeout Timeout of waiting
-	  \return True if state has been set to the passed one
+	  \param timeout Timeout of waiting for state
+	  \return Finally inspected state
 	*/
-	inline bool awaitState(State state, Timeout timeout)
+	inline State awaitState(State state, Timeout timeout)
 	{
 
 		MutexLocker locker(_stateCond.mutex());
 		if (_state == state) {
-			return true;
+			return _state;
 		}
 		_stateCond.wait(timeout);
-		return _state == state;
+		return _state;
+	}
+	//! Restarts subsystem
+	/*!
+	  \param timeout Timeout to wait for idling state
+	  \return True if the starting process has been successfully launched
+	*/
+	inline bool restart(Timeout timeout)
+	{
+		stop();
+		if (awaitState(IdlingState, timeout) != IdlingState) {
+			Core::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, "Subsystem has not been stopped"));
+			return false;
+		}
+		return start();
 	}
 	//! Starting subsystem abstract virtual method to override in descendants
-	virtual void start() = 0;
+	/*!
+	  All state manipulations are under this method's control
+	  \return True if the starting process has been successfully launched
+	  TODO Add default implementation, which starts all children subsystems?
+	*/
+	virtual bool start() = 0;
 	//! Stopping subsystem abstract virtual method to override in descendants
+	/*!
+	  All state manipulations are under this method's control
+	  TODO Add default implementation, which stops all children subsystems?
+	*/
 	virtual void stop() = 0;
 protected:
 	//! Thread-safely sets subsystem's state
 	inline void setState(State newState)
 	{
 		MutexLocker locker(_stateCond.mutex());
+		_state = newState;
+		_stateCond.wakeAll();
+	}
+	//! Thread-safely sets subsystem's state from one to another
+	/*!
+	  \param oldState Subsystem's state to switch from
+	  \param newState Subsystem's state to switch to
+	*/
+	inline void setState(State oldState, State newState)
+	{
+		MutexLocker locker(_stateCond.mutex());
+		if (_state != oldState) {
+			// TODO Use isl::Exception class
+			throw new std::runtime_error("Invalid subsystem state to switch from");
+		}
 		_state = newState;
 		_stateCond.wakeAll();
 	}
@@ -247,7 +294,7 @@ private:
 	mutable WaitCondition _stateCond;
 };
 
-}
+} // namespace exp
 
 } // namespace isl
 

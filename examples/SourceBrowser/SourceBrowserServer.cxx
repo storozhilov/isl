@@ -3,7 +3,7 @@
 SourceBrowserServer::SourceBrowserServer(int argc, char * argv[]) :
 	isl::AbstractServer(argc, argv),
 	_signalHandler(*this),
-	_sourceBrowser(this, 200, 8080, L".")
+	_sourceBrowser(this, 5, 8080, L".")
 {}
 
 void SourceBrowserServer::onStart()

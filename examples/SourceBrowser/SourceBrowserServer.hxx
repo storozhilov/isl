@@ -16,7 +16,7 @@ private:
 	virtual void onStart();
 	virtual void onStop();
 
-	isl::SignalHandler _signalHandler;
+	isl::exp::SignalHandler _signalHandler;
 	isl::SourceBrowser _sourceBrowser;
 };
 
