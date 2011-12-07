@@ -31,6 +31,11 @@ public:
 		timeoutLimit.tv_sec = startTime.tv_sec + _seconds;
 		return timeoutLimit;
 	}
+
+	static Timeout milliSecond(unsigned int ms = 1)
+	{
+		return Timeout(ms / 1000, ms % 1000 * 1000000);
+	}
 private:
 	unsigned int _seconds;
 	unsigned int _nanoSeconds;

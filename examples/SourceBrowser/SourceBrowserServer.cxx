@@ -3,17 +3,33 @@
 SourceBrowserServer::SourceBrowserServer(int argc, char * argv[]) :
 	isl::AbstractServer(argc, argv),
 	_signalHandler(*this),
-	_sourceBrowser(this, 5, 8080, L".")
+	_sourceBrowserService(this, 8080, 5, L".")
 {}
 
-void SourceBrowserServer::onStart()
+bool SourceBrowserServer::start()
 {
+	setState(IdlingState, StartingState);
 	_signalHandler.start();
-	_sourceBrowser.start();
+	_sourceBrowserService.start();
+	setState(StartingState, RunningState);
 }
 
-void SourceBrowserServer::onStop()
+void SourceBrowserServer::stop()
 {
+	setState(StoppingState);
 	_signalHandler.stop();
-	_sourceBrowser.stop();
+	_sourceBrowserService.stop();
+	setState(IdlingState);
 }
+
+bool SourceBrowserServer::restart()
+{
+	setState(StoppingState);
+	_signalHandler.stop();
+	_sourceBrowserService.stop();
+	setState(StoppingState, StartingState);
+	_signalHandler.start();
+	_sourceBrowserService.start();
+	setState(StartingState, RunningState);
+}
+

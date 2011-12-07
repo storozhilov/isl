@@ -5,31 +5,10 @@
 namespace isl
 {
 
-/*------------------------------------------------------------------------------
- * AbstractSubsystem
-------------------------------------------------------------------------------*/
-
-AbstractSubsystem::AbstractSubsystem(AbstractSubsystem * owner) :
-	_owner(owner),
-	_state(IdlingState()),
-	_stateCond(),
-	_commandMutex()
-{}
-
-AbstractSubsystem::~AbstractSubsystem()
-{}
-
-void AbstractSubsystem::onCommand(const Command& cmd)
-{
-	if (cmd.equals<StartCommand>()) {
-		onStartCommand();
-	} else if (cmd.equals<StopCommand>()) {
-		onStopCommand();
-	} else if (cmd.equals<RestartCommand>()) {
-		onRestartCommand();
-	} else {
-		Core::errorLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, L"Command '" + cmd.value().name() + L"' is not supported"));
-	}
-}
+const wchar_t AbstractSubsystem::NotDefinedStateName[] = L"<Not defined>";
+const wchar_t AbstractSubsystem::IdlingStateName[] = L"Idling";
+const wchar_t AbstractSubsystem::StartingStateName[] = L"Starting";
+const wchar_t AbstractSubsystem::RunningStateName[] = L"Running";
+const wchar_t AbstractSubsystem::StoppingStateName[] = L"Stopping";
 
 } // namespace isl

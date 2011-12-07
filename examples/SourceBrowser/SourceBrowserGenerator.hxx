@@ -3,30 +3,13 @@
 
 #include <isl/HTTPResponse.hxx>
 
-/*class SourceBrowserGenerator : public isl::HTTPResponse::AbstractGeneratorOK
+//namespace isl
+//{
+
+class SourceBrowserGenerator : public isl::HTTPResponse::AbstractGeneratorOK
 {
 public:
-	SourceBrowserGenerator(isl::exp::AbstractHTTPTask * task, const std::wstring& rootPath);
-private:
-	SourceBrowserGenerator();
-	SourceBrowserGenerator(const SourceBrowserGenerator&);
-
-	SourceBrowserGenerator& operator=(const SourceBrowserGenerator&);
-
-	virtual void generateImplementation();
-	void generateNotFound();
-	bool fileToBeDisplayed(const std::string& fileName);
-
-	std::wstring _rootPath;
-};*/
-
-namespace isl
-{
-
-class SourceBrowserGenerator : public HTTPResponse::AbstractGeneratorOK
-{
-public:
-	SourceBrowserGenerator(AbstractHTTPTask * task, const std::wstring& rootPath);
+	SourceBrowserGenerator(isl::AbstractHTTPTask * task, const std::wstring& rootPath);
 private:
 	SourceBrowserGenerator();
 	SourceBrowserGenerator(const SourceBrowserGenerator&);
@@ -40,7 +23,7 @@ private:
 	std::wstring _rootPath;
 };
 
-} // namespace isl
+//} // namespace isl
 
 #endif
 

@@ -1,21 +1,21 @@
 #include "SourceBrowserTask.hxx"
 #include "SourceBrowserGenerator.hxx"
 
-namespace isl
-{
+//namespace isl
+//{
 
 /*------------------------------------------------------------------------------
  * SourceBrowserTask
 ------------------------------------------------------------------------------*/
 
-SourceBrowserTask::SourceBrowserTask(TcpSocket * socket, const std::wstring& rootPath) :
-	AbstractHTTPTask(socket),
+SourceBrowserTask::SourceBrowserTask(isl::TcpSocket * socket, const std::wstring& rootPath) :
+	isl::AbstractHTTPTask(socket),
 	_rootPath(rootPath)
 {}
 
-HTTPResponse::AbstractGenerator * SourceBrowserTask::createGeneratorOK()
+isl::HTTPResponse::AbstractGenerator * SourceBrowserTask::createGeneratorOK()
 {
 	return new SourceBrowserGenerator(this, _rootPath);
 }
 
-} // namespace isl
+//} // namespace isl

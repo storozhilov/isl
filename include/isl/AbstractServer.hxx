@@ -16,7 +16,7 @@ namespace isl
 class AbstractServer : public AbstractSubsystem
 {
 public:
-	AbstractServer(int argc, char * argv[]);
+	AbstractServer(int argc, char * argv[], const Timeout& timeout = Timeout(1));
 
 	void run();
 	inline unsigned int argc() const
@@ -27,23 +27,14 @@ public:
 	{
 		return _argv.at(argNo);
 	}
-protected:
-	virtual void onStart() = 0;
-	virtual void onStop() = 0;
-	virtual void onRestart();
 private:
 	AbstractServer();
 	AbstractServer(const AbstractServer&);						// No copy
 
 	AbstractServer& operator=(const AbstractServer&);				// No copy
 
-	void start();
-
-	virtual void onStartCommand();
-	virtual void onStopCommand();
-	virtual void onRestartCommand();
-
 	std::vector<std::string> _argv;
+	Timeout _timeout;
 };
 
 } // namespace isl

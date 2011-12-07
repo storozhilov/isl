@@ -12,22 +12,22 @@
 #include <fstream>
 #include <errno.h>
 
-namespace isl
-{
+//namespace isl
+//{
 
 /*------------------------------------------------------------------------------
  * SourceBrowserGenerator
 ------------------------------------------------------------------------------*/
 
-SourceBrowserGenerator::SourceBrowserGenerator(AbstractHTTPTask * task, const std::wstring& rootPath) :
-	HTTPResponse::AbstractGeneratorOK(task),
+SourceBrowserGenerator::SourceBrowserGenerator(isl::AbstractHTTPTask * task, const std::wstring& rootPath) :
+	isl::HTTPResponse::AbstractGeneratorOK(task),
 	_rootPath(rootPath)
 {}
 
 void SourceBrowserGenerator::generateImplementation()
 {
 	response().setHeaderField("Content-type", "text/html", true);
-	std::string filename(String::utf8Encode(_rootPath));
+	std::string filename(isl::String::utf8Encode(_rootPath));
 	filename += request().uri();
 	struct stat fileInfo;
 	if (stat(filename.c_str(), &fileInfo) != 0) {
@@ -62,9 +62,9 @@ void SourceBrowserGenerator::generateImplementation()
 			fstr.read(buffer, 1024);
 			unsigned int bytesRead = fstr.gcount();
 			std::string str(buffer, bytesRead);
-			String::replaceAll(str, "<", "&lt;");
-			String::replaceAll(str, ">", "&gt;");
-			String::replaceAll(str, "\"", "&quot;");
+			isl::String::replaceAll(str, "<", "&lt;");
+			isl::String::replaceAll(str, ">", "&gt;");
+			isl::String::replaceAll(str, "\"", "&quot;");
 			response().outputBuffer().write(str);
 		}
 		response().outputBuffer().write(
@@ -78,7 +78,7 @@ void SourceBrowserGenerator::generateImplementation()
 			generateNotFound();
 			return;
 		}
-		NameListReleaser releaser(namelist, filesCount);
+		isl::NameListReleaser releaser(namelist, filesCount);
 		response().outputBuffer().write(
 			"<html>\n"
 			"  <head>\n"
@@ -94,7 +94,7 @@ void SourceBrowserGenerator::generateImplementation()
 			}
 			itemName += namelist[i]->d_name;
 			if (stat(itemName.c_str(), &itemInfo) != 0) {
-				throw Exception(SystemCallError(SOURCE_LOCATION_ARGS, SystemCallError::Stat, errno));
+				throw isl::Exception(isl::SystemCallError(SOURCE_LOCATION_ARGS, isl::SystemCallError::Stat, errno));
 			}
 			if (S_ISDIR(itemInfo.st_mode) && strcmp(namelist[i]->d_name, ".") && strcmp(namelist[i]->d_name, "..")) {
 				response().outputBuffer().write(
@@ -119,7 +119,7 @@ void SourceBrowserGenerator::generateImplementation()
 
 void SourceBrowserGenerator::generateNotFound()
 {
-	response().setStatusCode(HTTPResponse::StatusCode::construct<HTTPResponse::NotFoundStatusCode>());
+	response().setStatusCode(isl::HTTPResponse::StatusCode::construct<isl::HTTPResponse::NotFoundStatusCode>());
 	response().outputBuffer().write(
 		"<html>\n"
 		"  <head>\n"
@@ -137,4 +137,4 @@ bool SourceBrowserGenerator::fileToBeDisplayed(const std::string& fileName)
 	return (fileName.rfind(".cxx") == (fileName.length() - 4) || fileName.rfind(".hxx") == (fileName.length() - 4));
 }
 
-} // namespace isl
+//} // namespace isl

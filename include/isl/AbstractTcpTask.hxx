@@ -8,28 +8,6 @@
 namespace isl
 {
 
-/*------------------------------------------------------------------------------
- * AbstractTcpTask
-------------------------------------------------------------------------------*/
-
-class AbstractTcpTask : public AbstractTask
-{
-public:
-	AbstractTcpTask(TcpSocket * socket);
-
-	TcpSocket& socket();
-private:
-	AbstractTcpTask();
-	AbstractTcpTask(const AbstractTcpTask&);						// No copy
-
-	AbstractTcpTask& operator=(const AbstractTcpTask&);					// No copy
-
-	std::auto_ptr<TcpSocket> _socket;
-};
-
-namespace exp
-{
-
 class AbstractTcpTask : public AbstractTask
 {
 public:
@@ -50,8 +28,6 @@ private:
 
 	std::auto_ptr<TcpSocket> _socket;
 };
-
-} // namespace exp
 
 } // namespace isl
 

@@ -6,10 +6,6 @@
 namespace isl
 {
 
-/*------------------------------------------------------------------------------
- * AbstractTask
-------------------------------------------------------------------------------*/
-
 class AbstractTask
 {
 public:
@@ -26,28 +22,6 @@ private:
 
 	bool _executed;
 };
-
-namespace exp
-{
-
-class AbstractTask
-{
-public:
-	AbstractTask();
-	virtual ~AbstractTask();
-
-	void execute(Worker& worker);
-protected:
-	virtual void executeImplementation(Worker& worker) = 0;
-private:
-	AbstractTask(const AbstractTask&);						// No copy
-
-	AbstractTask& operator=(const AbstractTask&);					// No copy
-
-	bool _executed;
-};
-
-} // namespace exp
 
 } // namespace isl
 

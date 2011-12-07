@@ -12,48 +12,6 @@
 namespace isl
 {
 
-/*------------------------------------------------------------------------------
- * TaskDispatcher
-------------------------------------------------------------------------------*/
-
-class TaskDispatcher : public AbstractSubsystem
-{
-public:
-	TaskDispatcher(AbstractSubsystem * owner, unsigned int workersCount, unsigned int availableTaskOverflow = 0);
-	~TaskDispatcher();
-
-	bool perform(AbstractTask * task);
-	unsigned int availableTaskOverflow() const;
-	void setAvailableTaskOverflow(unsigned int newValue);
-protected:
-	virtual Worker * createWorker(unsigned int workerId);
-private:
-	TaskDispatcher();
-	TaskDispatcher(const TaskDispatcher&);							// No copy
-
-	TaskDispatcher& operator=(const TaskDispatcher&);					// No copy
-
-	typedef std::deque<AbstractTask *> Tasks;
-	typedef std::list<Worker *> Workers;
-
-	virtual void onStartCommand();
-	virtual void onStopCommand();
-	//virtual Worker * createWorker(unsigned int workerId);
-
-	unsigned int _workersCount;
-	WaitCondition _taskCond;
-	unsigned int _awaitingWorkersCount;
-	unsigned int _availableTaskOverflow;
-	mutable ReadWriteLock _availableTaskOverflowRwLock;
-	Tasks _tasks;
-	Workers _workers;
-
-	friend class Worker;
-};
-
-namespace exp
-{
-
 class TaskDispatcher : public AbstractSubsystem
 {
 public:
@@ -76,10 +34,11 @@ public:
 		return _maxTaskQueueOverflowSize;
 	}
 	bool perform(AbstractTask * task);
-	//bool perform(std::list<AbstractTask *> taskList);					// TODO
+	bool perform(const TaskList& taskList);							// TODO
 
 	virtual bool start();
 	virtual void stop();
+	virtual bool restart();
 protected:
 	virtual Worker * createWorker(unsigned int workerId);
 private:
@@ -93,7 +52,6 @@ private:
 
 	unsigned int _workersCount;
 	WaitCondition _taskCond;
-	//unsigned int _startedWorkersCount;
 	unsigned int _awaitingWorkersCount;
 	unsigned int _maxTaskQueueOverflowSize;
 	Tasks _tasks;
@@ -101,8 +59,6 @@ private:
 
 	friend class Worker;
 };
-
-} // namespace exp
 
 } // namespace isl
 

@@ -6,13 +6,10 @@
 namespace isl
 {
 
-/*------------------------------------------------------------------------------
- * AbstractServer
-------------------------------------------------------------------------------*/
-
-AbstractServer::AbstractServer(int argc, char * argv[]) :
+AbstractServer::AbstractServer(int argc, char * argv[], const Timeout& timeout) :
 	AbstractSubsystem(0),
-	_argv()
+	_argv(),
+	_timeout(timeout)
 {
 	_argv.reserve(argc);
 	for (int i = 0; i < argc; ++i) {
@@ -22,48 +19,15 @@ AbstractServer::AbstractServer(int argc, char * argv[]) :
 
 void AbstractServer::run()
 {
-	setState<StartingState>();
-	onStart();
-	setState<RunningState>();
+	start();
 	while (true) {
-		AbstractServer::State newState = awaitState();
-		if (newState.equals<StoppingState>()) {
-			Core::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, L"Stopping state detected - stopping the server"));
-			onStop();
-			setState<IdlingState>();
-			Core::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, L"Stopping server completed"));
+		if (awaitState(_timeout) == IdlingState) {
+			Core::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, L"Idling state detected - exiting from the main thread"));
 			break;
-		} else if (newState.equals<RestartingState>()) {
-			Core::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, L"Restarting state detected - restarting the server"));
-			onRestart();
-			setState<RunningState>();
-			Core::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, L"Restarting server completed"));
-		} else {
-			Core::warningLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, L"Unexpected state '" + newState.constValue().name() + L"' detected - reverting to 'Running'"));
-			setState<RunningState>();
 		}
+
 	}
-}
-
-void AbstractServer::onRestart()
-{
-	onStop();
-	onStart();
-}
-
-void AbstractServer::onStartCommand()
-{
-	Core::errorLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, L"Start command is not implemented"));
-}
-
-void AbstractServer::onStopCommand()
-{
-	setState<StoppingState>();
-}
-
-void AbstractServer::onRestartCommand()
-{
-	setState<RestartingState>();
+	Core::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, L"Server has been stopped"));
 }
 
 } // namespace isl
