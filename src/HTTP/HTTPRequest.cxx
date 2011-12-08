@@ -1,6 +1,7 @@
 #include <isl/HTTPRequest.hxx>
 #include <isl/AbstractHTTPTask.hxx>
 #include <isl/Exception.hxx>
+#include <isl/TcpSocket.hxx>
 #include <isl/IOError.hxx>
 #include <stdexcept>
 

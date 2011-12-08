@@ -16,8 +16,8 @@ AbstractTcpService::AbstractTcpService(AbstractSubsystem * owner, unsigned int p
 	AbstractSubsystem(owner),
 	_taskDispatcher(this, maxClients, maxTaskQueueOverflowSize),
 	_listenerThread(*this),
-	_timeout(timeout),
 	_port(port),
+	_timeout(timeout),
 	_interfaces(interfaces),
 	_backLog(backLog)
 {}
@@ -100,7 +100,7 @@ void AbstractTcpService::ListenerThread::run()
 				// Accepting TCP-connection timeout expired
 				continue;
 			}
-			AbstractTcpTask * task = _service.createTask(socketAutoPtr.get());
+			AbstractTask * task = _service.createTask(socketAutoPtr.get());
 			if (_service._taskDispatcher.perform(task)) {
 				socketAutoPtr.release();
 			} else {

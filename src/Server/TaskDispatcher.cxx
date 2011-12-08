@@ -41,30 +41,30 @@ TaskDispatcher::~TaskDispatcher()
 bool TaskDispatcher::perform(AbstractTask * task)
 {
 	unsigned int awaitingWorkersCount;
-	unsigned int tasksInPool;
+	unsigned int taskQueueSize;
 	bool taskPerformed = false;
 	{
 		MutexLocker locker(_taskCond.mutex());
 		awaitingWorkersCount = _awaitingWorkersCount;
-		tasksInPool = _tasks.size();
-		if ((awaitingWorkersCount + _maxTaskQueueOverflowSize) >= (tasksInPool + 1)) {
+		taskQueueSize = _tasks.size();
+		if ((awaitingWorkersCount + _maxTaskQueueOverflowSize) >= (taskQueueSize + 1)) {
 			_tasks.push_back(task);
 			_taskCond.wakeOne();
 			taskPerformed = true;
 		}
 	}
 	std::wostringstream oss;
-	oss << L"Total workers: " << _workers.size() << ", workers awaiting: " << awaitingWorkersCount << L", tasks in pool: " << (tasksInPool + 1) <<
-		L", max task queue overflow size: "  << _maxTaskQueueOverflowSize << L", overflow detected: " <<
-		((awaitingWorkersCount >= (tasksInPool + 1)) ? 0 : tasksInPool + 1 - awaitingWorkersCount);
+	oss << L"Total workers: " << _workers.size() << ", workers awaiting: " << awaitingWorkersCount << L", tasks in pool: " << (taskQueueSize + 1) <<
+		L", max task overflow: "  << _maxTaskQueueOverflowSize << L", detected tasks overflow: " <<
+		((awaitingWorkersCount >= (taskQueueSize + 1)) ? 0 : taskQueueSize + 1 - awaitingWorkersCount);
 	if (taskPerformed) {
 		Core::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, oss.str()));
 	} else {
 		Core::warningLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, oss.str()));
 	}
 	// TODO The following is thrown "Variant type is not supported..." exception
-	/*VariantWFormatter fmt(L"Workers awaiting: $0, tasks in pool: $1, available overflow: $2, detected overflow: $3");
-	fmt.arg(awaitingWorkersCount).arg(tasksInPool + 1).arg(_maxTaskQueueOverflowSize).arg((awaitingWorkersCount >= (tasksInPool + 1)) ? 0 : tasksInPool + 1 - awaitingWorkersCount);
+	/*VariantWFormatter fmt(L"Workers awaiting: $0, tasks in pool: $1, available overflow: $2, tasks overflow: $3");
+	fmt.arg(awaitingWorkersCount).arg(taskQueueSize + 1).arg(_maxTaskQueueOverflowSize).arg((awaitingWorkersCount >= (taskQueueSize + 1)) ? 0 : taskQueueSize + 1 - awaitingWorkersCount);
 	if (taskPerformed) {
 		Core::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, fmt.compose()));
 	} else {
@@ -75,8 +75,35 @@ bool TaskDispatcher::perform(AbstractTask * task)
 
 bool TaskDispatcher::perform(const TaskList& taskList)
 {
-	// TODO
-	return false;
+	unsigned int tasksCount = taskList.size();
+	if (tasksCount <= 0) {
+		return true;
+	}
+	unsigned int awaitingWorkersCount;
+	unsigned int taskQueueSize;
+	bool tasksPerformed = false;
+	{
+		MutexLocker locker(_taskCond.mutex());
+		awaitingWorkersCount = _awaitingWorkersCount;
+		taskQueueSize = _tasks.size();
+		if ((awaitingWorkersCount + _maxTaskQueueOverflowSize) >= (taskQueueSize + tasksCount)) {
+			for (TaskList::const_iterator i = taskList.begin(); i != taskList.end(); ++i) {
+				_tasks.push_back(*i);
+			}
+			_taskCond.wakeAll();
+			tasksPerformed = true;
+		}
+	}
+	std::wostringstream oss;
+	oss << L"Total workers: " << _workers.size() << ", workers awaiting: " << awaitingWorkersCount << L", tasks to execute: " << tasksCount <<
+		L" tasks in pool: " << (taskQueueSize + tasksCount) << L", max task overflow: "  << _maxTaskQueueOverflowSize << L", detected tasks overflow: " <<
+		((awaitingWorkersCount >= (taskQueueSize + tasksCount)) ? 0 : taskQueueSize + 1 - awaitingWorkersCount);
+	if (tasksPerformed) {
+		Core::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, oss.str()));
+	} else {
+		Core::warningLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, oss.str()));
+	}
+	return tasksPerformed;
 }
 
 bool TaskDispatcher::start()

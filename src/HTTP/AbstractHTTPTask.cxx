@@ -1,4 +1,5 @@
 #include <isl/AbstractHTTPTask.hxx>
+#include <isl/TcpSocket.hxx>
 #include <isl/Core.hxx>
 
 namespace isl
@@ -12,7 +13,7 @@ bool AbstractHTTPTask::DefaultKeepAlive = true;
 unsigned int AbstractHTTPTask::DefaultMaxKeepAliveRequests = 100;
 
 AbstractHTTPTask::AbstractHTTPTask(TcpSocket * socket) :
-	AbstractTcpTask(socket),
+	AbstractTcpService::AbstractTask(socket),
 	_request(this),
 	_response(this),
 	_keepAlive(DefaultKeepAlive),								// TODO Use configuration subsystem

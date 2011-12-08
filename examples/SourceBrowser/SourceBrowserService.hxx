@@ -14,7 +14,7 @@ private:
 
 	SourceBrowserService& operator=(const SourceBrowserService&);						// No copy
 
-	virtual isl::AbstractTcpTask * createTask(isl::TcpSocket * socket);
+	virtual isl::AbstractTcpService::AbstractTask * createTask(isl::TcpSocket * socket);
 
 	std::wstring _rootPath;
 };

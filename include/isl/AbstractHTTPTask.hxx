@@ -1,7 +1,7 @@
 #ifndef ISL__ABSTRACT_HTTP_TASK__HXX
 #define ISL__ABSTRACT_HTTP_TASK__HXX
 
-#include <isl/AbstractTcpTask.hxx>
+#include <isl/AbstractTcpService.hxx>
 #include <isl/Log.hxx>
 #include <isl/HTTPRequest.hxx>
 #include <isl/HTTPResponse.hxx>
@@ -9,7 +9,7 @@
 namespace isl
 {
 
-class AbstractHTTPTask : public AbstractTcpTask
+class AbstractHTTPTask : public AbstractTcpService::AbstractTask
 {
 public:
 	AbstractHTTPTask(TcpSocket * socket);

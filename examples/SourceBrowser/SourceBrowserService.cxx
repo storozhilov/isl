@@ -7,7 +7,7 @@ SourceBrowserService::SourceBrowserService(isl::AbstractSubsystem * owner, unsig
 	_rootPath(rootPath)
 {}
 
-isl::AbstractTcpTask * SourceBrowserService::createTask(isl::TcpSocket * socket)
+isl::AbstractTcpService::AbstractTask * SourceBrowserService::createTask(isl::TcpSocket * socket)
 {
 	return new SourceBrowserTask(socket, _rootPath);
 }

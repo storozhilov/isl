@@ -3,6 +3,7 @@
 #include <isl/DateTime.hxx>
 #include <isl/String.hxx>
 #include <isl/UUID.hxx>
+#include <isl/TcpSocket.hxx>
 #include <iostream>
 #include <sys/types.h>
 #include <sys/stat.h>
