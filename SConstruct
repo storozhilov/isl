@@ -52,3 +52,4 @@ env.Alias('install', [libraryInstaller, headersInstaller])
 # Builders for examples
 env.Program('examples/Test/test', Glob('examples/Test/*.cxx'), LIBS = ['isl', 'pthread', 'rt'], LIBPATH = 'lib')
 env.Program('examples/SourceBrowser/sbd', Glob('examples/SourceBrowser/*.cxx'), LIBS = ['isl', 'pthread', 'rt'], LIBPATH = 'lib')
+env.Program('examples/EchoMessageBroker/embd', Glob('examples/EchoMessageBroker/*.cxx'), LIBS = ['isl', 'pthread', 'rt'], LIBPATH = 'lib')

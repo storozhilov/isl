@@ -6,7 +6,6 @@
 #include <isl/TaskDispatcher.hxx>
 #include <memory>
 
-
 namespace isl
 {
 

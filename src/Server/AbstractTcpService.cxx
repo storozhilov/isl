@@ -69,8 +69,10 @@ void AbstractTcpService::ListenerThread::run()
 						L"Unexpected state detected while starting up. Exiting from subsystem's listemer thread."));
 				return;
 			}
-			serverSocket.open();
-			Core::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, L"Server socket has been opened"));
+			if (!serverSocket.isOpen()) {
+				serverSocket.open();
+				Core::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, L"Server socket has been opened"));
+			}
 			serverSocket.bind(_service.port(), _service.interfaces());
 			Core::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, L"Server socket has been binded"));
 			serverSocket.listen(_service.backLog());
@@ -100,9 +102,10 @@ void AbstractTcpService::ListenerThread::run()
 				// Accepting TCP-connection timeout expired
 				continue;
 			}
-			AbstractTask * task = _service.createTask(socketAutoPtr.get());
-			if (_service._taskDispatcher.perform(task)) {
-				socketAutoPtr.release();
+			std::auto_ptr<AbstractTask> taskAutoPtr(_service.createTask(socketAutoPtr.get()));
+			socketAutoPtr.release();
+			if (_service._taskDispatcher.perform(taskAutoPtr.get())) {
+				taskAutoPtr.release();
 			} else {
 				Core::warningLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, L"Too many TCP-connection requests"));
 			}

@@ -23,6 +23,7 @@ public:
 		IdlingState,		//!< Subsystem is idling
 		StartingState,		//!< Subsystem is starting up
 		RunningState,		//!< Subsystem is running
+		//RestartingState,	//!< Subsystem is restarting (TODO)
 		StoppingState		//!< Subsystem is shutting down
 	};
 	//! Constructs a new subsystem

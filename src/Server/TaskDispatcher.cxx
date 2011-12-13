@@ -48,7 +48,8 @@ bool TaskDispatcher::perform(AbstractTask * task)
 		awaitingWorkersCount = _awaitingWorkersCount;
 		taskQueueSize = _tasks.size();
 		if ((awaitingWorkersCount + _maxTaskQueueOverflowSize) >= (taskQueueSize + 1)) {
-			_tasks.push_back(task);
+			//_tasks.push_back(task);
+			_tasks.push_front(task);
 			_taskCond.wakeOne();
 			taskPerformed = true;
 		}
@@ -88,7 +89,8 @@ bool TaskDispatcher::perform(const TaskList& taskList)
 		taskQueueSize = _tasks.size();
 		if ((awaitingWorkersCount + _maxTaskQueueOverflowSize) >= (taskQueueSize + tasksCount)) {
 			for (TaskList::const_iterator i = taskList.begin(); i != taskList.end(); ++i) {
-				_tasks.push_back(*i);
+				//_tasks.push_back(*i);
+				_tasks.push_front(*i);
 			}
 			_taskCond.wakeAll();
 			tasksPerformed = true;
