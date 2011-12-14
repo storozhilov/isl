@@ -37,7 +37,7 @@ bool AbstractHttpTask::versionImplemented(const std::string& version) const
 	return version == "HTTP/1.0" || version == "HTTP/1.1";
 }
 
-void AbstractHttpTask::executeImplementation(Worker& worker)
+void AbstractHttpTask::executeImplementation(TaskDispatcher::Worker& worker)
 {
 	// TODO
 }

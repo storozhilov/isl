@@ -20,9 +20,8 @@ public:
 	Timeout timeout() const;
 	void setTimeout(const Timeout& newTimeout);
 
-	virtual bool start();
+	virtual void start();
 	virtual void stop();
-	virtual bool restart();
 private:
 	SignalHandler();
 	SignalHandler(const SignalHandler&);								// No copy

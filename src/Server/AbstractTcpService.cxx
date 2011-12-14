@@ -17,12 +17,16 @@ AbstractTcpService::AbstractTcpService(AbstractSubsystem * owner, unsigned int p
 	_taskDispatcher(this, maxClients, maxTaskQueueOverflowSize),
 	_listenerThread(*this),
 	_port(port),
+	_portRwLock(),
 	_timeout(timeout),
+	_timeoutRwLock(),
 	_interfaces(interfaces),
-	_backLog(backLog)
+	_interfacesRwLock(),
+	_backLog(backLog),
+	_backLogRwLock()
 {}
 
-bool AbstractTcpService::start()
+void AbstractTcpService::start()
 {
 	setState(IdlingState, StartingState);
 	_taskDispatcher.start();
@@ -35,16 +39,6 @@ void AbstractTcpService::stop()
 	_listenerThread.join();
 	_taskDispatcher.stop();
 	setState(IdlingState);
-}
-
-bool AbstractTcpService::restart()
-{
-	setState(StoppingState);
-	_listenerThread.join();
-	_taskDispatcher.stop();
-	setState(StoppingState, StartingState);
-	_taskDispatcher.start();
-	_listenerThread.start();
 }
 
 /*------------------------------------------------------------------------------

@@ -1,4 +1,5 @@
 #include <isl/TaskDispatcher.hxx>
+#include <isl/AbstractTask.hxx>
 #include <isl/Mutex.hxx>
 #include <isl/Core.hxx>
 #include <isl/Exception.hxx>
@@ -17,22 +18,18 @@ namespace isl
 TaskDispatcher::TaskDispatcher(AbstractSubsystem * owner, unsigned int workersCount, unsigned int maxTaskQueueOverflowSize) :
 	AbstractSubsystem(owner),
 	_workersCount(workersCount),
+	_workersCountRwLock(),
 	_taskCond(),
 	_awaitingWorkersCount(0),
 	_maxTaskQueueOverflowSize(maxTaskQueueOverflowSize),
+	_maxTaskQueueOverflowSizeRwLock(),
 	_tasks(),
 	_workers()
-{
-	for (int i = 0; i < workersCount; ++i) {
-		_workers.push_back(createWorker(i));
-	}
-}
+{}
 
 TaskDispatcher::~TaskDispatcher()
 {
-	for (Workers::iterator i = _workers.begin(); i != _workers.end(); ++i) {
-		delete (*i);
-	}
+	resetWorkers();
 	for (Tasks::iterator i = _tasks.begin(); i != _tasks.end(); ++i) {
 		delete (*i);
 	}
@@ -42,13 +39,13 @@ bool TaskDispatcher::perform(AbstractTask * task)
 {
 	unsigned int awaitingWorkersCount;
 	unsigned int taskQueueSize;
+	unsigned int currentMaxTaskQueueOverflowSize = maxTaskQueueOverflowSize();
 	bool taskPerformed = false;
 	{
 		MutexLocker locker(_taskCond.mutex());
 		awaitingWorkersCount = _awaitingWorkersCount;
 		taskQueueSize = _tasks.size();
-		if ((awaitingWorkersCount + _maxTaskQueueOverflowSize) >= (taskQueueSize + 1)) {
-			//_tasks.push_back(task);
+		if ((awaitingWorkersCount + currentMaxTaskQueueOverflowSize) >= (taskQueueSize + 1)) {
 			_tasks.push_front(task);
 			_taskCond.wakeOne();
 			taskPerformed = true;
@@ -56,7 +53,7 @@ bool TaskDispatcher::perform(AbstractTask * task)
 	}
 	std::wostringstream oss;
 	oss << L"Total workers: " << _workers.size() << ", workers awaiting: " << awaitingWorkersCount << L", tasks in pool: " << (taskQueueSize + 1) <<
-		L", max task overflow: "  << _maxTaskQueueOverflowSize << L", detected tasks overflow: " <<
+		L", max task overflow: "  << currentMaxTaskQueueOverflowSize << L", detected tasks overflow: " <<
 		((awaitingWorkersCount >= (taskQueueSize + 1)) ? 0 : taskQueueSize + 1 - awaitingWorkersCount);
 	if (taskPerformed) {
 		Core::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, oss.str()));
@@ -65,7 +62,7 @@ bool TaskDispatcher::perform(AbstractTask * task)
 	}
 	// TODO The following is thrown "Variant type is not supported..." exception
 	/*VariantWFormatter fmt(L"Workers awaiting: $0, tasks in pool: $1, available overflow: $2, tasks overflow: $3");
-	fmt.arg(awaitingWorkersCount).arg(taskQueueSize + 1).arg(_maxTaskQueueOverflowSize).arg((awaitingWorkersCount >= (taskQueueSize + 1)) ? 0 : taskQueueSize + 1 - awaitingWorkersCount);
+	fmt.arg(awaitingWorkersCount).arg(taskQueueSize + 1).arg(currentMaxTaskQueueOverflowSize).arg((awaitingWorkersCount >= (taskQueueSize + 1)) ? 0 : taskQueueSize + 1 - awaitingWorkersCount);
 	if (taskPerformed) {
 		Core::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, fmt.compose()));
 	} else {
@@ -82,14 +79,14 @@ bool TaskDispatcher::perform(const TaskList& taskList)
 	}
 	unsigned int awaitingWorkersCount;
 	unsigned int taskQueueSize;
+	unsigned int currentMaxTaskQueueOverflowSize = maxTaskQueueOverflowSize();
 	bool tasksPerformed = false;
 	{
 		MutexLocker locker(_taskCond.mutex());
 		awaitingWorkersCount = _awaitingWorkersCount;
 		taskQueueSize = _tasks.size();
-		if ((awaitingWorkersCount + _maxTaskQueueOverflowSize) >= (taskQueueSize + tasksCount)) {
+		if ((awaitingWorkersCount + currentMaxTaskQueueOverflowSize) >= (taskQueueSize + tasksCount)) {
 			for (TaskList::const_iterator i = taskList.begin(); i != taskList.end(); ++i) {
-				//_tasks.push_back(*i);
 				_tasks.push_front(*i);
 			}
 			_taskCond.wakeAll();
@@ -98,7 +95,7 @@ bool TaskDispatcher::perform(const TaskList& taskList)
 	}
 	std::wostringstream oss;
 	oss << L"Total workers: " << _workers.size() << ", workers awaiting: " << awaitingWorkersCount << L", tasks to execute: " << tasksCount <<
-		L" tasks in pool: " << (taskQueueSize + tasksCount) << L", max task overflow: "  << _maxTaskQueueOverflowSize << L", detected tasks overflow: " <<
+		L" tasks in pool: " << (taskQueueSize + tasksCount) << L", max task overflow: "  << currentMaxTaskQueueOverflowSize << L", detected tasks overflow: " <<
 		((awaitingWorkersCount >= (taskQueueSize + tasksCount)) ? 0 : taskQueueSize + 1 - awaitingWorkersCount);
 	if (tasksPerformed) {
 		Core::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, oss.str()));
@@ -108,17 +105,18 @@ bool TaskDispatcher::perform(const TaskList& taskList)
 	return tasksPerformed;
 }
 
-bool TaskDispatcher::start()
+void TaskDispatcher::start()
 {
 	setState(IdlingState, StartingState);
 	Core::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, L"Starting subsystem"));
-	for (Workers::iterator i = _workers.begin(); i != _workers.end(); ++i) {
-		(*i)->start();
+	resetWorkers();
+	for (int i = 0; i < workersCount(); ++i) {
+		Worker * newWorker = createWorker(i);
+		_workers.push_back(newWorker);
+		newWorker->start();
 	}
-	// TODO Maybe to wait until all workers have been started and ready to work?
 	setState(StartingState, RunningState);
 	Core::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, L"Subsystem has been started"));
-	return true;
 }
 
 void TaskDispatcher::stop()
@@ -136,32 +134,74 @@ void TaskDispatcher::stop()
 	Core::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, L"Subsystem has been stopped"));
 }
 
-bool TaskDispatcher::restart()
-{
-	setState(StoppingState);
-	Core::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, L"Stopping subsystem during restart"));
-	{
-		MutexLocker locker(_taskCond.mutex());
-		_taskCond.wakeAll();
-	}
-	for (Workers::iterator i = _workers.begin(); i != _workers.end(); ++i) {
-		(*i)->join();
-	}
-	Core::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, L"Subsystem has been stopped during restart"));
-	setState(StoppingState, StartingState);
-	Core::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, L"Starting subsystem during restart"));
-	for (Workers::iterator i = _workers.begin(); i != _workers.end(); ++i) {
-		(*i)->start();
-	}
-	// TODO Maybe to wait until all workers have been started and ready to work?
-	setState(StartingState, RunningState);
-	Core::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, L"Subsystem has been started during restart"));
-	return true;
-}
-
-Worker * TaskDispatcher::createWorker(unsigned int workerId)
+TaskDispatcher::Worker * TaskDispatcher::createWorker(unsigned int workerId)
 {
 	return new Worker(*this, workerId);
+}
+
+void TaskDispatcher::resetWorkers()
+{
+	for (Workers::iterator i = _workers.begin(); i != _workers.end(); ++i) {
+		delete (*i);
+	}
+	_workers.clear();
+}
+
+/*------------------------------------------------------------------------------
+ * TaskDispatcher::Worker
+------------------------------------------------------------------------------*/
+
+TaskDispatcher::Worker::Worker(TaskDispatcher& taskDispatcher, unsigned int id) :
+	Thread(true),
+	_taskDispatcher(taskDispatcher),
+	_id(id)
+{}
+	
+void TaskDispatcher::Worker::run()
+{
+	onStart();
+	Core::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, L"Worker has been started"));
+	while (true) {
+		if (shouldTerminate()) {
+			Core::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, L"Task dispatcher termination has been detected before task pick up - exiting from the worker thread"));
+			break;
+		}
+		std::auto_ptr<AbstractTask> task;
+		{
+			MutexLocker locker(_taskDispatcher._taskCond.mutex());
+			if (_taskDispatcher._tasks.empty()) {
+				// Wait for the next task if the task queue is empty
+				++_taskDispatcher._awaitingWorkersCount;
+				_taskDispatcher._taskCond.wait();
+				--_taskDispatcher._awaitingWorkersCount;
+				if (!_taskDispatcher._tasks.empty()) {
+					// Pick up the next task from the task queue if the task queue is not empty
+					task.reset(_taskDispatcher._tasks.back());
+					_taskDispatcher._tasks.pop_back();
+				}
+			} else {
+				// Pick up the next task from the task queue if the task queue is not empty
+				task.reset(_taskDispatcher._tasks.back());
+				_taskDispatcher._tasks.pop_back();
+			}
+		}
+		if (shouldTerminate()) {
+			Core::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, L"Task dispatcher termination has been detected after task pick up - exiting from the worker thread"));
+			break;
+		}
+		if (task.get()) {
+			try {
+				task->execute(*this);
+			} catch (std::exception& e) {
+				Core::errorLog.log(ExceptionLogMessage(SOURCE_LOCATION_ARGS, e, L"Task execution error"));
+			} catch (...) {
+				Core::errorLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, L"Task execution unknown error"));
+			}
+		} else {
+			Core::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, L"No task for worker"));
+		}
+	}
+	onStop();
 }
 
 } // namespace isl

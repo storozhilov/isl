@@ -6,7 +6,7 @@ EchoMessageBrokerServer::EchoMessageBrokerServer(int argc, char * argv[]) :
 	_messageBroker(this)
 {}
 
-bool EchoMessageBrokerServer::start()
+void EchoMessageBrokerServer::start()
 {
 	setState(IdlingState, StartingState);
 	_signalHandler.start();
@@ -22,7 +22,7 @@ void EchoMessageBrokerServer::stop()
 	setState(IdlingState);
 }
 
-bool EchoMessageBrokerServer::restart()
+void EchoMessageBrokerServer::restart()
 {
 	setState(StoppingState);
 	_signalHandler.stop();

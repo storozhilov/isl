@@ -17,7 +17,7 @@ AbstractTask::AbstractTask() :
 AbstractTask::~AbstractTask()
 {}
 
-void AbstractTask::execute(Worker& worker)
+void AbstractTask::execute(TaskDispatcher::Worker& worker)
 {
 	if (_executed) {
 		// TODO

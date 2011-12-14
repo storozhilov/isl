@@ -30,7 +30,7 @@ bool AbstractHTTPTask::connectionToBeClosed() const
 	return true;
 }
 
-void AbstractHTTPTask::executeImplementation(Worker& worker)
+void AbstractHTTPTask::executeImplementation(TaskDispatcher::Worker& worker)
 {
 	std::wostringstream msg;
 	msg << L"Connection established " << socket().localAddress() << L':' <<

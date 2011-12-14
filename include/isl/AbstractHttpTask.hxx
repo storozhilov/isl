@@ -34,7 +34,7 @@ private:
 
 	virtual bool methodImplemented(const std::string& method) const;
 	virtual bool versionImplemented(const std::string& version) const;
-	virtual void executeImplementation(Worker& worker);
+	virtual void executeImplementation(TaskDispatcher::Worker& worker);
 
 	void setMethod(const std::string& method);
 	void setUri(const std::string& uri);

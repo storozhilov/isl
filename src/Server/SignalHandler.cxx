@@ -13,8 +13,7 @@ namespace isl
 ------------------------------------------------------------------------------*/
 
 SignalHandler::SignalHandler(AbstractServer& server, const SignalSet& signalSet, const Timeout& timeout) :
-	//AbstractSubsystem(&server),
-	AbstractSubsystem(0),
+	AbstractSubsystem(&server),
 	_server(server),
 	_initialSignalMask(),
 	_blockedSignals(signalSet),
@@ -35,7 +34,7 @@ void SignalHandler::setTimeout(const Timeout& newTimeout)
 	_timeout = newTimeout;
 }
 
-bool SignalHandler::start()
+void SignalHandler::start()
 {
 	setState(IdlingState, StartingState);
 	Core::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, L"Starting subsystem"));
@@ -47,7 +46,6 @@ bool SignalHandler::start()
 	Core::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, L"Signals have been blocked"));
 	_signalHandlerThread.start();
 	Core::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, L"Subsystem has been started"));
-	return true;
 }
 
 void SignalHandler::stop()
@@ -62,30 +60,6 @@ void SignalHandler::stop()
 	Core::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, L"Signals have been unblocked"));
 	setState(IdlingState);
 	Core::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, L"Subsystem has been stopped"));
-}
-
-bool SignalHandler::restart()
-{
-	setState(StoppingState);
-	Core::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, L"Stopping subsystem during restart"));
-	_signalHandlerThread.join();
-	Core::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, L"Signal handler thread has been stopped"));
-	if (pthread_sigmask(SIG_SETMASK, &_initialSignalMask, 0)) {
-		std::wcerr << SystemCallError(SOURCE_LOCATION_ARGS, SystemCallError::PThreadSigMask, errno).message() << std::endl;
-	}
-	Core::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, L"Signals have been unblocked"));
-	Core::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, L"Subsystem has been stopped during restart"));
-	setState(StoppingState, StartingState);
-	Core::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, L"Starting subsystem during restart"));
-	sigset_t blockedSignalMask = _blockedSignals.sigset();
-	if (pthread_sigmask(SIG_SETMASK, &blockedSignalMask, &_initialSignalMask)) {
-		setState(IdlingState);
-		throw Exception(SystemCallError(SOURCE_LOCATION_ARGS, SystemCallError::PThreadSigMask, errno));
-	}
-	Core::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, L"Signals have been blocked"));
-	_signalHandlerThread.start();
-	Core::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, L"Subsystem has been started during restart"));
-	return true;
 }
 
 bool SignalHandler::onSignal(int signo)

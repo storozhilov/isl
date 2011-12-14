@@ -31,7 +31,7 @@ private:
 
 	AbstractHTTPTask& operator=(const AbstractHTTPTask&);				// No copy
 
-	virtual void executeImplementation(Worker& worker);
+	virtual void executeImplementation(TaskDispatcher::Worker& worker);
 
 	HTTPRequest _request;
 	HTTPResponse _response;

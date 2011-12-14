@@ -15,15 +15,20 @@ AbstractMessageBroker::AbstractMessageBroker(AbstractSubsystem * owner, unsigned
 		unsigned int backLog) :
 	AbstractSubsystem(owner),
 	_port(port),
+	_portRwLock(),
 	_sendQueueSize(sendQueueSize),
+	_sendQueueSizeRwLock(),
 	_timeout(timeout),
+	_timeoutRwLock(),
 	_interfaces(interfaces),
+	_interfacesRwLock(),
 	_backLog(backLog),
+	_backLogRwLock(),
 	_listenerThread(*this),
 	_taskDispatcher(this, maxClients * 2)
 {}
 
-bool AbstractMessageBroker::start()
+void AbstractMessageBroker::start()
 {
 	setState(IdlingState, StartingState);
 	_taskDispatcher.start();
@@ -36,16 +41,6 @@ void AbstractMessageBroker::stop()
 	_listenerThread.join();
 	_taskDispatcher.stop();
 	setState(IdlingState);
-}
-
-bool AbstractMessageBroker::restart()
-{
-	setState(StoppingState);
-	_listenerThread.join();
-	_taskDispatcher.stop();
-	setState(StoppingState, StartingState);
-	_taskDispatcher.start();
-	_listenerThread.start();
 }
 
 AbstractMessageBroker::SenderTask * AbstractMessageBroker::createSenderTask(TcpSocket * socket)
@@ -80,6 +75,7 @@ AbstractMessageBroker::SenderTask::~SenderTask()
 
 bool AbstractMessageBroker::SenderTask::sendMessage(AbstractMessage * msg)
 {
+	// TODO Handle message queue overflow
 	MutexLocker locker(_sendCond.mutex());
 	if (_messageQueue.size() >= _broker.sendQueueSize()) {
 		Core::warningLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, "Sending message queue overflow has been detected"));
@@ -90,7 +86,7 @@ bool AbstractMessageBroker::SenderTask::sendMessage(AbstractMessage * msg)
 	return true;
 }
 
-void AbstractMessageBroker::SenderTask::executeImplementation(Worker& worker)
+void AbstractMessageBroker::SenderTask::executeImplementation(TaskDispatcher::Worker& worker)
 {
 	while (true) {
 		std::auto_ptr<AbstractMessage> msg;
@@ -152,13 +148,13 @@ AbstractMessageBroker::ReceiverTask::ReceiverTask(SenderTask& senderTask) :
 	_terminateFlagRWLock()
 {}
 
-void AbstractMessageBroker::ReceiverTask::executeImplementation(Worker& worker)
+void AbstractMessageBroker::ReceiverTask::executeImplementation(TaskDispatcher::Worker& worker)
 {
 	// Finally to terminate sender task:
 	SenderTaskTerminator senderTaskTerminator(_senderTask);
 	while (true) {
 		// Checking broker termination
-		if (!_broker.isRunning()) {
+		if (_broker.shouldTerminate()) {
 			Core::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, "Broker termination has been detected before receiving message - exiting from the task execution"));
 			break;
 		}
@@ -179,7 +175,7 @@ void AbstractMessageBroker::ReceiverTask::executeImplementation(Worker& worker)
 			return;
 		}
 		// Checking broker termination
-		if (!_broker.isRunning()) {
+		if (_broker.shouldTerminate()) {
 			Core::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, "Broker termination has been detected after receiving message - exiting from the task execution"));
 			break;
 		}

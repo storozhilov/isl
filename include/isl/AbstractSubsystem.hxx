@@ -23,7 +23,6 @@ public:
 		IdlingState,		//!< Subsystem is idling
 		StartingState,		//!< Subsystem is starting up
 		RunningState,		//!< Subsystem is running
-		//RestartingState,	//!< Subsystem is restarting (TODO)
 		StoppingState		//!< Subsystem is shutting down
 	};
 	//! Constructs a new subsystem
@@ -76,40 +75,19 @@ public:
 		_stateCond.wait(timeout);
 		return _state;
 	}
-	//! Restarts subsystem
-	/*!
-	  \param timeout Timeout to wait for idling state
-	  \return True if the starting process has been successfully launched
-	*/
-	inline bool restart(Timeout timeout)
-	{
-		stop();
-		if (awaitState(IdlingState, timeout) != IdlingState) {
-			Core::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, "Subsystem has not been stopped"));
-			return false;
-		}
-		return start();
-	}
-	//! Starting subsystem abstract virtual method to override in descendants
+	//! Asynchronously starting subsystem abstract virtual method to override in descendants
 	/*!
 	  All state manipulations are under this method's control
 	  \return True if the starting process has been successfully launched
 	  TODO Add default implementation, which starts all children subsystems?
 	*/
-	virtual bool start() = 0;
-	//! Stopping subsystem abstract virtual method to override in descendants
+	virtual void start() = 0;
+	//! Synchronously stopping subsystem abstract virtual method to override in descendants
 	/*!
 	  All state manipulations are under this method's control
 	  TODO Add default implementation, which stops all children subsystems?
 	*/
 	virtual void stop() = 0;
-	//! Restarting subsystem abstract virtual method to override in descendants
-	/*!
-	  All state manipulations are under this method's control
-	  \return True if the starting process has been successfully launched during restart
-	  TODO Add default implementation, which starts all children subsystems?
-	*/
-	virtual bool restart() = 0;
 	//! Returns state name by state value
 	static const wchar_t * stateName(State state)
 	{
@@ -167,6 +145,7 @@ private:
 	static const wchar_t IdlingStateName[];
 	static const wchar_t StartingStateName[];
 	static const wchar_t RunningStateName[];
+	static const wchar_t RestartingStateName[];
 	static const wchar_t StoppingStateName[];
 };
 

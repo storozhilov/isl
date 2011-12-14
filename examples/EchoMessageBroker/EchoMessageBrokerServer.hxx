@@ -10,9 +10,9 @@ class EchoMessageBrokerServer : public isl::AbstractServer
 public:
 	EchoMessageBrokerServer(int argc, char * argv[]);
 	
-	virtual bool start();
+	virtual void start();
 	virtual void stop();
-	virtual bool restart();
+	virtual void restart();
 private:
 	EchoMessageBrokerServer();
 	EchoMessageBrokerServer(const EchoMessageBrokerServer&);

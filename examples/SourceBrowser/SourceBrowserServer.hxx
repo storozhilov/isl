@@ -10,9 +10,9 @@ class SourceBrowserServer : public isl::AbstractServer
 public:
 	SourceBrowserServer(int argc, char * argv[]);
 	
-	virtual bool start();
+	virtual void start();
 	virtual void stop();
-	virtual bool restart();
+	virtual void restart();
 private:
 	SourceBrowserServer();
 	SourceBrowserServer(const SourceBrowserServer&);

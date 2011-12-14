@@ -6,6 +6,7 @@
 #include <isl/Thread.hxx>
 #include <isl/Timeout.hxx>
 #include <isl/TaskDispatcher.hxx>
+#include <isl/AbstractTask.hxx>
 #include <isl/DateTime.hxx>
 #include <deque>
 #include <memory>
@@ -13,6 +14,10 @@
 namespace isl
 {
 
+//! Base class for the TCP message broker implementation
+/*
+   TODO Documentation!!!
+*/
 class AbstractMessageBroker : public AbstractSubsystem
 {
 private:
@@ -22,7 +27,7 @@ public:
 			unsigned int sendQueueSize = 100, const Timeout& timeout = Timeout(1),
 			const std::list<std::wstring>& interfaces = std::list<std::wstring>(),
 			unsigned int backLog = 15);
-
+	//! Abstract message
 	class AbstractMessage
 	{
 	public:
@@ -44,7 +49,7 @@ public:
 	};
 
 	class ReceiverTask;
-
+	//! Message sender task
 	class SenderTask : public AbstractTask
 	{
 	public:
@@ -72,7 +77,7 @@ public:
 
 		typedef std::deque<AbstractMessage *> MessageQueue;
 
-		virtual void executeImplementation(Worker& worker);
+		virtual void executeImplementation(TaskDispatcher::Worker& worker);
 
 		AbstractMessageBroker& _broker;
 		std::auto_ptr<TcpSocket> _socketAutoPtr;
@@ -83,8 +88,7 @@ public:
 		friend class SenderTaskTerminator;
 		friend class ReceiverTask;
 	};
-
-
+	//! Message receiver task
 	class ReceiverTask : public AbstractTask
 	{
 	public:
@@ -110,7 +114,7 @@ public:
 
 		ReceiverTask& operator=(const ReceiverTask&);						// No copy
 
-		virtual void executeImplementation(Worker& worker);
+		virtual void executeImplementation(TaskDispatcher::Worker& worker);
 
 		AbstractMessageBroker& _broker;
 		TcpSocket& _socket;
@@ -119,45 +123,156 @@ public:
 		mutable ReadWriteLock _terminateFlagRWLock;
 	};
 
+	//! Thread-safely returns listening TCP-port
 	inline unsigned int port() const
 	{
+		ReadLocker locker(_portRwLock);
 		return _port;
 	}
+	//! Thread-safely sets listening TCP-port
+	/*!
+	  Subsystem's restart needed to actually apply new value
+	  \param newValue New TCP-port listen to
+	*/
+	inline void setPort(unsigned int newValue)
+	{
+		WriteLocker locker(_portRwLock);
+		_port = newValue;
+	}
+	//! Thread-safely returns sender task queue size
 	inline unsigned int sendQueueSize() const
 	{
+		ReadLocker locker(_sendQueueSizeRwLock);
 		return _sendQueueSize;
 	}
+	//! Thread-safely sets sender task queue size
+	/*!
+	  Subsystem's restart needed to actually apply new value
+	  Changes will take place on the next message sending operation
+	  \param newValue New sender task queue size
+	*/
+	inline void setSendQueueSize(unsigned int newValue)
+	{
+		WriteLocker locker(_sendQueueSizeRwLock);
+		_sendQueueSize = newValue;
+	}
+	//! Thread-safely returns accepting connection timeout
 	inline Timeout timeout() const
 	{
+		ReadLocker locker(_timeoutRwLock);
 		return _timeout;
 	}
+	//! Thread-safely sets new accepting connection timeout
+	/*!
+	  Changes will take place on the next performing accepting connection operation
+	  \param newValue New accepting connection timeout
+	*/
+	inline void setTimeout(const Timeout& newValue)
+	{
+		WriteLocker locker(_timeoutRwLock);
+		_timeout = newValue;
+	}
+	//! Thread-safely returns maximum clients amount
 	inline unsigned int maxClients() const
 	{
 		return _taskDispatcher.workersCount() / 2;
 	}
+	//! Thread-safely sets new maximum clients amount
+	/*!
+	  Subsystem's restart needed to actually apply new value
+	  \param newValue New maximum clients amount
+	*/
+	inline void setMaxClients(unsigned int newValue)
+	{
+		_taskDispatcher.setWorkersCount(newValue * 2);
+	}
+	//! Thread-safely returns interfaces that should be listen to
 	inline std::list<std::wstring> interfaces() const
 	{
+		ReadLocker locker(_interfacesRwLock);
 		return _interfaces;
 	}
+	//! Thread-safely sets new interfaces that should be listen to
+	/*!
+	  Subsystem's restart needed to actually apply new value
+	  \param newValue New interfaces that should be listen to
+	*/
+	inline void setInterfaces(const std::list<std::wstring>& newValue)
+	{
+		WriteLocker locker(_interfacesRwLock);
+		_interfaces = newValue;
+	}
+	//! Thread-safely returns listen backlog
 	inline unsigned int backLog() const
 	{
+		ReadLocker locker(_backLogRwLock);
 		return _backLog;
 	}
-	inline bool isRunning() const
+	//! Thread-safely sets new listen backlog
+	/*!
+	  Subsystem's restart needed to actually apply new value
+	  \param newValue New listen backlog
+	*/
+	inline void setBackLog(unsigned int newValue)
+	{
+		WriteLocker locker(_backLogRwLock);
+		_backLog = newValue;
+	}
+	//! Thread-safely returns maximum task queue overflow size.
+	inline unsigned int maxTaskQueueOverflowSize() const
+	{
+		return _taskDispatcher.maxTaskQueueOverflowSize();
+	}
+	//! Thread-safely sets the new maximum task queue overflow size.
+	/*!
+	  Changes will take place on the next task performing operation
+	  \param newValue New maximum task queue overflow size
+	*/
+	inline void setMaxTaskQueueOverflowSize(unsigned int newValue)
+	{
+		_taskDispatcher.setMaxTaskQueueOverflowSize(newValue);
+	}
+	//! Returns true if the broker should terminate itself
+	inline bool shouldTerminate() const
 	{
 		AbstractSubsystem::State brokerState = state();
-		return (brokerState == StartingState) || (brokerState == RunningState);
+		return (brokerState != StartingState) && (brokerState != RunningState);
 	}
 
-	virtual bool start();
+	virtual void start();
 	virtual void stop();
-	virtual bool restart();
 protected:
+	//! Sender task creation factory virtual method
+	/*!
+	  \param socket Pointer to TCP-socket
+	  \return Pointer to the new sender task object
+	*/
 	virtual SenderTask * createSenderTask(TcpSocket * socket);
 	virtual ReceiverTask * createReceiverTask(SenderTask& senderTask);
 
+	//! Receiving message factory method to override in subclasses
+	/*!
+	  This method executes in the receiver task's thread
+	  \param socket TCP-socket to read the message from
+	  \param recieverTask Reference to the reciever task
+	  \return Pointer to the new received message or 0 if no message has been received
+	*/
 	virtual AbstractMessage * recieveMessage(TcpSocket& socket, ReceiverTask& recieverTask) = 0;
+	//! Processing message method to override in subclasses
+	/*!
+	  This method executes in the receiver task's thread
+	  \param message Message to process
+	  \param recieverTask Reference to the reciever task
+	  \param senderTask Reference to the sender task
+	*/
 	virtual void processMessage(const AbstractMessage& message, ReceiverTask& recieverTask, SenderTask& senderTask) = 0;
+	//! Sending message method to override in subclasses
+	/*!
+	  This method executes in the sender task's thread
+	  \param socket TCP-socket to write the message to
+	  \param message Message to send
+	  \param senderTask Reference to the sender task
+	*/
 	virtual void sendMessage(TcpSocket& socket, const AbstractMessage& message, SenderTask& senderTask) = 0;
 private:
 	//! Message broker's TCP-listener
@@ -176,7 +291,7 @@ private:
 		void sleep()
 		{
 			MutexLocker locker(_sleepCond.mutex());
-			_sleepCond.wait(_broker._timeout);
+			_sleepCond.wait(_broker.timeout());
 		}
 
 		AbstractMessageBroker& _broker;
@@ -210,10 +325,15 @@ private:
 	TaskDispatcher _taskDispatcher;
 	ListenerThread _listenerThread;
 	unsigned int _port;
+	mutable ReadWriteLock _portRwLock;
 	unsigned int _sendQueueSize;
+	mutable ReadWriteLock _sendQueueSizeRwLock;
 	Timeout _timeout;
+	mutable ReadWriteLock _timeoutRwLock;
 	std::list<std::wstring> _interfaces;
+	mutable ReadWriteLock _interfacesRwLock;
 	unsigned int _backLog;
+	mutable ReadWriteLock _backLogRwLock;
 };
 
 } // namespace isl

@@ -1,7 +1,7 @@
 #ifndef ISL__ABSTRACT_TASK__HXX
 #define ISL__ABSTRACT_TASK__HXX
 
-#include <isl/Worker.hxx>
+#include <isl/TaskDispatcher.hxx>
 
 namespace isl
 {
@@ -12,9 +12,9 @@ public:
 	AbstractTask();
 	virtual ~AbstractTask();
 
-	void execute(Worker& worker);
+	void execute(TaskDispatcher::Worker& worker);
 protected:
-	virtual void executeImplementation(Worker& worker) = 0;
+	virtual void executeImplementation(TaskDispatcher::Worker& worker) = 0;
 private:
 	AbstractTask(const AbstractTask&);						// No copy
 

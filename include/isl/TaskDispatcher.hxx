@@ -3,15 +3,16 @@
 
 #include <isl/AbstractSubsystem.hxx>
 #include <isl/WaitCondition.hxx>
-#include <isl/AbstractTask.hxx>
 #include <isl/Thread.hxx>
-#include <isl/Worker.hxx>
 #include <deque>
 #include <list>
 
 namespace isl
 {
 
+class AbstractTask;
+
+//! Task dispatcher for executing tasks in the pool of the worker threads
 class TaskDispatcher : public AbstractSubsystem
 {
 public:
@@ -24,22 +25,94 @@ public:
 	*/
 	TaskDispatcher(AbstractSubsystem * owner, unsigned int workersCount, unsigned int maxTaskQueueOverflowSize = 0);
 	~TaskDispatcher();
+	
+	//! Worker thread class
+	class Worker : public Thread
+	{
+	public:
+		Worker(TaskDispatcher& taskDispatcher, unsigned int id);
 
+		inline const TaskDispatcher& taskDispatcher() const
+		{
+			return _taskDispatcher;
+		}
+		inline unsigned int id() const
+		{
+			return _id;
+		}
+	private:
+		Worker();
+		Worker(const Worker&);								// No copy
+
+		Worker& operator=(const Worker&);						// No copy
+
+		inline bool shouldTerminate() const
+		{
+			AbstractSubsystem::State taskDispatcherState = _taskDispatcher.state();
+			return (taskDispatcherState != AbstractSubsystem::StartingState) && (taskDispatcherState != AbstractSubsystem::RunningState);
+		}
+
+		virtual void run();
+		virtual void onStart()
+		{}
+		virtual void onStop()
+		{}
+
+		TaskDispatcher& _taskDispatcher;
+		unsigned int _id;
+	};
+
+	//! Thread-safely returns workers count.
 	inline unsigned int workersCount() const
 	{
+		ReadLocker locker(_workersCountRwLock);
 		return _workersCount;
 	}
+	//! Thread-safely sets the new workers count.
+	/*!
+	  Subsystem's restart needed to actually apply new value
+	  \param newValue New workers count
+	*/
+	inline void setWorkersCount(unsigned int newValue)
+	{
+		WriteLocker locker(_workersCountRwLock);
+		_workersCount = newValue;
+	}
+	//! Thread-safely returns maximum task queue overflow size.
 	inline unsigned int maxTaskQueueOverflowSize() const
 	{
+		ReadLocker locker(_maxTaskQueueOverflowSizeRwLock);
 		return _maxTaskQueueOverflowSize;
 	}
+	//! Thread-safely sets the new maximum task queue overflow size.
+	/*!
+	  Changes will take place on the next task performing operation
+	  \param newValue New maximum task queue overflow size
+	*/
+	inline void setMaxTaskQueueOverflowSize(unsigned int newValue)
+	{
+		WriteLocker locker(_maxTaskQueueOverflowSizeRwLock);
+		_maxTaskQueueOverflowSize = newValue;
+	}
+	//! Performs a task
+	/*!
+	  \return True if the task has been successfully passed to workers
+	*/
 	bool perform(AbstractTask * task);
+	//! Performs a tasks
+	/*!
+	  \return True if the tasks have been successfully passed to workers
+	*/
 	bool perform(const TaskList& taskList);							// TODO
 
-	virtual bool start();
+	virtual void start();
 	virtual void stop();
-	virtual bool restart();
 protected:
+	//! Creating new worker foactory method
+	/*!
+	  \param workerId Id for the new worker
+	  \return New worker
+	*/
 	virtual Worker * createWorker(unsigned int workerId);
 private:
 	TaskDispatcher();
@@ -47,13 +120,17 @@ private:
 
 	TaskDispatcher& operator=(const TaskDispatcher&);					// No copy
 
+	void resetWorkers();
+
 	typedef std::deque<AbstractTask *> Tasks;
 	typedef std::list<Worker *> Workers;
 
 	unsigned int _workersCount;
+	mutable ReadWriteLock _workersCountRwLock;
 	WaitCondition _taskCond;
 	unsigned int _awaitingWorkersCount;
 	unsigned int _maxTaskQueueOverflowSize;
+	mutable ReadWriteLock _maxTaskQueueOverflowSizeRwLock;
 	Tasks _tasks;
 	Workers _workers;
 

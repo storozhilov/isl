@@ -27,6 +27,8 @@ public:
 	{
 		return _argv.at(argNo);
 	}
+	//! Restarting server abstract virtual method to override in descendants
+	virtual void restart() = 0;
 private:
 	AbstractServer();
 	AbstractServer(const AbstractServer&);						// No copy

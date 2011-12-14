@@ -6,7 +6,7 @@ SourceBrowserServer::SourceBrowserServer(int argc, char * argv[]) :
 	_sourceBrowserService(this, 8080, 5, L".")
 {}
 
-bool SourceBrowserServer::start()
+void SourceBrowserServer::start()
 {
 	setState(IdlingState, StartingState);
 	_signalHandler.start();
@@ -22,7 +22,7 @@ void SourceBrowserServer::stop()
 	setState(IdlingState);
 }
 
-bool SourceBrowserServer::restart()
+void SourceBrowserServer::restart()
 {
 	setState(StoppingState);
 	_signalHandler.stop();
