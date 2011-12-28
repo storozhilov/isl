@@ -17,6 +17,7 @@ public:
 	Exception(const Exception& exception);
 	~Exception() throw();
 
+	// TODO To override operator=()
 	void addError(const AbstractError& error);
 	template <typename T> bool hasError() const
 	{
