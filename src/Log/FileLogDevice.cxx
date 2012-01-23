@@ -83,7 +83,7 @@ void FileLogDevice::writeMessage(const std::wstring& prefix, const std::wstring&
 			stringToWrite += String::utf8Encode(prefix);
 			stringToWrite += "] ";
 		}
-		stringToWrite += String::utf8Encode(msg);
+		stringToWrite += String::utf8Encode(currentLine);
 		stringToWrite += '\n';
 		if (write(_fileDescriptor, stringToWrite.data(), stringToWrite.size()) < 0) {
 			throw Exception(SystemCallError(SOURCE_LOCATION_ARGS, SystemCallError::Write, errno));

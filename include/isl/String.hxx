@@ -68,6 +68,13 @@ public:
 	static std::wstring utf8Decode(const char * source);
 	//! Decodes char to wchar_t using UTF-8 encoding
 	static std::wstring utf8Decode(const std::string& source);
+
+	enum Base {
+		DecimalBase,
+		HexBase
+	};
+	// Conversion functions
+	static unsigned int toUnsignedInt(const std::string& str, bool * errorOccured = 0, Base base = DecimalBase);
 };
 
 } // namespace isl

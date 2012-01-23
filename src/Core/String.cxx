@@ -1,4 +1,6 @@
 #include <isl/String.hxx>
+#include <isl/Exception.hxx>
+#include <isl/Error.hxx>
 #include <sstream>
 #include <iomanip>
 #include <string.h>
@@ -377,6 +379,71 @@ std::wstring String::utf8Decode(const std::string& source)
 	std::wstring dest;
 	utf8Decode(dest, source.data(), source.length());
 	return dest;
+}
+
+unsigned int String::toUnsignedInt(const std::string& str, bool * errorOccured, Base base)
+{
+	if (errorOccured) {
+		*errorOccured = false;
+	}
+	std::string strToParse = str;
+	trim(strToParse);
+	if (strToParse.empty()) {
+		return 0;
+	}
+	unsigned int result = 0;
+	switch (base) {
+		case DecimalBase:
+			for (unsigned int curPos = (strToParse[0] == '+' ? 1 : 0); curPos < strToParse.size(); ++curPos) {
+				if (!isDigit(strToParse[curPos])) {
+					if (errorOccured) {
+						*errorOccured = true;
+					}
+					return 0;
+				}
+				unsigned int newResult = result * 10 + strToParse[curPos] - '0';
+				if (newResult < result) {
+					// Integer overflow has been detected
+					if (errorOccured) {
+						*errorOccured = true;
+					}
+					return 0;
+				}
+				result = newResult;
+			}
+			break;
+		case HexBase:
+			for (unsigned int curPos = 0; curPos < strToParse.size(); ++curPos) {
+				if (!isHexDigit(strToParse[curPos])) {
+					if (errorOccured) {
+						*errorOccured = true;
+					}
+					return 0;
+				}
+				unsigned int newResult;
+				if (strToParse[curPos] >= '0' && strToParse[curPos] <= '9') {
+					newResult = result * 16 + strToParse[curPos] - '0';
+				} else if (strToParse[curPos] >= 'a' && strToParse[curPos] <= 'f') {
+					newResult = result * 16 + strToParse[curPos] - 'a' + 10;
+				} else if (strToParse[curPos] >= 'A' && strToParse[curPos] <= 'F') {
+					newResult = result * 16 + strToParse[curPos] - 'A' + 10;
+				} else {
+					throw Exception(Error(SOURCE_LOCATION_ARGS, L"Invalid hex value"));
+				}
+				if (newResult < result) {
+					// Integer overflow has been detected
+					if (errorOccured) {
+						*errorOccured = true;
+					}
+					return 0;
+				}
+				result = newResult;
+			}
+			break;
+		default:
+			throw Exception(Error(SOURCE_LOCATION_ARGS, L"Invalid base"));
+	}
+	return result;
 }
 
 } // namespace isl

@@ -86,16 +86,19 @@ void testHttpRequestStreamReader()
 					body.append(buf, bytesRead);
 				}
 			}
+		} catch (isl::Exception& e) {
+			std::cerr << "Error occured: '" << isl::String::utf8Encode(e.debug()) << '\'' << std::endl;
 		} catch (std::exception& e) {
 			std::cerr << "Error occured: '" << e.what() << '\'' << std::endl;
 		} catch (...) {
 			std::cerr << "Unknown error occured." << std::endl;
 		}
-		std::cout << "HTTP-request has been read. Method: '" << r.method() << "', uri: '" << r.uri() << "', version: '" << r.version() << "'. Headers:" << std::endl;
+		std::cout << "HTTP-request has been read. Method: '" << r.method() << "', URI: '" << r.uri() << "' Version: '" << r.version() << "', Headers:" << std::endl;
 		isl::HttpRequestStreamReader::Header header = r.header();
 		for (isl::HttpRequestStreamReader::Header::const_iterator i = header.begin(); i != header.end(); ++i) {
 			std::cout << "\t'" << i->first << "': '" << i->second << '\'' << std::endl;
 		}
+		std::cout << "Body is:\n--\n" << body << "\n--" << std::endl;
 		/*while (true) {
 			try {
 				ss->ungetChar('r');
@@ -137,8 +140,8 @@ int main(int argc, char *argv[])
 	std::cout << "Test executable has been started" << std::endl;
 
 	//testDateTime();
-	testVariant();
-	//testHttpRequestStreamReader();
+	//testVariant();
+	testHttpRequestStreamReader();
 
 	/*isl::Core::debugLog.setPrefix(L"DEBUG");
 	isl::Core::debugLog.connectTarget(isl::FileLogTarget("test.log"));

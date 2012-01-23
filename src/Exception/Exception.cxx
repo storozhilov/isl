@@ -12,22 +12,32 @@ Exception::Exception(const AbstractError& error) :
 	addError(error);
 }
 
-Exception::Exception(const Exception& exception) :
+Exception::Exception(const Exception& rhs) :
 	_errors(),
 	_message(),
 	_debug(),
 	_what()
 {
-	for (ErrorList::const_iterator i = exception._errors.begin(); i != exception._errors.end(); ++i) {
-		addError(*(*i));
+	for (ErrorList::const_iterator i = rhs._errors.begin(); i != rhs._errors.end(); ++i) {
+		addError(**i);
 	}
 }
 
 Exception::~Exception() throw()
 {
-	for (ErrorList::iterator i = _errors.begin(); i != _errors.end(); ++i) {
-		delete (*i);
+	resetErrors();
+}
+
+Exception& Exception::operator=(const Exception& rhs)
+{
+	if (this == &rhs) {
+		return *this;
 	}
+	resetErrors();
+	for (ErrorList::const_iterator i = rhs._errors.begin(); i != rhs._errors.end(); ++i) {
+		addError(**i);
+	}
+	return *this;
 }
 
 void Exception::addError(const AbstractError& error)
@@ -57,6 +67,14 @@ const wchar_t * Exception::debug() const throw()
 const char * Exception::what() const throw()
 {
 	return _what.c_str();
+}
+
+void Exception::resetErrors()
+{
+	for (ErrorList::iterator i = _errors.begin(); i != _errors.end(); ++i) {
+		delete (*i);
+	}
+	_errors.clear();
 }
 
 } // namespace isl
