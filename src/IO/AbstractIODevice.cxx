@@ -88,6 +88,9 @@ unsigned int AbstractIODevice::read(char * buffer, unsigned int bufferSize, cons
 	if (!_isOpen) {
 		throw Exception(IOError(SOURCE_LOCATION_ARGS, IOError::DeviceIsNotOpen));
 	}
+	if (bufferSize <= 0) {
+		return 0;
+	}
 	unsigned int bytesCopied = 0;
 	// Utilizing the unget buffer first
 	while ((_ungetBuffer.size() > 0) && (bytesCopied <= bufferSize)) {
@@ -124,6 +127,9 @@ unsigned int AbstractIODevice::write(const char * buffer, unsigned int bufferSiz
 {
 	if (!_isOpen) {
 		throw Exception(IOError(SOURCE_LOCATION_ARGS, IOError::DeviceIsNotOpen));
+	}
+	if (bufferSize <= 0) {
+		return 0;
 	}
 	return writeImplementation(buffer, bufferSize, timeout);
 }

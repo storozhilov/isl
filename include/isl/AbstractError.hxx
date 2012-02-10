@@ -16,17 +16,15 @@ public:
 	//! Constructs an object
 	/*!
 	    \param SOURCE_LOCATION_ARGS_DECLARATION 'SOURCE_LOCATION_ARGS' macro should be placed here while constructor call
-	    \param info Error information
 	*/
-	AbstractError(SOURCE_LOCATION_ARGS_DECLARATION, const std::wstring& info = std::wstring()) :
+	AbstractError(SOURCE_LOCATION_ARGS_DECLARATION) :
 		_messageComposed(false),
 		_message(),
 		_debug(),
 		_what(),
 		_file(SOURCE_LOCATION_ARGS_FILE),
 		_line(SOURCE_LOCATION_ARGS_LINE),
-		_function(SOURCE_LOCATION_ARGS_FUNCTION),
-		_info(info)
+		_function(SOURCE_LOCATION_ARGS_FUNCTION)
 	{}
 	virtual ~AbstractError()
 	{}
@@ -45,11 +43,6 @@ public:
 	inline const char * function() const throw()
 	{
 		return _function.c_str();
-	}
-	//! Returns error information
-	inline const wchar_t * info() const throw()
-	{
-		return _info.c_str();
 	}
 	//! Returns true if an error is an instance of particular type templated method
 	template <typename T> bool instanceOf()
@@ -75,32 +68,15 @@ public:
 		return _what.c_str();
 	}
 
-	//! Clones an error object.
-	/*!
-	    You should implement this method in the following manner:
-<pre>...
-AbstractError * YourErrorClass::clone() const
-{
-	return new YourErrorClass(*this);
-}
-...</pre>
-	*/
+	//! Cloning method for mandatory overriding in subclasses.
 	virtual AbstractError * clone() const = 0;
 protected:
 	//! Composing string with source code filename, line number and function name help function
-	std::wstring composeSourceLocation() const
+	inline std::wstring composeSourceLocation() const
 	{
 		std::wostringstream sstr;
 		sstr << String::utf8Decode(_file) << L'(' << _line << L"), " << String::utf8Decode(_function) << L": ";
 		return sstr.str();
-	}
-	//! Appending info() to the error message helper function
-	inline void appendInfo(std::wstring& msg) const
-	{
-		if (!_info.empty()) {
-			msg += L": ";
-			msg += _info;
-		}
 	}
 
 	//! Actually composes and returns an error message.
@@ -125,6 +101,39 @@ private:
 	std::string _file;
 	unsigned int _line;
 	std::string _function;
+	std::wstring _info;
+};
+
+//! Base helper error class for the majority of ISL-errors
+class AbstractInfoError : public AbstractError
+{
+public:
+	//! Constructs an object
+	/*!
+	    \param SOURCE_LOCATION_ARGS_DECLARATION 'SOURCE_LOCATION_ARGS' macro should be placed here while constructor call
+	    \param info Error information
+	*/
+	AbstractInfoError(SOURCE_LOCATION_ARGS_DECLARATION, const std::wstring& info = std::wstring()) :
+		AbstractError(SOURCE_LOCATION_ARGS_PASSTHRU),
+		_info(info)
+	{}
+	//! Returns error information
+	inline const wchar_t * info() const throw()
+	{
+		return _info.c_str();
+	}
+protected:
+	//! Appending info to the error message helper function
+	inline void appendInfo(std::wstring& msg) const
+	{
+		if (!_info.empty()) {
+			msg += L": ";
+			msg += _info;
+		}
+	}
+private:
+	AbstractInfoError();
+
 	std::wstring _info;
 };
 

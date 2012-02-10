@@ -8,7 +8,7 @@
 namespace isl
 {
 
-class SystemCallError : public AbstractError
+class SystemCallError : public AbstractInfoError
 {
 public:
 	// TODO Make them Token's or Enum's children
@@ -82,7 +82,7 @@ public:
 	};
 
 	SystemCallError(SOURCE_LOCATION_ARGS_DECLARATION, Function function, int errnum, const std::wstring& info = std::wstring()) :
-		AbstractError(SOURCE_LOCATION_ARGS_PASSTHRU, info),
+		AbstractInfoError(SOURCE_LOCATION_ARGS_PASSTHRU, info),
 		_function(function),
 		_errnum(errnum)
 	{}

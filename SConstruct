@@ -41,6 +41,8 @@ sharedLibraryBuilder = env.SharedLibrary(targetName, sourceFiles)
 
 # Examples builers
 testExampleBuilder = env.Program('examples/Test/test', Glob('examples/Test/*.cxx'), LIBS = ['isl', 'pthread', 'rt'], LIBPATH = 'lib')
+httpStreamerServerExampleBuilder = env.Program('examples/HttpCopy/htcpd', Glob('examples/HttpCopy/server/*.cxx'), LIBS = ['isl', 'pthread', 'rt'], LIBPATH = 'lib')
+httpStreamerClientExampleBuilder = env.Program('examples/HttpCopy/htcp', Glob('examples/HttpCopy/client/*.cxx'), LIBS = ['isl', 'pthread', 'rt'], LIBPATH = 'lib')
 sourceBrouserExampleBuilder = env.Program('examples/SourceBrowser/sbd', Glob('examples/SourceBrowser/*.cxx'), LIBS = ['isl', 'pthread', 'rt'], LIBPATH = 'lib')
 echoMessageBrokerExampleBuilder = env.Program('examples/EchoMessageBroker/embd', Glob('examples/EchoMessageBroker/*.cxx'), LIBS = ['isl', 'pthread', 'rt'], LIBPATH = 'lib')
 
@@ -54,6 +56,8 @@ env.Command('uninstall', None, Delete(FindInstalledFiles()))
 
 # Setting default targets
 if os.environ.get('ISL_BUILD_EXAPMLES','').upper() == 'YES':
-	Default(staticLibraryBuilder, sharedLibraryBuilder, testExampleBuilder, sourceBrouserExampleBuilder, echoMessageBrokerExampleBuilder)
+	#Default(staticLibraryBuilder, sharedLibraryBuilder, testExampleBuilder, sourceBrouserExampleBuilder, echoMessageBrokerExampleBuilder)
+	#Default(staticLibraryBuilder, sharedLibraryBuilder, testExampleBuilder, httpStreamerServerExampleBuilder, httpStreamerClientExampleBuilder, sourceBrouserExampleBuilder, echoMessageBrokerExampleBuilder)
+	Default(staticLibraryBuilder, sharedLibraryBuilder, httpStreamerServerExampleBuilder, httpStreamerClientExampleBuilder, sourceBrouserExampleBuilder, echoMessageBrokerExampleBuilder)
 else:
 	Default(staticLibraryBuilder, sharedLibraryBuilder)

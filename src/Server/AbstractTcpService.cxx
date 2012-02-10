@@ -11,7 +11,7 @@ namespace isl
 ------------------------------------------------------------------------------*/
 
 AbstractTcpService::AbstractTcpService(AbstractSubsystem * owner, unsigned int port, unsigned int maxClients,
-		const Timeout& timeout, const std::list<std::wstring>& interfaces, unsigned int backLog,
+		const Timeout& timeout, const std::list<std::string>& interfaces, unsigned int backLog,
 		unsigned int maxTaskQueueOverflowSize) :
 	AbstractSubsystem(owner),
 	_taskDispatcher(this, maxClients, maxTaskQueueOverflowSize),

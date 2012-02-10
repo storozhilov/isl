@@ -6,7 +6,7 @@
 namespace isl
 {
 
-class HttpError : public AbstractError
+class HttpError : public AbstractInfoError
 {
 public:
 	enum Type {
@@ -19,7 +19,7 @@ public:
 	};
 
 	HttpError(SOURCE_LOCATION_ARGS_DECLARATION, Type type, const std::wstring& info = std::wstring()) :
-		AbstractError(SOURCE_LOCATION_ARGS_PASSTHRU, info),
+		AbstractInfoError(SOURCE_LOCATION_ARGS_PASSTHRU, info),
 		_type(type)
 	{}
 

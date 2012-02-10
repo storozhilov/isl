@@ -1,12 +1,18 @@
 #ifndef ISL__HTTP__HXX
 #define ISL__HTTP__HXX
 
-#include <isl/Log.hxx>
+#include <isl/Log.hxx>		// TODO Remove it
+#include <map>
+
+//! TODO Remove all rocket science from the HTTP subsystem!!!
 
 namespace isl
 {
 
-//! TODO Remove all rocket science from the HTTP subsystem!!!
+typedef std::multimap<std::string, std::string> HttpHeader;
+typedef std::map<std::string, std::string> HttpCookies;
+
+// TODO Remove it
 class Http
 {
 public:

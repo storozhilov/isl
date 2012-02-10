@@ -6,7 +6,7 @@
 namespace isl
 {
 
-class SybsystemError : public AbstractError
+class SybsystemError : public AbstractInfoError
 {
 public:
 	enum Type {
@@ -14,7 +14,7 @@ public:
 	};
 
 	SybsystemError(SOURCE_LOCATION_ARGS_DECLARATION, Type type, const std::wstring& info = std::wstring()) :
-		AbstractError(SOURCE_LOCATION_ARGS_PASSTHRU, info),
+		AbstractInfoError(SOURCE_LOCATION_ARGS_PASSTHRU, info),
 		_type(type)
 	{}
 

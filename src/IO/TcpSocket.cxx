@@ -1,6 +1,7 @@
 #include <isl/TcpSocket.hxx>
 #include <isl/Core.hxx>
 #include <isl/Exception.hxx>
+#include <isl/Error.hxx>
 #include <isl/SystemCallError.hxx>
 #include <isl/IOError.hxx>
 #include <sys/types.h>
@@ -81,7 +82,7 @@ TcpSocket::TcpSocket(int descriptor) :
 	//Core::debugLog.logMessage(msg.str());
 }
 
-void TcpSocket::bind(unsigned int port, const std::list<std::wstring>& interfaces)
+void TcpSocket::bind(unsigned int port, const std::list<std::string>& interfaces)
 {
 	if (!isOpen()) {
 		throw Exception(IOError(SOURCE_LOCATION_ARGS, IOError::DeviceIsNotOpen));
@@ -144,7 +145,7 @@ TcpSocket * TcpSocket::accept(const Timeout& timeout)
 	return new TcpSocket(pendingSocketDescriptor);
 }
 
-void TcpSocket::connect(const std::wstring& address, unsigned int port)
+void TcpSocket::connect(const std::string& address, unsigned int port)
 {
 	if (!isOpen()) {
 		throw Exception(IOError(SOURCE_LOCATION_ARGS, IOError::DeviceIsNotOpen));
@@ -153,17 +154,13 @@ void TcpSocket::connect(const std::wstring& address, unsigned int port)
 	socklen_t remoteAddressSize = sizeof(remoteAddress);
 	remoteAddress.sin_family = AF_INET;
 	remoteAddress.sin_port = htons(port);
-	if (!inet_aton(String::utf8Encode(address).c_str(), &remoteAddress.sin_addr)) {
-		throw std::runtime_error("Invalid peer address");				// TODO Use isl::Exception
+	if (!inet_aton(address.c_str(), &remoteAddress.sin_addr)) {
+		throw Exception(Error(SOURCE_LOCATION_ARGS, L"Invalid peer address"));
 	}
 	//if (::connect(descriptor(), &remoteAddress, sizeof(remoteAddress))) {
 	if (::connect(descriptor(), reinterpret_cast<struct sockaddr *>(&remoteAddress), sizeof(remoteAddress))) {
 		throw Exception(SystemCallError(SOURCE_LOCATION_ARGS, SystemCallError::Connect, errno));
 	}
-
-
-
-
 	/*char remoteAddressBuf[INET6_ADDRSTRLEN];
 	if (!inet_ntop(AF_INET, &remoteAddress.sin_addr, remoteAddressBuf, INET6_ADDRSTRLEN)) {
 		throw Exception(SystemCallError(SystemCallError::InetNToP, errno, SOURCE_LOCATION_ARGS));

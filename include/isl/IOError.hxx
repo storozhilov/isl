@@ -6,7 +6,7 @@
 namespace isl
 {
 
-class IOError : public AbstractError
+class IOError : public AbstractInfoError
 {
 public:
 	enum Type {
@@ -16,7 +16,7 @@ public:
 	};
 
 	IOError(SOURCE_LOCATION_ARGS_DECLARATION, Type type, const std::wstring& info = std::wstring()) :
-		AbstractError(SOURCE_LOCATION_ARGS_PASSTHRU, info),
+		AbstractInfoError(SOURCE_LOCATION_ARGS_PASSTHRU, info),
 		_type(type)
 	{}
 

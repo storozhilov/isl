@@ -25,7 +25,7 @@ private:
 public:
 	AbstractMessageBroker(AbstractSubsystem * owner, unsigned int port, unsigned int maxClients,
 			unsigned int sendQueueSize = 100, const Timeout& timeout = Timeout(1),
-			const std::list<std::wstring>& interfaces = std::list<std::wstring>(),
+			const std::list<std::string>& interfaces = std::list<std::string>(),
 			unsigned int backLog = 15);
 	//! Abstract message
 	class AbstractMessage
@@ -187,7 +187,7 @@ public:
 		_taskDispatcher.setWorkersCount(newValue * 2);
 	}
 	//! Thread-safely returns interfaces that should be listen to
-	inline std::list<std::wstring> interfaces() const
+	inline std::list<std::string> interfaces() const
 	{
 		ReadLocker locker(_interfacesRwLock);
 		return _interfaces;
@@ -197,7 +197,7 @@ public:
 	  Subsystem's restart needed to actually apply new value
 	  \param newValue New interfaces that should be listen to
 	*/
-	inline void setInterfaces(const std::list<std::wstring>& newValue)
+	inline void setInterfaces(const std::list<std::string>& newValue)
 	{
 		WriteLocker locker(_interfacesRwLock);
 		_interfaces = newValue;
@@ -330,7 +330,7 @@ private:
 	mutable ReadWriteLock _sendQueueSizeRwLock;
 	Timeout _timeout;
 	mutable ReadWriteLock _timeoutRwLock;
-	std::list<std::wstring> _interfaces;
+	std::list<std::string> _interfaces;
 	mutable ReadWriteLock _interfacesRwLock;
 	unsigned int _backLog;
 	mutable ReadWriteLock _backLogRwLock;

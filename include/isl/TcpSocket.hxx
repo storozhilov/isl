@@ -32,14 +32,23 @@ public:
 	{
 		return _remotePort;
 	}
-	void bind(unsigned int port, const std::list<std::wstring>& interfaces = std::list<std::wstring>());
+	inline void bind(unsigned int port)
+	{
+		bind(port, std::list<std::string>());
+	}
+	inline void bind(unsigned int port, const std::string& interface)
+	{
+		std::list<std::string> interfaces(1, interface);
+		bind(port, interfaces);
+	}
+	void bind(unsigned int port, const std::list<std::string>& interfaces);
 	void listen(unsigned int backLog);
 	TcpSocket * accept(const Timeout& timeout = Timeout());
 	inline bool connected() const
 	{
 		return _connected;
 	}
-	void connect(const std::wstring& hostName, unsigned int port);				// TODO Use HostAddress class
+	void connect(const std::string& address, unsigned int port);				// TODO Use HostAddress class?
 private:
 	TcpSocket(const TcpSocket&);								// No copy
 	TcpSocket(int descriptor);

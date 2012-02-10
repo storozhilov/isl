@@ -11,7 +11,7 @@ namespace isl
 ------------------------------------------------------------------------------*/
 
 AbstractMessageBroker::AbstractMessageBroker(AbstractSubsystem * owner, unsigned int port, unsigned int maxClients,
-		unsigned int sendQueueSize, const Timeout& timeout, const std::list<std::wstring>& interfaces,
+		unsigned int sendQueueSize, const Timeout& timeout, const std::list<std::string>& interfaces,
 		unsigned int backLog) :
 	AbstractSubsystem(owner),
 	_port(port),
