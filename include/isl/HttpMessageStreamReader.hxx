@@ -68,11 +68,11 @@ public:
 	{
 		return _col;
 	}
-	inline const HttpHeader header() const
+	inline const Http::Header header() const
 	{
 		return _header;
 	}
-	inline const HttpCookies cookies() const
+	inline const Http::Cookies cookies() const
 	{
 		return _cookies;
 	}
@@ -258,8 +258,8 @@ private:
 	unsigned int _col;
 	std::string _headerFieldName;
 	std::string _headerFieldValue;
-	HttpHeader _header;
-	HttpCookies _cookies;
+	Http::Header _header;
+	Http::Cookies _cookies;
 	unsigned int _contentLength;
 	unsigned int _identityBodyBytesParsed;
 	std::string _chunkSizeStr;

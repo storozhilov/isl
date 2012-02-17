@@ -64,11 +64,11 @@ std::list<std::string> HttpMessageStreamWriter::headerValues(const std::string &
 	return result;
 }
 
-HttpHeader HttpMessageStreamWriter::header() const
+Http::Header HttpMessageStreamWriter::header() const
 {
-	HttpHeader result;
+	Http::Header result;
 	for (Header::const_iterator i = _header.begin(); i != _header.end(); ++i) {
-		result.insert(HttpHeader::value_type(i->first, i->second.first));
+		result.insert(Http::Header::value_type(i->first, i->second.first));
 	}
 	return result;
 }

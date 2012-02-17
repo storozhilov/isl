@@ -102,14 +102,14 @@ unsigned int HttpMessageStreamReader::read(char * buffer, unsigned int bufferSiz
 
 bool HttpMessageStreamReader::headerContains(const std::string& fieldName) const
 {
-	std::pair<HttpHeader::const_iterator, HttpHeader::const_iterator> range = _header.equal_range(fieldName);
+	std::pair<Http::Header::const_iterator, Http::Header::const_iterator> range = _header.equal_range(fieldName);
 	return range.first != range.second;
 }
 
 bool HttpMessageStreamReader::headerContains(const std::string& fieldName, const std::string& fieldValue) const
 {
-	std::pair<HttpHeader::const_iterator, HttpHeader::const_iterator> range = _header.equal_range(fieldName);
-	for (HttpHeader::const_iterator i = range.first; i != range.second; ++i) {
+	std::pair<Http::Header::const_iterator, Http::Header::const_iterator> range = _header.equal_range(fieldName);
+	for (Http::Header::const_iterator i = range.first; i != range.second; ++i) {
 		if (i->second == fieldValue) {
 			return true;
 		}
@@ -119,15 +119,15 @@ bool HttpMessageStreamReader::headerContains(const std::string& fieldName, const
 
 std::string HttpMessageStreamReader::headerValue(const std::string& fieldName) const
 {
-	std::pair<HttpHeader::const_iterator, HttpHeader::const_iterator> range = _header.equal_range(fieldName);
+	std::pair<Http::Header::const_iterator, Http::Header::const_iterator> range = _header.equal_range(fieldName);
 	return range.first == range.second ? std::string() : range.first->second;
 }
 
 std::list<std::string> HttpMessageStreamReader::headerValues(const std::string& fieldName) const
 {
 	std::list<std::string> result;
-	std::pair<HttpHeader::const_iterator, HttpHeader::const_iterator> range = _header.equal_range(fieldName);
-	for (HttpHeader::const_iterator i = range.first; i != range.second; ++i) {
+	std::pair<Http::Header::const_iterator, Http::Header::const_iterator> range = _header.equal_range(fieldName);
+	for (Http::Header::const_iterator i = range.first; i != range.second; ++i) {
 		result.push_back(i->second);
 	}
 	return result;
@@ -388,7 +388,7 @@ void HttpMessageStreamReader::appendHeader()
 {
 	String::trim(_headerFieldName);
 	String::trim(_headerFieldValue);
-	_header.insert(HttpHeader::value_type(_headerFieldName, _headerFieldValue));
+	_header.insert(Http::Header::value_type(_headerFieldName, _headerFieldValue));
 	if (_headerFieldName == "Cookie") {
 		// Parsing and adding cookies
 		int i = 0;
@@ -425,7 +425,7 @@ void HttpMessageStreamReader::appendHeader()
 			}
 			// Inserting cookie into HTTP-message
 			if (_cookies.find(cookieName) == _cookies.end()) {
-				_cookies.insert(HttpCookies::value_type(cookieName, String::urlDecode(cookieValue)));
+				_cookies.insert(Http::Cookies::value_type(cookieName, String::urlDecode(cookieValue)));
 			}
 			// Passing ';' if found
 			if (i < _headerFieldValue.length()) {

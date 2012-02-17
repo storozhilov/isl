@@ -1,5 +1,5 @@
-#ifndef ISL__HTTP_REQUEST__HXX
-#define ISL__HTTP_REQUEST__HXX
+#ifndef ISL__HTTP_REQUEST__OBSOLETED__HXX
+#define ISL__HTTP_REQUEST__OBSOLETED__HXX
 
 #include <isl/HTTPMessage.hxx>
 #include <isl/HTTPRequestParser.hxx>

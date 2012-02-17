@@ -71,7 +71,7 @@ public:
 	*/
 	std::list<std::string> headerValues(const std::string &fieldName) const;
 	//! Returns all headers as an associative array
-	HttpHeader header() const;
+	Http::Header header() const;
 	//! Removes header field
 	/*!
 	  \param fieldName Name of the HTTP-header field to be removed.
