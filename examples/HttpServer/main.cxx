@@ -1,12 +1,13 @@
 #define LIBISL__DEBUGGING_ON 1
 
 #include <isl/Core.hxx>
-//#include <isl/String.hxx>
 #include <isl/TcpSocket.hxx>
 #include <isl/Exception.hxx>
 #include <isl/HttpRequestReader.hxx>
+#include <isl/HttpResponseStreamWriter.hxx>
 #include <isl/FileLogTarget.hxx>
 #include <iostream>
+#include <sstream>
 #include <memory>
 
 #define LISTEN_PORT 8080
@@ -40,33 +41,57 @@ int main(int argc, char *argv[])
 		try {
 			//isl::HttpRequestReader 
 			request.receive();
-			std::cout << "HTTP-request has been recieved:" << std::endl <<
-				"\tURI: \"" << request.uri() << '"' << std::endl <<
-				"\tpath: \"" << isl::String::decodePercent(request.path()) << '"' << std::endl <<
-				"\tquery: \"" << request.query() << '"' << std::endl;
-			isl::Http::Params get = request.get();
-			for (isl::Http::Params::const_iterator i = request.get().begin(); i != request.get().end(); ++i) {
-				std::cout << "\tget[\"" << i->first << "\"] = \"" << i->second << '"' << std::endl;
-			}
-			for (isl::Http::Header::const_iterator i = request.header().begin(); i != request.header().end(); ++i) {
-				std::cout << "\theader[\"" << i->first << "\"] = \"" << i->second << '"' << std::endl;
-			}
-			//for (isl::Http::Params::const_iterator i = request.cookies().begin(); i != request.cookies().end(); ++i) {
-			//	std::cout << "\tcookie[\"" << i->first << "\"] = \"" << i->second << '"' << std::endl;
-			//}
-			for (isl::Http::RequestCookies::const_iterator i = request.cookies().begin(); i != request.cookies().end(); ++i) {
-				std::cout << "\tcookie[\"" << i->first << "\"] = \"" << i->second.value << '"' << std::endl;
-			}
 		} catch (isl::Exception& e) {
 			std::cerr << isl::String::utf8Encode(e.debug()) << std::endl;
-			return 1;
+			isl::HttpResponseStreamWriter responseWriter(*ss.get(), "500");
+			responseWriter.setHeaderField("Content-Type", "text/html; charset=utf-8");
+			responseWriter.writeOnce(isl::String::utf8Encode(e.debug()));
+			continue;
 		} catch (std::exception& e) {
 			std::cerr << e.what() << std::endl;
-			return 1;
+			isl::HttpResponseStreamWriter responseWriter(*ss.get(), "500");
+			responseWriter.setHeaderField("Content-Type", "text/html; charset=utf-8");
+			responseWriter.writeOnce(e.what());
+			continue;
 		} catch (...) {
 			std::cerr << "Unknown error occured." << std::endl;
-			return 1;
+			isl::HttpResponseStreamWriter responseWriter(*ss.get(), "500");
+			responseWriter.setHeaderField("Content-Type", "text/html; charset=utf-8");
+			responseWriter.writeOnce("Unknown error occured.");
+			continue;
 		}
+		std::cout << "HTTP-request has been recieved:" << std::endl <<
+			"\tURI: \"" << request.uri() << '"' << std::endl <<
+			"\tpath: \"" << isl::String::decodePercent(request.path()) << '"' << std::endl <<
+			"\tquery: \"" << request.query() << '"' << std::endl;
+		isl::Http::Params get = request.get();
+		for (isl::Http::Params::const_iterator i = request.get().begin(); i != request.get().end(); ++i) {
+			std::cout << "\tget[\"" << i->first << "\"] = \"" << i->second << '"' << std::endl;
+		}
+		for (isl::Http::Header::const_iterator i = request.header().begin(); i != request.header().end(); ++i) {
+			std::cout << "\theader[\"" << i->first << "\"] = \"" << i->second << '"' << std::endl;
+		}
+		for (isl::Http::RequestCookies::const_iterator i = request.cookies().begin(); i != request.cookies().end(); ++i) {
+			std::cout << "\tcookie[\"" << i->first << "\"] = \"" << i->second.value << '"' << std::endl;
+		}
+		std::ostringstream oss;
+		oss << "<html><head><title>HTTP-request has been recieved</title></head><body>" <<
+			"<p>URI: &quot;" << request.uri() << "&quot;</p>" <<
+			"<p>path: &quot;" << isl::String::decodePercent(request.path()) << "&quot;</p>" <<
+			"<p>query: &quot;" << request.query() << "&quot;</p>";
+		for (isl::Http::Params::const_iterator i = request.get().begin(); i != request.get().end(); ++i) {
+			oss << "<p>get[&quot;" << i->first << "&quot;] = &quot;" << i->second << "&quot;</p>";
+		}
+		for (isl::Http::Header::const_iterator i = request.header().begin(); i != request.header().end(); ++i) {
+			oss << "<p>header[&quot;" << i->first << "&quot;] = &quot;" << i->second << "&quot;</p>";
+		}
+		for (isl::Http::RequestCookies::const_iterator i = request.cookies().begin(); i != request.cookies().end(); ++i) {
+			oss << "<p>cookie[&quot;" << i->first << "&quot;] = &quot;" << i->second.value << "&quot;</p>";
+		}
+		oss << "</body></html>";
+		isl::HttpResponseStreamWriter responseWriter(*ss.get());
+		responseWriter.setHeaderField("Content-Type", "text/html; charset=utf-8");
+		responseWriter.writeOnce(oss.str());
 	}
 	isl::Core::debugLog.disconnectTargets();
 	isl::Core::warningLog.disconnectTargets();

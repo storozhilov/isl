@@ -83,10 +83,6 @@ public:
 	{
 		return _streamReader.cookies();
 	}
-	/*inline std::string cookie(const std::string& cookieName) const
-	{
-		return _streamReader.cookie(cookieName);
-	}*/
 	inline std::string body() const
 	{
 		return _body;

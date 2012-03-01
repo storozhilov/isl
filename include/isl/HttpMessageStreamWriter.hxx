@@ -87,6 +87,17 @@ public:
 	{
 		return !_sendBuffer.empty();
 	}
+	//! Sends chunked encoded STL string
+	/*!
+	  If string is empty this method does nothing and returns true.
+	  \param str STL string to send
+	  \param timeout I/O timeout
+	  \return TRUE if all data has been send to peer or FALSE if the I/O timeout has been expired and flush() call is needed to complete an operation
+	*/
+	inline bool writeChunk(const std::string& str, const Timeout& timeout = Timeout())
+	{
+		return writeChunk(str.data(), str.length(), timeout);
+	}
 	//! Sends chunked encoded NULL-terminated string
 	/*!
 	  If string is empty this method does nothing and returns true.
@@ -107,15 +118,25 @@ public:
 	  \return TRUE if all data has been send to peer or FALSE if the I/O timeout has been expired and flush() call is needed to complete an operation
 	*/
 	bool writeChunk(const char * buffer, unsigned int bufferSize, const Timeout& timeout = Timeout());
+	//! Sends unencoded STL string and finalizes HTTP-message
+	/*!
+	  \param str STL string to send
+	  \param timeout I/O timeout
+	  \return TRUE if all data has been send to peer or FALSE if the I/O timeout has been expired and flush() call is needed to complete an operation
+	*/
+	inline bool writeOnce(const std::string& str, const Timeout& timeout = Timeout())
+	{
+		writeOnce(str.data(), str.length(), timeout);
+	}
 	//! Sends unencoded NULL-terminated string and finalizes HTTP-message
 	/*!
 	  \param str NULL-terminated string to send
 	  \param timeout I/O timeout
 	  \return TRUE if all data has been send to peer or FALSE if the I/O timeout has been expired and flush() call is needed to complete an operation
 	*/
-	inline bool writeUnencoded(const char * str, const Timeout& timeout = Timeout())
+	inline bool writeOnce(const char * str, const Timeout& timeout = Timeout())
 	{
-		writeUnencoded(str, strlen(str), timeout);
+		writeOnce(str, strlen(str), timeout);
 	}
 	//! Sends unencoded buffer and finalizes HTTP-message
 	/*!
@@ -124,13 +145,13 @@ public:
 	  \param timeout I/O timeout
 	  \return TRUE if all data has been send to peer or FALSE if the I/O timeout has been expired and flush() call is needed to complete an operation
 	*/
-	bool writeUnencoded(const char * buffer, unsigned int bufferSize, const Timeout& timeout = Timeout());
+	bool writeOnce(const char * buffer, unsigned int bufferSize, const Timeout& timeout = Timeout());
 	//! Sends bodyless HTTP-message
 	inline bool writeBodyless(const Timeout& timeout = Timeout())
 	{
-		writeUnencoded(0, 0, timeout);
+		writeOnce(0, 0, timeout);
 	}
-	//! Sends last chunk and the trailer of the HTTP-message
+	//! Sends last (empty) chunk and the trailer of the HTTP-message
 	/*!
 	  NOTE: If no chunks where sent to client before, this call behaves the same as writeBodyless()
 	  \param timeout I/O timeout

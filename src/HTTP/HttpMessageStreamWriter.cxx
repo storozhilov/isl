@@ -123,7 +123,7 @@ bool HttpMessageStreamWriter::writeChunk(const char * buffer, unsigned int buffe
 	}
 }
 
-bool HttpMessageStreamWriter::writeUnencoded(const char * buffer, unsigned int bufferSize, const Timeout& timeout)
+bool HttpMessageStreamWriter::writeOnce(const char * buffer, unsigned int bufferSize, const Timeout& timeout)
 {
 	if (_chunkedHeaderComposed) {
 		throw Exception(Error(SOURCE_LOCATION_ARGS, L"Could not send unencoded data while chunked encoding"));
