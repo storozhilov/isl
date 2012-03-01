@@ -70,7 +70,7 @@ void HTTPRequestParser::reset()
 
 int HTTPRequestParser::parse(const char * data, unsigned int size)
 {
-	if (isBadRequest() && isCompleteRequest()) {
+/*	if (isBadRequest() && isCompleteRequest()) {
 		return 0;
 	}
 	unsigned int pos = 0;
@@ -332,7 +332,7 @@ int HTTPRequestParser::parse(const char * data, unsigned int size)
 		}
 	}
 	// Full buffer parsed successfully
-	return size;
+	return size;*/
 }
 
 bool HTTPRequestParser::needMoreData() const
@@ -411,7 +411,7 @@ bool HTTPRequestParser::parseURI()
 			++pos;
 		}
 		if (!paramName.empty()) {
-			_request->_get[String::urlDecode(paramName)] = String::urlDecode(paramValue);
+			_request->_get[String::decodePercent(paramName)] = String::decodePercent(paramValue);
 		}
 	}
 	return true;
@@ -419,7 +419,7 @@ bool HTTPRequestParser::parseURI()
 
 void HTTPRequestParser::parseCookies()
 {
-	if (_headerFieldName != "Cookie") {
+/*	if (_headerFieldName != "Cookie") {
 		return;
 	}
 	int i = 0;
@@ -457,22 +457,22 @@ void HTTPRequestParser::parseCookies()
 		// Inserting cookie into HTTP-request
 		std::map<std::string, std::string>::const_iterator pos = _request->_cookies.find(cookieName);
 		if (pos == _request->_cookies.end()) {
-			_request->_cookies.insert(std::make_pair(cookieName, String::urlDecode(cookieValue)));
+			_request->_cookies.insert(std::make_pair(cookieName, String::decodePercent(cookieValue)));
 			AbstractHTTPTask::debugLog.log(L"Cookie \"" + String::utf8Decode(cookieName) + L"\"=\"" +
-					String::utf8Decode(String::urlDecode(cookieValue)) + L"\" added to request");
+					String::utf8Decode(String::decodePercent(cookieValue)) + L"\" added to request");
 		}
 		// Passing ';' if found
 		if (i < _headerFieldValue.length()) {
 			++i;
 		}
-	}
+	}*/
 }
 
 bool HTTPRequestParser::canBeAddedToRequestURI(unsigned char ch) const
 {
-	return	(_request->_uri != "*") && (String::isAlpha(ch) || String::isDigit(ch) ||
-		(ch == '/') || (ch == '%') || (ch == '.') || (ch == '_') || (ch == '-') || (ch == '~') ||
-		(ch == '?') || (ch == '&') || (ch == '#')) || (ch == '=') /*|| (ch == '') || (ch == '') || (ch == '') || (ch == '')*/;
+	//return	(_request->_uri != "*") && (String::isAlpha(ch) || String::isDigit(ch) ||
+	//	(ch == '/') || (ch == '%') || (ch == '.') || (ch == '_') || (ch == '-') || (ch == '~') ||
+	//	(ch == '?') || (ch == '&') || (ch == '#')) || (ch == '=') /*|| (ch == '') || (ch == '') || (ch == '') || (ch == '')*/;
 }
 
 } // namespace isl

@@ -3,6 +3,7 @@
 #include <isl/Exception.hxx>
 #include <isl/HttpError.hxx>
 #include <isl/String.hxx>
+#include <isl/Char.hxx>
 #include <sstream>
 
 namespace isl
@@ -60,7 +61,7 @@ int AbstractHttpRequestParser::parse(const char * data, unsigned int size)
 			return i;
 		}
 		++_pos;
-		if (String::isLineFeed(data[i])) {
+		if (Char::isLineFeed(data[i])) {
 			++_line;
 			_col = 1;
 		}

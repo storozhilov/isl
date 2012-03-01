@@ -49,6 +49,7 @@ public:
 		_reasonPhrase = lookupReasonPhrase(statusCode);
 		_version = version;
 	}
+	//void setCookie(...)
 private:
 	HttpResponseStreamWriter();
 

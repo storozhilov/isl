@@ -3,6 +3,7 @@
 
 #include <isl/AbstractIODevice.hxx>
 #include <isl/Http.hxx>
+#include <isl/Char.hxx>
 #include <string>
 #include <map>
 #include <list>
@@ -68,13 +69,9 @@ public:
 	{
 		return _col;
 	}
-	inline const Http::Header header() const
+	inline const Http::Header& header() const
 	{
 		return _header;
-	}
-	inline const Http::Cookies cookies() const
-	{
-		return _cookies;
 	}
 	inline unsigned int maxHeaderFieldNameLength() const
 	{
@@ -123,18 +120,18 @@ public:
 	  \return TRUE if HTTP-header field exists.
 	*/
 	bool headerContains(const std::string &fieldName, const std::string &fieldValue) const;
-	//! Returns HTTP-header value of the specified field
+	//! Returns first occurence of HTTP-header value of the specified field
 	/*!
 	  \param fieldName Name of the HTTP-header field.
 	  \return Value of the HTTP-header field or empty string if it does not exists
 	*/
-	std::string headerValue(const std::string &fieldName) const;
-	//! Returns HTTP-header values list of the specified field
+	std::string header(const std::string &fieldName) const;
+	//! Returns all occurences of the HTTP-header values list of the specified field
 	/*!
 	  \param fieldName Name of the HTTP-header field.
 	  \return Values list of the HTTP-header field or empty list if it does not exists
 	*/
-	std::list<std::string> headerValues(const std::string &fieldName) const;
+	std::list<std::string> headers(const std::string &fieldName) const;
 
 	//! Resets reader
 	virtual void reset();
@@ -144,78 +141,8 @@ protected:
 		_isBad = true;
 		_parsingError = parsingError;
 	}
-	inline static bool isToken(unsigned char ch)
-	{
-		return (isChar(ch) && !isControl(ch) && !isSeparator(ch));
-	}
-	inline static bool isAlpha(unsigned char ch)
-	{
-		return isLowAlpha(ch) || isUpAlpha(ch);
-	}
-	inline static bool isDigit(unsigned char ch)
-	{
-		return ch >= '0' && ch <= '9';
-	}
-	inline static bool isAllowedInUri(unsigned char ch)
-	{
-		// See chaper A. of the RFC2936 (http://www.ietf.org/rfc/rfc2396.txt)
-		return isAlpha(ch) || isDigit(ch) || ch == '#' || ch == ':' || ch == '?' || ch == ';' || ch == '@' ||
-			ch == '&' || ch == '=' || ch == '+' || ch == '$' || ch == ',' || ch == '-' || ch == '.' ||
-			ch == '/' || ch == '_' || ch == '!' || ch == '~' || ch == '*' || ch == '\'' || ch == '(' ||
-			ch == ')' || ch == '%';
-	}
-	inline static bool isChar(unsigned char ch)
-	{
-		return (ch <= 0x7F);
-	}
-	inline static bool isLowAlpha(unsigned char ch)
-	{
-		return ch >= 'a' && ch <= 'z';
-	}
-	inline static bool isUpAlpha(unsigned char ch)
-	{
-		return ch >= 'A' && ch <= 'Z';
-	}
-	inline static bool isHexDigit(unsigned char ch)
-	{
-		return isDigit(ch) || (ch >= 'a' && ch <= 'f') || (ch >= 'A' && ch <= 'F');
-	}
-	inline static bool isControl(unsigned char ch)
-	{
-		return (ch <= 0x1F) || (ch == 0x7F);
-	}
-	inline static bool isCarriageReturn(unsigned char ch)
-	{
-		return (ch == 0x0D);
-	}
-	inline static bool isLineFeed(unsigned char ch)
-	{
-		return (ch == 0x0A);
-	}
-	inline static bool isSpace(unsigned char ch)
-	{
-		return (ch == 0x20);
-	}
-	inline static bool isTab(unsigned char ch)
-	{
-		return (ch == 0x09);
-	}
-	inline static bool isSpaceOrTab(unsigned char ch)
-	{
-		return (isSpace(ch) || isTab(ch));
-	}
-	inline static bool isSeparator(unsigned char ch)
-	{
-		return	(ch == '(') || (ch == ')') || (ch == '<') || (ch == '>') || (ch == '@') ||
-			(ch == ',') || (ch == ';') || (ch == ':') || (ch == '\\') || (ch == '"') ||
-			(ch == '/') || (ch == '[') || (ch == ']') || (ch == '?') || (ch == '=') ||
-			(ch == '{') || (ch == '}') || isSpaceOrTab(ch);
-	}
-	inline static bool isAllowedInVersion(unsigned char ch)
-	{
-		return isDigit(ch) || ch == 'H' || ch == 'T' || ch == 'P' || ch == '/' || ch == '.';
-	}
 
+	virtual void onHeaderAppended(const std::string& fieldName, const std::string& fieldValue) = 0;
 	virtual bool isAllowedInFirstToken(char ch) const = 0;
 	virtual void appendToFirstToken(char ch) = 0;
 	virtual bool isAllowedInSecondToken(char ch) const = 0;
@@ -244,11 +171,6 @@ private:
 	void parseHeaderFieldValueLF(char ch, bool isTrailer);
 	void parseHeaderFieldValueLWS(char ch, bool isTrailer);
 
-	inline static bool isAllowedInHeader(unsigned char ch)
-	{
-		return isChar(ch);
-	}
-
 	AbstractIODevice& _device;
 	ParserState _parserState;
 	bool _isBad;
@@ -259,7 +181,6 @@ private:
 	std::string _headerFieldName;
 	std::string _headerFieldValue;
 	Http::Header _header;
-	Http::Cookies _cookies;
 	unsigned int _contentLength;
 	unsigned int _identityBodyBytesParsed;
 	std::string _chunkSizeStr;

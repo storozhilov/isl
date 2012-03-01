@@ -1,111 +1,13 @@
 #include <isl/String.hxx>
+#include <isl/Char.hxx>
 #include <isl/Exception.hxx>
 #include <isl/Error.hxx>
 #include <sstream>
 #include <iomanip>
 #include <string.h>
-#include <wchar.h>
-#include <wctype.h>
 
 namespace isl
 {
-
-bool String::isChar(unsigned char ch)
-{
-	return (ch <= 0x7F);
-}
-
-bool String::isAlpha(unsigned char ch)
-{
-	return isalpha(ch);
-}
-
-bool String::isAlpha(unsigned wchar_t ch)
-{
-	return iswalpha(ch);
-}
-
-bool String::isUpperAlpha(unsigned char ch)
-{
-	return isupper(ch);
-}
-
-bool String::isLowerAlpha(unsigned char ch)
-{
-	return islower(ch);
-}
-
-bool String::isDigit(unsigned char ch)
-{
-	return isdigit(ch);
-}
-
-bool String::isHexDigit(unsigned char ch)
-{
-	return isDigit(ch) || (ch >= 'a' && ch <= 'f') || (ch >= 'A' && ch <= 'F');
-}
-
-bool String::isControl(unsigned char ch)
-{
-	return (ch <= 0x1F) || (ch == 0x7F);
-}
-
-bool String::isCarriageReturn(unsigned char ch)
-{
-	return (ch == 0x0D);
-}
-
-bool String::isLineFeed(unsigned char ch)
-{
-	return (ch == 0x0A);
-}
-
-bool String::isSpace(unsigned char ch)
-{
-	return (ch == 0x20);
-}
-
-bool String::isTab(unsigned char ch)
-{
-	return (ch == 0x09);
-}
-
-bool String::isSpaceOrTab(unsigned char ch)
-{
-	return (isSpace(ch) || isTab(ch));
-}
-
-bool String::isSeparator(unsigned char ch)
-{
-	return	(ch == '(') || (ch == ')') || (ch == '<') || (ch == '>') || (ch == '@') ||
-		(ch == ',') || (ch == ';') || (ch == ':') || (ch == '\\') || (ch == '"') ||
-		(ch == '/') || (ch == '[') || (ch == ']') || (ch == '?') || (ch == '=') ||
-		(ch == '{') || (ch == '}') || isSpaceOrTab(ch);
-}
-
-bool String::isToken(unsigned char ch)
-{
-	return (isChar(ch) && !isControl(ch) && !isSeparator(ch));
-}
-
-bool String::isUrlSafe(unsigned char ch)
-{
-	//return ((ch >= 0x30 && ch <= 0x39) || (ch >= 0x41 && ch <= 0x5A) || (ch >= 0x61 && ch <= 0x7A));
-	return (isAlpha(ch) || isDigit(ch) || (ch == '_'));
-}
-
-unsigned char String::hexValue(unsigned char ch)
-{
-	if (isDigit(ch)) {
-		return (ch - '0');
-	} else if (ch >= 'a' && ch <= 'f') {
-		return (ch - 'a' + 10);
-	} else if (ch >= 'A' && ch <= 'F') {
-		return (ch - 'A' + 10);
-	} else {
-		return 0;
-	}
-}
 
 void String::trim(std::string &str)
 {
@@ -127,7 +29,7 @@ std::string String::trim(const std::string &str)
 	return s;
 }
 
-std::string String::urlEncode(const std::string &str)
+std::string String::encodePercent(const std::string &str)
 {
 	std::ostringstream encodedString;
 	encodedString.setf(std::ios::uppercase);
@@ -136,9 +38,9 @@ std::string String::urlEncode(const std::string &str)
 	encodedString.fill('0');
 	for (int i = 0; i < str.length(); ++i) {
 		unsigned char code = str[i];
-		if (isSpace(code)) {
+		if (Char::isSpace(code)) {
 			encodedString << '+';
-		} else if (!isUrlSafe(code)) {
+		} else if (!Char::isUrlSafe(code)) {
 			encodedString << '%' << std::setw(2) << static_cast<unsigned int>(code);
 		} else {
 			encodedString << code;
@@ -147,17 +49,17 @@ std::string String::urlEncode(const std::string &str)
 	return encodedString.str();
 }
 
-std::string String::urlDecode(const std::string &str)
+std::string String::decodePercent(const std::string &str)
 {
 	std::string decodedString;
 	int i = 0;
 	while (i < str.length()) {
 		if (str[i] == '%') {
-			if ((i + 2) >= str.length() || !isHexDigit(str[i + 1]) || !isHexDigit(str[i + 2])) {
+			if ((i + 2) >= str.length() || !Char::isHexDigit(str[i + 1]) || !Char::isHexDigit(str[i + 2])) {
 				decodedString += str[i];
 				++i;
 			} else {
-				unsigned char charCode = hexValue(str[i + 1]) * 16 + hexValue(str[i + 2]);
+				unsigned char charCode = Char::hexValue(str[i + 1]) * 16 + Char::hexValue(str[i + 2]);
 				decodedString += charCode;
 				i += 3;
 			}
@@ -395,7 +297,7 @@ unsigned int String::toUnsignedInt(const std::string& str, bool * errorOccured, 
 	switch (base) {
 		case DecimalBase:
 			for (unsigned int curPos = (strToParse[0] == '+' ? 1 : 0); curPos < strToParse.size(); ++curPos) {
-				if (!isDigit(strToParse[curPos])) {
+				if (!Char::isDigit(strToParse[curPos])) {
 					if (errorOccured) {
 						*errorOccured = true;
 					}
@@ -414,7 +316,7 @@ unsigned int String::toUnsignedInt(const std::string& str, bool * errorOccured, 
 			break;
 		case HexBase:
 			for (unsigned int curPos = 0; curPos < strToParse.size(); ++curPos) {
-				if (!isHexDigit(strToParse[curPos])) {
+				if (!Char::isHexDigit(strToParse[curPos])) {
 					if (errorOccured) {
 						*errorOccured = true;
 					}

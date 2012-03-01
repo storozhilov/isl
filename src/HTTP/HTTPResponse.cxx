@@ -511,15 +511,15 @@ void HTTPResponse::NetworkBodyBuffer::sendChunk(bool isLastChunk)
 		}
 		// Adding cookies
 		for (HTTPResponse::Cookies::const_iterator i = _response._cookies.begin(); i != _response._cookies.end(); ++i) {
-			std::string cookieHeaderFieldValue((*i).name + "=" + String::urlEncode((*i).value));
+			std::string cookieHeaderFieldValue((*i).name + "=" + String::encodePercent((*i).value));
 			if ((*i).expires.isValid()) {
 				cookieHeaderFieldValue += ("; expires=" + (*i).expires.toString(DateTime::HttpOutputFormat));
 			}
 			if (!(*i).path.empty()) {
-				cookieHeaderFieldValue += ("; path=" + String::urlEncode((*i).path));
+				cookieHeaderFieldValue += ("; path=" + String::encodePercent((*i).path));
 			}
 			if (!(*i).domain.empty()) {
-				cookieHeaderFieldValue += ("; domain=" + String::urlEncode((*i).domain));
+				cookieHeaderFieldValue += ("; domain=" + String::encodePercent((*i).domain));
 			}
 			if ((*i).secure) {
 				cookieHeaderFieldValue += "; secure";

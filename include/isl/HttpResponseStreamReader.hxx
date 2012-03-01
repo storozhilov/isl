@@ -72,9 +72,13 @@ private:
 		MaxReasonPhraseLength = 4096,
 	};
 	
+	virtual void onHeaderAppended(const std::string& fieldName, const std::string& fieldValue)
+	{
+		// TODO
+	}
 	virtual bool isAllowedInFirstToken(char ch) const
 	{
-		return isAllowedInVersion(ch);
+		return Http::isAllowedInVersion(ch);
 	}
 	virtual void appendToFirstToken(char ch)
 	{
@@ -86,7 +90,7 @@ private:
 	}
 	virtual bool isAllowedInSecondToken(char ch) const
 	{
-		return isDigit(ch);
+		return Char::isDigit(ch);
 	}
 	virtual void appendToSecondToken(char ch)
 	{
@@ -98,7 +102,7 @@ private:
 	}
 	virtual bool isAllowedInThirdToken(char ch) const
 	{
-		return (!isControl(ch) || isTab(ch));
+		return (!Http::isControl(ch) || Char::isTab(ch));
 	}
 	virtual void appendToThirdToken(char ch)
 	{

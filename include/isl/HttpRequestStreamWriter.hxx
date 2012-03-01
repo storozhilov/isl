@@ -53,7 +53,7 @@ private:
 	{
 		std::string firstLine(_method);
 		firstLine.append(1, ' ');
-		firstLine.append(String::urlEncode(_uri));
+		firstLine.append(_uri);
 		firstLine.append(1, ' ');
 		firstLine.append(_version);
 		firstLine.append("\r\n");

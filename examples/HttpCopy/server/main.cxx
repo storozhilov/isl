@@ -46,8 +46,8 @@ int main(int argc, char *argv[])
 				totalBytesRead += bytesRead;
 			}
 			std::cout << "Source filename is \"" << r.uri() << '"' << std::endl;
-			std::cout << "Current directory is \"" << r.headerValue("X-Current-Directory") << '"' << std::endl;
-			std::cout << "Target filename/directory is \"" << r.headerValue("X-Dest-Filename") << '"' << std::endl;
+			std::cout << "Current directory is \"" << r.header("X-Current-Directory") << '"' << std::endl;
+			std::cout << "Target filename/directory is \"" << r.header("X-Dest-Filename") << '"' << std::endl;
 			isl::HttpResponseStreamWriter w(*ss.get());
 			w.setHeaderField("X-Copy-Status", "OK");
 			/*if (!w.writeBodyless()) {
