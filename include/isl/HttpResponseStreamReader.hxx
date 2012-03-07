@@ -31,27 +31,27 @@ public:
 	{
 		return _reasonPhrase;
 	}
-	inline unsigned int maxVersionLength() const
+	inline size_t maxVersionLength() const
 	{
 		return _maxVersionLength;
 	}
-	inline void setMaxVersionLength(unsigned int newValue)
+	inline void setMaxVersionLength(size_t newValue)
 	{
 		_maxVersionLength = newValue;
 	}
-	inline unsigned int maxStatusCodeLength() const
+	inline size_t maxStatusCodeLength() const
 	{
 		return _maxStatusCodeLength;
 	}
-	inline void setMaxStatusCodeLength(unsigned int newValue)
+	inline void setMaxStatusCodeLength(size_t newValue)
 	{
 		_maxStatusCodeLength = newValue;
 	}
-	inline unsigned int maxReasonPhraseLength() const
+	inline size_t maxReasonPhraseLength() const
 	{
 		return _maxReasonPhraseLength;
 	}
-	inline void setMaxReasonPhraseLength(unsigned int newValue)
+	inline void setMaxReasonPhraseLength(size_t newValue)
 	{
 		_maxReasonPhraseLength = newValue;
 	}
@@ -72,10 +72,6 @@ private:
 		MaxReasonPhraseLength = 4096,
 	};
 	
-	virtual void onHeaderAppended(const std::string& fieldName, const std::string& fieldValue)
-	{
-		// TODO
-	}
 	virtual bool isAllowedInFirstToken(char ch) const
 	{
 		return Http::isAllowedInVersion(ch);
@@ -116,9 +112,9 @@ private:
 	std::string _version;
 	std::string _statusCode;
 	std::string _reasonPhrase;
-	unsigned int _maxVersionLength;
-	unsigned int _maxStatusCodeLength;
-	unsigned int _maxReasonPhraseLength;
+	size_t _maxVersionLength;
+	size_t _maxStatusCodeLength;
+	size_t _maxReasonPhraseLength;
 };
 
 } // namespace isl

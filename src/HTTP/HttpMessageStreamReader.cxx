@@ -2,7 +2,6 @@
 #include <isl/Char.hxx>
 #include <isl/Core.hxx>
 #include <isl/Error.hxx>
-#include <isl/HttpError.hxx>
 
 namespace isl
 {
@@ -18,7 +17,6 @@ HttpMessageStreamReader::HttpMessageStreamReader(AbstractIODevice& device) :
 	_headerFieldName(),
 	_headerFieldValue(),
 	_header(),
-	//_cookies(),
 	_contentLength(0),
 	_identityBodyBytesParsed(0),
 	_chunkSizeStr(),
@@ -43,7 +41,6 @@ void HttpMessageStreamReader::reset()
 	_headerFieldName.clear();
 	_headerFieldValue.clear();
 	_header.clear();
-	//_cookies.clear();
 	_contentLength = 0;
 	_identityBodyBytesParsed = 0;
 	_chunkSizeStr.clear();
@@ -51,7 +48,7 @@ void HttpMessageStreamReader::reset()
 	_chunkBytesParsed = 0;
 }
 
-unsigned int HttpMessageStreamReader::read(char * buffer, unsigned int bufferSize, const Timeout& timeout, bool * timeoutExpired)
+size_t HttpMessageStreamReader::read(char * buffer, size_t bufferSize, const Timeout& timeout, bool * timeoutExpired)
 {
 	// Checking parser to be in a valid state
 	if (isBad()) {
@@ -64,15 +61,13 @@ unsigned int HttpMessageStreamReader::read(char * buffer, unsigned int bufferSiz
 	if (timeoutExpired) {
 		*timeoutExpired = false;
 	}
-	Timeout curTimeout = timeout;
-	unsigned int bytesRead = 0;
-	bool isFirstReading = true;
+	size_t bytesRead = 0;
 	while (bytesRead < (bufferSize - 1) && !isCompleted()) {
 		// Fetching next character from the IO-device
 		char ch;
-		if (!_device.getChar(ch, curTimeout)) {
+		if (!_device.getChar(ch, timeout)) {
 			// Timeout expired
-			if (isFirstReading && timeoutExpired) {
+			if (timeoutExpired) {
 				*timeoutExpired = true;
 			}
 			break;
@@ -84,11 +79,6 @@ unsigned int HttpMessageStreamReader::read(char * buffer, unsigned int bufferSiz
 		if (isBad()) {
 			return bytesRead;
 		}
-		// Resetting timeout to zero after first reading has been done
-		if (isFirstReading) {
-			curTimeout = Timeout();
-			isFirstReading = false;
-		}
 		// Updating current position data
 		++_pos;
 		if (Char::isLineFeed(ch)) {
@@ -99,39 +89,6 @@ unsigned int HttpMessageStreamReader::read(char * buffer, unsigned int bufferSiz
 		}
 	}
 	return bytesRead;
-}
-
-bool HttpMessageStreamReader::headerContains(const std::string& fieldName) const
-{
-	std::pair<Http::Header::const_iterator, Http::Header::const_iterator> range = _header.equal_range(fieldName);
-	return range.first != range.second;
-}
-
-bool HttpMessageStreamReader::headerContains(const std::string& fieldName, const std::string& fieldValue) const
-{
-	std::pair<Http::Header::const_iterator, Http::Header::const_iterator> range = _header.equal_range(fieldName);
-	for (Http::Header::const_iterator i = range.first; i != range.second; ++i) {
-		if (i->second == fieldValue) {
-			return true;
-		}
-	}
-	return false;
-}
-
-std::string HttpMessageStreamReader::header(const std::string& fieldName) const
-{
-	std::pair<Http::Header::const_iterator, Http::Header::const_iterator> range = _header.equal_range(fieldName);
-	return range.first == range.second ? std::string() : range.first->second;
-}
-
-std::list<std::string> HttpMessageStreamReader::headers(const std::string& fieldName) const
-{
-	std::list<std::string> result;
-	std::pair<Http::Header::const_iterator, Http::Header::const_iterator> range = _header.equal_range(fieldName);
-	for (Http::Header::const_iterator i = range.first; i != range.second; ++i) {
-		result.push_back(i->second);
-	}
-	return result;
 }
 
 bool HttpMessageStreamReader::parse(char ch)
@@ -251,12 +208,12 @@ bool HttpMessageStreamReader::parse(char ch)
 		break;
 	case ParsingEndOfHeader:
 		if (Char::isLineFeed(ch)) {
-			if (headerContains("Transfer-Encoding", "chunked")) {
+			if (Http::hasParam(_header, "Transfer-Encoding", "chunked")) {
 				_parserState = ParsingChunkSize;
-			} else if (headerContains("Content-Length")) {
+			} else if (Http::hasParam(_header, "Content-Length")) {
 				// Extracting the content length
 				bool contentLengthConversionErrorOccured;
-				_contentLength = String::toUnsignedInt(header("Content-Length"), &contentLengthConversionErrorOccured);
+				_contentLength = String::toUnsignedInt(Http::paramValue(_header, "Content-Length"), &contentLengthConversionErrorOccured);
 				if (contentLengthConversionErrorOccured) {
 					setIsBad(L"Invalid 'Content-Length' header field value");
 				} else if (_contentLength <= 0) {
@@ -389,8 +346,7 @@ void HttpMessageStreamReader::appendHeader()
 {
 	String::trim(_headerFieldName);
 	String::trim(_headerFieldValue);
-	_header.insert(Http::Header::value_type(_headerFieldName, _headerFieldValue));
-	onHeaderAppended(_headerFieldName, _headerFieldValue);
+	_header.insert(Http::Params::value_type(_headerFieldName, _headerFieldValue));
 	_headerFieldName.clear();
 	_headerFieldValue.clear();
 }

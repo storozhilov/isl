@@ -6,7 +6,6 @@
 #include <isl/WaitCondition.hxx>
 #include <isl/Core.hxx>
 #include <isl/Debug.hxx>
-#include <isl/Enum.hxx>
 #include <string>
 
 #include <stdexcept>

@@ -1,7 +1,6 @@
 #ifndef ISL__ABSTRACT_SERVER__HXX
 #define ISL__ABSTRACT_SERVER__HXX
 
-#include <isl/Enum.hxx>
 #include <isl/WaitCondition.hxx>
 #include <isl/AbstractSubsystem.hxx>
 #include <vector>

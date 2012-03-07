@@ -15,7 +15,8 @@ class TcpSocket;
 //! Base class for the TCP-service implementation
 /*
    TODO Documentation!!!
-   TODO Interfaces support
+   TODO Network interfaces support
+   TODO Multiple ports support?
 */
 class AbstractTcpService : public AbstractSubsystem
 {
@@ -30,9 +31,9 @@ public:
 	  \param backLog Listen backlog parameter. Default to 15.
 	  \param maxTaskQueueOverflowSize Maximum tasks queue overflow size. Default to 0.
 	*/
-	AbstractTcpService(AbstractSubsystem * owner, unsigned int port, unsigned int maxClients,
+	AbstractTcpService(AbstractSubsystem * owner, unsigned int port, size_t maxClients,
 			const Timeout& timeout = Timeout(1), const std::list<std::string>& interfaces = std::list<std::string>(),
-			unsigned int backLog = 15, unsigned int maxTaskQueueOverflowSize = 0);
+			unsigned int backLog = 15, size_t maxTaskQueueOverflowSize = 0);
 
 	//! Base class for TCP-service task
 	class AbstractTask : public ::isl::AbstractTask
@@ -93,7 +94,7 @@ public:
 		_timeout = newValue;
 	}
 	//! Thread-safely returns maximum clients amount
-	inline unsigned int maxClients() const
+	inline size_t maxClients() const
 	{
 		return _taskDispatcher.workersCount();
 	}
@@ -102,7 +103,7 @@ public:
 	  Subsystem's restart needed to actually apply new value
 	  \param newValue New maximum clients amount
 	*/
-	inline void setMaxClients(unsigned int newValue)
+	inline void setMaxClients(size_t newValue)
 	{
 		_taskDispatcher.setWorkersCount(newValue);
 	}
@@ -139,7 +140,7 @@ public:
 		_backLog = newValue;
 	}
 	//! Thread-safely returns maximum task queue overflow size.
-	inline unsigned int maxTaskQueueOverflowSize() const
+	inline size_t maxTaskQueueOverflowSize() const
 	{
 		return _taskDispatcher.maxTaskQueueOverflowSize();
 	}
@@ -148,7 +149,7 @@ public:
 	  Changes will take place on the next task performing operation
 	  \param newValue New maximum task queue overflow size
 	*/
-	inline void setMaxTaskQueueOverflowSize(unsigned int newValue)
+	inline void setMaxTaskQueueOverflowSize(size_t newValue)
 	{
 		_taskDispatcher.setMaxTaskQueueOverflowSize(newValue);
 	}

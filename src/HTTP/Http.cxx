@@ -1,13 +1,9 @@
 #include <isl/Http.hxx>
+#include <isl/String.hxx>
 #include <iomanip>
 
 namespace isl
 {
-
-Log Http::errorLog;
-Log Http::warningLog;
-Log Http::debugLog;
-Log Http::accessLog;
 
 void Http::parseUri(const std::string& uriStr, std::string& path, std::string& query)
 {
@@ -29,7 +25,7 @@ std::string Http::composeUri(const std::string& path, const std::string& query)
 void Http::parseParams(const std::string& paramsStr, Params& params)
 {
 	params.clear();
-	int pos = 0;
+	size_t pos = 0;
 	while (pos < paramsStr.length()) {
 		// Parsing param name
 		std::string paramName;

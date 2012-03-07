@@ -57,35 +57,35 @@ public:
 	{
 		return _parsingError;
 	}
-	inline unsigned int pos() const
+	inline size_t pos() const
 	{
 		return _pos;
 	}
-	inline unsigned int line() const
+	inline size_t line() const
 	{
 		return _line;
 	}
-	inline unsigned int col() const
+	inline size_t col() const
 	{
 		return _col;
 	}
-	inline const Http::Header& header() const
+	inline const Http::Params& header() const
 	{
 		return _header;
 	}
-	inline unsigned int maxHeaderFieldNameLength() const
+	inline size_t maxHeaderFieldNameLength() const
 	{
 		return _maxHeaderFieldNameLength;
 	}
-	inline void setMaxHeaderFieldNameLength(unsigned int newValue)
+	inline void setMaxHeaderFieldNameLength(size_t newValue)
 	{
 		_maxHeaderFieldNameLength = newValue;
 	}
-	inline unsigned int maxHeaderFieldValueLength() const
+	inline size_t maxHeaderFieldValueLength() const
 	{
 		return _maxHeaderFieldValueLength;
 	}
-	inline void setMaxHeaderFieldValueLength(unsigned int newValue)
+	inline void setMaxHeaderFieldValueLength(size_t newValue)
 	{
 		_maxHeaderFieldValueLength = newValue;
 	}
@@ -96,7 +96,7 @@ public:
 	  \param timeout Timeout for reading operation
 	  \return Number of bytes fetched
 	*/
-	unsigned int read(char * buffer, unsigned int bufferSize, const Timeout& timeout = Timeout(), bool * timeoutExpired = 0);
+	size_t read(char * buffer, size_t bufferSize, const Timeout& timeout = Timeout(), bool * timeoutExpired = 0);
 	//! Return the state of the parser
 	inline ParserState parserState() const
 	{
@@ -107,31 +107,6 @@ public:
 	{
 		return _parserState == MessageCompleted;
 	}
-	//! Inspects HTTP-header for specified field name
-	/*!
-	  \param fieldName Name of the HTTP-header field.
-	  \return TRUE if HTTP-header field exists.
-	*/
-	bool headerContains(const std::string &fieldName) const;
-	//! Inspects HTTP-header for specified field name and value
-	/*!
-	  \param fieldName Name of the HTTP-header field.
-	  \param fieldValue Value of the HTTP-header field.
-	  \return TRUE if HTTP-header field exists.
-	*/
-	bool headerContains(const std::string &fieldName, const std::string &fieldValue) const;
-	//! Returns first occurence of HTTP-header value of the specified field
-	/*!
-	  \param fieldName Name of the HTTP-header field.
-	  \return Value of the HTTP-header field or empty string if it does not exists
-	*/
-	std::string header(const std::string &fieldName) const;
-	//! Returns all occurences of the HTTP-header values list of the specified field
-	/*!
-	  \param fieldName Name of the HTTP-header field.
-	  \return Values list of the HTTP-header field or empty list if it does not exists
-	*/
-	std::list<std::string> headers(const std::string &fieldName) const;
 
 	//! Resets reader
 	virtual void reset();
@@ -142,7 +117,6 @@ protected:
 		_parsingError = parsingError;
 	}
 
-	virtual void onHeaderAppended(const std::string& fieldName, const std::string& fieldValue) = 0;
 	virtual bool isAllowedInFirstToken(char ch) const = 0;
 	virtual void appendToFirstToken(char ch) = 0;
 	virtual bool isAllowedInSecondToken(char ch) const = 0;
@@ -175,20 +149,20 @@ private:
 	ParserState _parserState;
 	bool _isBad;
 	std::wstring _parsingError;
-	unsigned int _pos;
-	unsigned int _line;
-	unsigned int _col;
+	size_t _pos;
+	size_t _line;
+	size_t _col;
 	std::string _headerFieldName;
 	std::string _headerFieldValue;
-	Http::Header _header;
-	unsigned int _contentLength;
-	unsigned int _identityBodyBytesParsed;
+	Http::Params _header;
+	size_t _contentLength;
+	size_t _identityBodyBytesParsed;
 	std::string _chunkSizeStr;
-	unsigned int _chunkSize;
-	unsigned int _chunkBytesParsed;
+	size_t _chunkSize;
+	size_t _chunkBytesParsed;
 	char _bodyByte;
-	unsigned int _maxHeaderFieldNameLength;
-	unsigned int _maxHeaderFieldValueLength;
+	size_t _maxHeaderFieldNameLength;
+	size_t _maxHeaderFieldValueLength;
 };
 
 } // namespace isl

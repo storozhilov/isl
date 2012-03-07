@@ -1,7 +1,6 @@
 #ifndef ISL__LOG_MESSAGE__HXX
 #define ISL__LOG_MESSAGE__HXX
 
-#include <isl/AbstractError.hxx>
 #include <isl/Exception.hxx>
 #include <string>
 #include <sstream>

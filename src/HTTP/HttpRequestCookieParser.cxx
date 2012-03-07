@@ -44,7 +44,13 @@ Http::RequestCookies HttpRequestCookieParser::parse(const std::string& headerVal
 				}
 				break;
 			case ParsingAttribute:
-				if (Char::isSpaceOrTab(_curChar)) {
+				if (_curChar == ';') {
+					appendAttribute(parsedCookies, false);
+					_parserState = ParsingCookie;
+				} else if (_curChar == ',') {
+					appendAttribute(parsedCookies, true);
+					_parserState = ParsingCookie;
+				} else if (Char::isSpaceOrTab(_curChar)) {
 					_parserState = ParsingAttributeSP;
 				} else if (_curChar == '=') {
 					_parserState = ParsingEquals;
@@ -59,7 +65,13 @@ Http::RequestCookies HttpRequestCookieParser::parse(const std::string& headerVal
 				}
 				break;
 			case ParsingAttributeSP:
-				if (_curChar == '=') {
+				if (_curChar == ';') {
+					appendAttribute(parsedCookies, false);
+					_parserState = ParsingCookie;
+				} else if (_curChar == ',') {
+					appendAttribute(parsedCookies, true);
+					_parserState = ParsingCookie;
+				} else if (_curChar == '=') {
 					_parserState = ParsingEquals;
 				} else if (Char::isSpaceOrTab(_curChar)) {
 					// Nothing to do
@@ -290,8 +302,8 @@ void HttpRequestCookieParser::appendAttribute(Http::RequestCookies& parsedCookie
 			Core::errorLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, msg.str()));
 			throw Exception(Error(SOURCE_LOCATION_ARGS, msg.str()));
 	}
-	//_currentAttrName.clear();
-	//_currentAttrValue.clear();
+	_currentAttrName.clear();
+	_currentAttrValue.clear();
 }
 
 void HttpRequestCookieParser::appendCookie(Http::RequestCookies& parsedCookies)

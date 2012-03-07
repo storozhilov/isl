@@ -49,9 +49,9 @@ private:
 	virtual void onStart();
 	virtual void onStop();
 
+	Plugins _plugins;
 	std::string _pluginsPath;
 	mutable ReadWriteLock _pluginsPathRwLock;
-	Plugins _plugins;
 	bool _pluginsLoaded;
 
 	static const char * CreatePluginSubsystemFunctionName;

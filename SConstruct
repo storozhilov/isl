@@ -15,7 +15,7 @@ import os
 
 # Environment for Linux
 env = Environment(
-CCFLAGS = '-g',
+CCFLAGS = '-g -Wall',
 CPPPATH = './include',
 LIBS = 'dl'
 )
@@ -44,7 +44,7 @@ testExampleBuilder = env.Program('examples/Test/test', Glob('examples/Test/*.cxx
 httpServerExampleBuilder = env.Program('examples/HttpServer/hsd', Glob('examples/HttpServer/*.cxx'), LIBS = ['isl', 'pthread', 'rt'], LIBPATH = 'lib')
 httpCopyServerExampleBuilder = env.Program('examples/HttpCopy/htcpd', Glob('examples/HttpCopy/server/*.cxx'), LIBS = ['isl', 'pthread', 'rt'], LIBPATH = 'lib')
 httpCopyClientExampleBuilder = env.Program('examples/HttpCopy/htcp', Glob('examples/HttpCopy/client/*.cxx'), LIBS = ['isl', 'pthread', 'rt'], LIBPATH = 'lib')
-sourceBrouserExampleBuilder = env.Program('examples/SourceBrowser/sbd', Glob('examples/SourceBrowser/*.cxx'), LIBS = ['isl', 'pthread', 'rt'], LIBPATH = 'lib')
+#sourceBrouserExampleBuilder = env.Program('examples/SourceBrowser/sbd', Glob('examples/SourceBrowser/*.cxx'), LIBS = ['isl', 'pthread', 'rt'], LIBPATH = 'lib')
 echoMessageBrokerExampleBuilder = env.Program('examples/EchoMessageBroker/embd', Glob('examples/EchoMessageBroker/*.cxx'), LIBS = ['isl', 'pthread', 'rt'], LIBPATH = 'lib')
 
 # Installer
@@ -59,6 +59,7 @@ env.Command('uninstall', None, Delete(FindInstalledFiles()))
 if os.environ.get('ISL_BUILD_EXAPMLES','').upper() == 'YES':
 	#Default(staticLibraryBuilder, sharedLibraryBuilder, testExampleBuilder, sourceBrouserExampleBuilder, echoMessageBrokerExampleBuilder)
 	#Default(staticLibraryBuilder, sharedLibraryBuilder, testExampleBuilder, httpCopyServerExampleBuilder, httpCopyClientExampleBuilder, sourceBrouserExampleBuilder, echoMessageBrokerExampleBuilder)
-	Default(staticLibraryBuilder, sharedLibraryBuilder, httpServerExampleBuilder, httpCopyServerExampleBuilder, httpCopyClientExampleBuilder, sourceBrouserExampleBuilder, echoMessageBrokerExampleBuilder)
+	#Default(staticLibraryBuilder, sharedLibraryBuilder, httpServerExampleBuilder, httpCopyServerExampleBuilder, httpCopyClientExampleBuilder, sourceBrouserExampleBuilder, echoMessageBrokerExampleBuilder)
+	Default(staticLibraryBuilder, sharedLibraryBuilder, httpServerExampleBuilder, httpCopyServerExampleBuilder, httpCopyClientExampleBuilder, echoMessageBrokerExampleBuilder)
 else:
 	Default(staticLibraryBuilder, sharedLibraryBuilder)

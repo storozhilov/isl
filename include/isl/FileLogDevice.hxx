@@ -4,6 +4,7 @@
 #include <isl/AbstractLogDevice.hxx>
 #include <isl/DateTime.hxx>
 #include <string>
+#include <sys/stat.h>
 
 namespace isl
 {
@@ -27,8 +28,8 @@ private:
 
 	std::string _fileName;
 	int _fileDescriptor;
-	int _fileDeviceID;
-	int _fileINodeNumber;
+	dev_t _fileDeviceID;
+	ino_t _fileINodeNumber;
 };
 
 } // namespace isl

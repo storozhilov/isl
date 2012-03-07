@@ -55,7 +55,7 @@ bool ReadWriteLock::tryLockForRead()
 
 bool ReadWriteLock::tryLockForRead(const Timeout& timeout)
 {
-	if ((timeout.seconds() == 0) && (timeout.nanoSeconds() == 0)) {
+	if (timeout.isZero()) {
 		return tryLockForRead();
 	}
 	timespec timeoutLimit = timeout.limit();
@@ -85,8 +85,8 @@ bool ReadWriteLock::tryLockForWrite()
 
 bool ReadWriteLock::tryLockForWrite(const Timeout& timeout)
 {
-	if ((timeout.seconds() == 0) && (timeout.nanoSeconds() == 0)) {
-		return tryLockForRead();
+	if (timeout.isZero()) {
+		return tryLockForWrite();
 	}
 	timespec timeoutLimit = timeout.limit();
 	int errorCode = pthread_rwlock_timedwrlock(&_lock, &timeoutLimit);

@@ -47,7 +47,7 @@ bool Mutex::tryLock()
 
 bool Mutex::tryLock(const Timeout& timeout)
 {
-	if ((timeout.seconds() == 0) && (timeout.nanoSeconds() == 0)) {
+	if (timeout.isZero()) {
 		return tryLock();
 	}
 	timespec timeoutLimit = timeout.limit();

@@ -1,6 +1,9 @@
 #define LIBISL__DEBUGGING_ON 1
 
 #include <isl/Core.hxx>
+#include <isl/AbstractServer.hxx>
+#include <isl/SignalHandler.hxx>
+#include <isl/AbstractTcpService.hxx>
 #include <isl/TcpSocket.hxx>
 #include <isl/Exception.hxx>
 #include <isl/HttpRequestReader.hxx>
@@ -11,12 +14,140 @@
 #include <memory>
 
 #define LISTEN_PORT 8080
+#define MAX_CLIENTS 10
 #define LISTEN_BACKLOG 10
 #define ACCEPT_SECONDS_TIMEOUT 1
 #define TRANSMISSION_SECONDS_TIMEOUT 60
 
+/*void testTimeout()
+{
+	isl::Timeout t1(1, 123, 456, 789);
+	std::cout << "t1.seconds() = " << t1.seconds() << ", t1.milliSeconds() = " << t1.milliSeconds() << ", t1.microSeconds() = " << t1.microSeconds() << ", t1.nanoSeconds() = " << t1.nanoSeconds() << std::endl;
+	timespec sp = t1.timeSpec();
+	std::cout << "sp.tv_sec = " << sp.tv_sec << ", sp.tv_nsec = " << sp.tv_nsec << std::endl;
+	timespec l = t1.limit();
+	std::cout << "l.tv_sec = " << l.tv_sec << ", l.tv_nsec = " << l.tv_nsec << std::endl;
+}*/
+
+class HttpService : public isl::AbstractTcpService
+{
+public:
+	HttpService(AbstractSubsystem * owner, unsigned int port, size_t maxClients) :
+		AbstractTcpService(owner, port, maxClients)
+	{}
+private:
+	class HttpTask : public isl::AbstractTcpService::AbstractTask
+	{
+	public:
+		HttpTask(isl::TcpSocket * socket) :
+			isl::AbstractTcpService::AbstractTask(socket),
+			_requestReader(*socket)
+		{}
+	private:
+		HttpTask();
+
+		virtual void executeImplementation(isl::TaskDispatcher::Worker& worker)
+		{
+			try {
+				_requestReader.receive();
+			} catch (isl::Exception& e) {
+				std::cerr << isl::String::utf8Encode(e.debug()) << std::endl;
+				isl::HttpResponseStreamWriter responseWriter(socket(), "500");
+				responseWriter.setHeaderField("Content-Type", "text/html; charset=utf-8");
+				responseWriter.writeOnce(isl::String::utf8Encode(e.debug()));
+				return;
+			} catch (std::exception& e) {
+				std::cerr << e.what() << std::endl;
+				isl::HttpResponseStreamWriter responseWriter(socket(), "500");
+				responseWriter.setHeaderField("Content-Type", "text/html; charset=utf-8");
+				responseWriter.writeOnce(e.what());
+				return;
+			} catch (...) {
+				std::cerr << "Unknown error occured." << std::endl;
+				isl::HttpResponseStreamWriter responseWriter(socket(), "500");
+				responseWriter.setHeaderField("Content-Type", "text/html; charset=utf-8");
+				responseWriter.writeOnce("Unknown error occured.");
+				return;
+			}
+			std::ostringstream oss;
+			oss << "<html><head><title>HTTP-_requestReader has been recieved</title></head><body>" <<
+				"<p>URI: &quot;" << _requestReader.uri() << "&quot;</p>" <<
+				"<p>path: &quot;" << isl::String::decodePercent(_requestReader.path()) << "&quot;</p>" <<
+				"<p>query: &quot;" << _requestReader.query() << "&quot;</p>";
+			for (isl::Http::Params::const_iterator i = _requestReader.get().begin(); i != _requestReader.get().end(); ++i) {
+				oss << "<p>get[&quot;" << i->first << "&quot;] = &quot;" << i->second << "&quot;</p>";
+			}
+			for (isl::Http::Params::const_iterator i = _requestReader.header().begin(); i != _requestReader.header().end(); ++i) {
+				oss << "<p>header[&quot;" << i->first << "&quot;] = &quot;" << i->second << "&quot;</p>";
+			}
+			for (isl::Http::RequestCookies::const_iterator i = _requestReader.cookies().begin(); i != _requestReader.cookies().end(); ++i) {
+				oss << "<p>cookie[&quot;" << i->first << "&quot;] = &quot;" << i->second.value << "&quot;</p>";
+			}
+			oss << "</body></html>";
+			isl::HttpResponseStreamWriter responseWriter(socket());
+			responseWriter.setHeaderField("Content-Type", "text/html; charset=utf-8");
+			responseWriter.writeOnce(oss.str());
+		}
+
+		isl::HttpRequestReader _requestReader;
+	};
+
+	HttpService();
+
+	virtual isl::AbstractTcpService::AbstractTask * createTask(isl::TcpSocket * socket)
+	{
+		return new HttpTask(socket);
+	}
+};
+
+class HttpServer : public isl::AbstractServer
+{
+public:
+	HttpServer(int argc, char * argv[]) :
+		isl::AbstractServer(argc, argv),
+		_signalHandler(*this),
+		_httpService(this, LISTEN_PORT, MAX_CLIENTS)
+	{}
+	
+	virtual void start()
+	{
+		setState(IdlingState, StartingState);
+		_signalHandler.start();
+		_httpService.start();
+		setState(StartingState, RunningState);
+	}
+	virtual void stop()
+	{
+		setState(StoppingState);
+		_signalHandler.stop();
+		_httpService.stop();
+		setState(IdlingState);
+	}
+	virtual void restart()
+	{
+		setState(StoppingState);
+		_signalHandler.stop();
+		_httpService.stop();
+		setState(StoppingState, StartingState);
+		_signalHandler.start();
+		_httpService.start();
+		setState(StartingState, RunningState);
+	}
+private:
+	HttpServer();
+	HttpServer(const HttpServer&);
+
+	isl::SignalHandler _signalHandler;
+	HttpService _httpService;
+};
+
 int main(int argc, char *argv[])
 {
+	//testTimeout();
+	//return 0;
+	//std::cout << isl::String::encodePercent("Вот такая строка") << std::endl;
+	//return 0;
+
 	//isl::Core::daemonize();
 	isl::Core::writePid("hsd.pid");
 	isl::Core::debugLog.setPrefix(L"DEBUG");
@@ -25,9 +156,9 @@ int main(int argc, char *argv[])
 	isl::Core::warningLog.connectTarget(isl::FileLogTarget("hsd.log"));
 	isl::Core::errorLog.setPrefix(L"ERROR");
 	isl::Core::errorLog.connectTarget(isl::FileLogTarget("hsd.log"));
-	//SourceBrowserServer server(argc, argv);
-	//server.run();
-	isl::TcpSocket s;
+	HttpServer server(argc, argv);
+	server.run();
+	/*isl::TcpSocket s;
 	s.open();
 	s.bind(LISTEN_PORT);
 	s.listen(LISTEN_BACKLOG);
@@ -68,7 +199,7 @@ int main(int argc, char *argv[])
 		for (isl::Http::Params::const_iterator i = request.get().begin(); i != request.get().end(); ++i) {
 			std::cout << "\tget[\"" << i->first << "\"] = \"" << i->second << '"' << std::endl;
 		}
-		for (isl::Http::Header::const_iterator i = request.header().begin(); i != request.header().end(); ++i) {
+		for (isl::Http::Params::const_iterator i = request.header().begin(); i != request.header().end(); ++i) {
 			std::cout << "\theader[\"" << i->first << "\"] = \"" << i->second << '"' << std::endl;
 		}
 		for (isl::Http::RequestCookies::const_iterator i = request.cookies().begin(); i != request.cookies().end(); ++i) {
@@ -82,7 +213,7 @@ int main(int argc, char *argv[])
 		for (isl::Http::Params::const_iterator i = request.get().begin(); i != request.get().end(); ++i) {
 			oss << "<p>get[&quot;" << i->first << "&quot;] = &quot;" << i->second << "&quot;</p>";
 		}
-		for (isl::Http::Header::const_iterator i = request.header().begin(); i != request.header().end(); ++i) {
+		for (isl::Http::Params::const_iterator i = request.header().begin(); i != request.header().end(); ++i) {
 			oss << "<p>header[&quot;" << i->first << "&quot;] = &quot;" << i->second << "&quot;</p>";
 		}
 		for (isl::Http::RequestCookies::const_iterator i = request.cookies().begin(); i != request.cookies().end(); ++i) {
@@ -92,7 +223,7 @@ int main(int argc, char *argv[])
 		isl::HttpResponseStreamWriter responseWriter(*ss.get());
 		responseWriter.setHeaderField("Content-Type", "text/html; charset=utf-8");
 		responseWriter.writeOnce(oss.str());
-	}
+	}*/
 	isl::Core::debugLog.disconnectTargets();
 	isl::Core::warningLog.disconnectTargets();
 	isl::Core::errorLog.disconnectTargets();

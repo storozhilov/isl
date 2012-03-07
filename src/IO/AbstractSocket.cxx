@@ -67,11 +67,9 @@ void AbstractSocket::closeImplementation()
 	_descriptor = -1;
 }
 
-unsigned int AbstractSocket::readImplementation(char * buffer, unsigned int bufferSize, const Timeout& timeout)
+size_t AbstractSocket::readImplementation(char * buffer, size_t bufferSize, const Timeout& timeout)
 {
-	timespec readTimeout;
-	readTimeout.tv_sec = timeout.seconds();
-	readTimeout.tv_nsec = timeout.nanoSeconds();
+	timespec readTimeout = timeout.timeSpec();
 	fd_set readDescriptorsSet;
 	FD_ZERO(&readDescriptorsSet);
 	FD_SET(_descriptor, &readDescriptorsSet);
@@ -100,13 +98,11 @@ unsigned int AbstractSocket::readImplementation(char * buffer, unsigned int buff
 	return bytesReceived;
 }
 
-unsigned int AbstractSocket::writeImplementation(const char * buffer, unsigned int bufferSize, const Timeout& timeout)
+size_t AbstractSocket::writeImplementation(const char * buffer, size_t bufferSize, const Timeout& timeout)
 {
-	int totalBytesSent = 0;
+	size_t totalBytesSent = 0;
 	while (totalBytesSent < (bufferSize - 1)) {
-		timespec writeTimeout;
-		writeTimeout.tv_sec = timeout.seconds();
-		writeTimeout.tv_nsec = timeout.nanoSeconds();
+		timespec writeTimeout = timeout.timeSpec();
 		fd_set writeDescriptorsSet;
 		FD_ZERO(&writeDescriptorsSet);
 		FD_SET(_descriptor, &writeDescriptorsSet);

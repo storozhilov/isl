@@ -11,8 +11,8 @@ class HttpRequestStreamWriter : public HttpMessageStreamWriter
 public:
 	HttpRequestStreamWriter(AbstractIODevice& device, const std::string& uri, const std::string& method = std::string("GET"), const std::string& version = std::string("HTTP/1.1")) :
 		HttpMessageStreamWriter(device),
-		_uri(uri),
 		_method(method),
+		_uri(uri),
 		_version(version)
 	{}
 

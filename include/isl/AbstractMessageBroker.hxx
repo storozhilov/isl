@@ -23,8 +23,8 @@ class AbstractMessageBroker : public AbstractSubsystem
 private:
 	class SenderTaskTerminator;
 public:
-	AbstractMessageBroker(AbstractSubsystem * owner, unsigned int port, unsigned int maxClients,
-			unsigned int sendQueueSize = 100, const Timeout& timeout = Timeout(1),
+	AbstractMessageBroker(AbstractSubsystem * owner, unsigned int port, size_t maxClients,
+			size_t sendQueueSize = 100, const Timeout& timeout = Timeout(1),
 			const std::list<std::string>& interfaces = std::list<std::string>(),
 			unsigned int backLog = 15);
 	//! Abstract message
@@ -116,9 +116,9 @@ public:
 
 		virtual void executeImplementation(TaskDispatcher::Worker& worker);
 
+		SenderTask& _senderTask;
 		AbstractMessageBroker& _broker;
 		TcpSocket& _socket;
-		SenderTask& _senderTask;
 		bool _terminateFlag;
 		mutable ReadWriteLock _terminateFlagRWLock;
 	};
@@ -140,7 +140,7 @@ public:
 		_port = newValue;
 	}
 	//! Thread-safely returns sender task queue size
-	inline unsigned int sendQueueSize() const
+	inline size_t sendQueueSize() const
 	{
 		ReadLocker locker(_sendQueueSizeRwLock);
 		return _sendQueueSize;
@@ -151,7 +151,7 @@ public:
 	  Changes will take place on the next message sending operation
 	  \param newValue New sender task queue size
 	*/
-	inline void setSendQueueSize(unsigned int newValue)
+	inline void setSendQueueSize(size_t newValue)
 	{
 		WriteLocker locker(_sendQueueSizeRwLock);
 		_sendQueueSize = newValue;
@@ -173,7 +173,7 @@ public:
 		_timeout = newValue;
 	}
 	//! Thread-safely returns maximum clients amount
-	inline unsigned int maxClients() const
+	inline size_t maxClients() const
 	{
 		return _taskDispatcher.workersCount() / 2;
 	}
@@ -182,7 +182,7 @@ public:
 	  Subsystem's restart needed to actually apply new value
 	  \param newValue New maximum clients amount
 	*/
-	inline void setMaxClients(unsigned int newValue)
+	inline void setMaxClients(size_t newValue)
 	{
 		_taskDispatcher.setWorkersCount(newValue * 2);
 	}
@@ -219,7 +219,7 @@ public:
 		_backLog = newValue;
 	}
 	//! Thread-safely returns maximum task queue overflow size.
-	inline unsigned int maxTaskQueueOverflowSize() const
+	inline size_t maxTaskQueueOverflowSize() const
 	{
 		return _taskDispatcher.maxTaskQueueOverflowSize();
 	}
@@ -228,7 +228,7 @@ public:
 	  Changes will take place on the next task performing operation
 	  \param newValue New maximum task queue overflow size
 	*/
-	inline void setMaxTaskQueueOverflowSize(unsigned int newValue)
+	inline void setMaxTaskQueueOverflowSize(size_t newValue)
 	{
 		_taskDispatcher.setMaxTaskQueueOverflowSize(newValue);
 	}
@@ -326,7 +326,7 @@ private:
 	ListenerThread _listenerThread;
 	unsigned int _port;
 	mutable ReadWriteLock _portRwLock;
-	unsigned int _sendQueueSize;
+	size_t _sendQueueSize;
 	mutable ReadWriteLock _sendQueueSizeRwLock;
 	Timeout _timeout;
 	mutable ReadWriteLock _timeoutRwLock;

@@ -71,7 +71,7 @@ public:
 	*/
 	std::list<std::string> headerValues(const std::string &fieldName) const;
 	//! Returns all headers as an associative array
-	Http::Header header() const;
+	Http::Params header() const;
 	//! Removes header field
 	/*!
 	  \param fieldName Name of the HTTP-header field to be removed.
@@ -117,7 +117,7 @@ public:
 	  \param timeout I/O timeout
 	  \return TRUE if all data has been send to peer or FALSE if the I/O timeout has been expired and flush() call is needed to complete an operation
 	*/
-	bool writeChunk(const char * buffer, unsigned int bufferSize, const Timeout& timeout = Timeout());
+	bool writeChunk(const char * buffer, size_t bufferSize, const Timeout& timeout = Timeout());
 	//! Sends unencoded STL string and finalizes HTTP-message
 	/*!
 	  \param str STL string to send
@@ -126,7 +126,7 @@ public:
 	*/
 	inline bool writeOnce(const std::string& str, const Timeout& timeout = Timeout())
 	{
-		writeOnce(str.data(), str.length(), timeout);
+		return writeOnce(str.data(), str.length(), timeout);
 	}
 	//! Sends unencoded NULL-terminated string and finalizes HTTP-message
 	/*!
@@ -136,7 +136,7 @@ public:
 	*/
 	inline bool writeOnce(const char * str, const Timeout& timeout = Timeout())
 	{
-		writeOnce(str, strlen(str), timeout);
+		return writeOnce(str, strlen(str), timeout);
 	}
 	//! Sends unencoded buffer and finalizes HTTP-message
 	/*!
@@ -145,11 +145,11 @@ public:
 	  \param timeout I/O timeout
 	  \return TRUE if all data has been send to peer or FALSE if the I/O timeout has been expired and flush() call is needed to complete an operation
 	*/
-	bool writeOnce(const char * buffer, unsigned int bufferSize, const Timeout& timeout = Timeout());
+	bool writeOnce(const char * buffer, size_t bufferSize, const Timeout& timeout = Timeout());
 	//! Sends bodyless HTTP-message
 	inline bool writeBodyless(const Timeout& timeout = Timeout())
 	{
-		writeOnce(0, 0, timeout);
+		return writeOnce(0, 0, timeout);
 	}
 	//! Sends last (empty) chunk and the trailer of the HTTP-message
 	/*!
@@ -179,7 +179,7 @@ private:
 	bool _chunkedHeaderComposed;
 	bool _isFinalizing;
 	std::string _sendBuffer;
-	unsigned int _sendBufferBytesSent;
+	size_t _sendBufferBytesSent;
 };
 
 } // namespace isl

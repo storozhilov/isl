@@ -6,12 +6,53 @@ namespace isl
 
 HttpRequestReader::HttpRequestReader(AbstractIODevice& device) :
 	_streamReader(device),
+	_buf(),
 	_path(),
 	_query(),
 	_body(),
 	_get(),
-	_post()
+	_getExtracted(false),
+	_post(),
+	_postExtracted(false),
+	_cookies(),
+	_cookiesExtracted(false)
 {}
+
+const Http::RequestCookies& HttpRequestReader::cookies() const
+{
+	if (!_cookiesExtracted) {
+		for (Http::Params::const_iterator i = _streamReader.header().begin(); i != _streamReader.header().end(); ++i) {
+			if (i->first != "Cookie") {
+				continue;
+			}
+			HttpRequestCookieParser cookieParser;
+			Http::RequestCookies cookies = cookieParser.parse(i->second);
+			_cookies.insert(cookies.begin(), cookies.end());
+		}
+		_cookiesExtracted = true;
+	}
+	return _cookies;
+}
+
+const Http::Params& HttpRequestReader::get() const
+{
+	if (!_getExtracted) {
+		Http::parseParams(_query, _get);
+		_getExtracted = true;
+	}
+	return _get;
+}
+
+const Http::Params& HttpRequestReader::post() const
+{
+	if (!_postExtracted) {
+		if (Http::hasParam(_streamReader.header(), "Content-Type", "application/x-www-form-urlencoded")) {
+			Http::parseParams(_body, _post);
+		}
+		_postExtracted = true;
+	}
+	return _post;
+}
 
 void HttpRequestReader::reset()
 {
@@ -20,16 +61,19 @@ void HttpRequestReader::reset()
 	_query.clear();
 	_body.clear();
 	_get.clear();
+	_getExtracted = false;
 	_post.clear();
+	_postExtracted = false;
+	_cookies.clear();
+	_cookiesExtracted = false;
 }
 
-void HttpRequestReader::receive(Timeout timeout, unsigned int maxBodySize)
+void HttpRequestReader::receive(Timeout timeout, size_t maxBodySize)
 {
 	reset();
-	char buf[BufferSize];
 	while (!_streamReader.isCompleted()) {
 		bool timeoutExpired;
-		unsigned int bytesRead = _streamReader.read(buf, BufferSize, timeout, &timeoutExpired);
+		size_t bytesRead = _streamReader.read(_buf, BufferSize, timeout, &timeoutExpired);
 		if (timeoutExpired) {
 			// TODO Use special error class
 			throw isl::Exception(isl::Error(SOURCE_LOCATION_ARGS, L"Timeout expired"));
@@ -42,15 +86,9 @@ void HttpRequestReader::receive(Timeout timeout, unsigned int maxBodySize)
 			// TODO Use special error class
 			throw isl::Exception(isl::Error(SOURCE_LOCATION_ARGS, L"Request entity is too long"));
 		}
-		_body.append(buf, bytesRead);
+		_body.append(_buf, bytesRead);
 	}
 	Http::parseUri(_streamReader.uri(), _path, _query);
-	if (!_query.empty()) {
-		Http::parseParams(_query, _get);
-	}
-	if (_streamReader.headerContains("Content-Type", "application/x-www-form-urlencoded")) {
-		Http::parseParams(_body, _post);
-	}
 }
 
 } // namespace isl

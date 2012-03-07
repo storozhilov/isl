@@ -23,7 +23,7 @@ public:
 	  \param workersCount Worker threads count
 	  \param maxTaskQueueOverflowSize Max tasks queue overflow
 	*/
-	TaskDispatcher(AbstractSubsystem * owner, unsigned int workersCount, unsigned int maxTaskQueueOverflowSize = 0);
+	TaskDispatcher(AbstractSubsystem * owner, size_t workersCount, size_t maxTaskQueueOverflowSize = 0);
 	~TaskDispatcher();
 	
 	//! Worker thread class
@@ -63,7 +63,7 @@ public:
 	};
 
 	//! Thread-safely returns workers count.
-	inline unsigned int workersCount() const
+	inline size_t workersCount() const
 	{
 		ReadLocker locker(_workersCountRwLock);
 		return _workersCount;
@@ -73,13 +73,13 @@ public:
 	  Subsystem's restart needed to actually apply new value
 	  \param newValue New workers count
 	*/
-	inline void setWorkersCount(unsigned int newValue)
+	inline void setWorkersCount(size_t newValue)
 	{
 		WriteLocker locker(_workersCountRwLock);
 		_workersCount = newValue;
 	}
 	//! Thread-safely returns maximum task queue overflow size.
-	inline unsigned int maxTaskQueueOverflowSize() const
+	inline size_t maxTaskQueueOverflowSize() const
 	{
 		ReadLocker locker(_maxTaskQueueOverflowSizeRwLock);
 		return _maxTaskQueueOverflowSize;
@@ -89,7 +89,7 @@ public:
 	  Changes will take place on the next task performing operation
 	  \param newValue New maximum task queue overflow size
 	*/
-	inline void setMaxTaskQueueOverflowSize(unsigned int newValue)
+	inline void setMaxTaskQueueOverflowSize(size_t newValue)
 	{
 		WriteLocker locker(_maxTaskQueueOverflowSizeRwLock);
 		_maxTaskQueueOverflowSize = newValue;
@@ -125,11 +125,11 @@ private:
 	typedef std::deque<AbstractTask *> Tasks;
 	typedef std::list<Worker *> Workers;
 
-	unsigned int _workersCount;
+	size_t _workersCount;
 	mutable ReadWriteLock _workersCountRwLock;
 	WaitCondition _taskCond;
-	unsigned int _awaitingWorkersCount;
-	unsigned int _maxTaskQueueOverflowSize;
+	size_t _awaitingWorkersCount;
+	size_t _maxTaskQueueOverflowSize;
 	mutable ReadWriteLock _maxTaskQueueOverflowSizeRwLock;
 	Tasks _tasks;
 	Workers _workers;

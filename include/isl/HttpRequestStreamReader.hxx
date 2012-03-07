@@ -15,7 +15,6 @@ public:
 		_method(),
 		_uri(),
 		_version(),
-		_cookies(),
 		_maxMethodLength(MaxMethodLength),
 		_maxUriLength(MaxUriLength),
 		_maxVersionLength(MaxVersionLength)
@@ -33,31 +32,27 @@ public:
 	{
 		return _version;
 	}
-	inline const Http::RequestCookies& cookies() const
-	{
-		return _cookies;
-	}
-	inline unsigned int maxMethodLength() const
+	inline size_t maxMethodLength() const
 	{
 		return _maxMethodLength;
 	}
-	inline void setMaxMethodLength(unsigned int newValue)
+	inline void setMaxMethodLength(size_t newValue)
 	{
 		_maxMethodLength = newValue;
 	}
-	inline unsigned int maxUriLength() const
+	inline size_t maxUriLength() const
 	{
 		return _maxUriLength;
 	}
-	inline void setMaxUriLength(unsigned int newValue)
+	inline void setMaxUriLength(size_t newValue)
 	{
 		_maxUriLength = newValue;
 	}
-	inline unsigned int maxVersionLength() const
+	inline size_t maxVersionLength() const
 	{
 		return _maxVersionLength;
 	}
-	inline void setMaxVersionLength(unsigned int newValue)
+	inline void setMaxVersionLength(size_t newValue)
 	{
 		_maxVersionLength = newValue;
 	}
@@ -68,7 +63,6 @@ public:
 		_method.clear();
 		_uri.clear();
 		_version.clear();
-		_cookies.clear();
 	}
 private:
 	HttpRequestStreamReader();
@@ -79,15 +73,6 @@ private:
 		MaxVersionLength = 20
 	};
 	
-	virtual void onHeaderAppended(const std::string& fieldName, const std::string& fieldValue)
-	{
-		if (fieldName == "Cookie") {
-			// Parsing and adding cookies
-			HttpRequestCookieParser cookieParser;
-			Http::RequestCookies cookies = cookieParser.parse(fieldValue);
-			_cookies.insert(cookies.begin(), cookies.end());
-		}
-	}
 	virtual bool isAllowedInFirstToken(char ch) const
 	{
 		return Http::isToken(ch);
@@ -128,10 +113,9 @@ private:
 	std::string _method;
 	std::string _uri;
 	std::string _version;
-	Http::RequestCookies _cookies;
-	unsigned int _maxMethodLength;
-	unsigned int _maxUriLength;
-	unsigned int _maxVersionLength;
+	size_t _maxMethodLength;
+	size_t _maxUriLength;
+	size_t _maxVersionLength;
 };
 
 } // namespace isl

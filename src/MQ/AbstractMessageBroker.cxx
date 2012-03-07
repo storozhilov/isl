@@ -10,10 +10,12 @@ namespace isl
  * AbstractMessageBroker
 ------------------------------------------------------------------------------*/
 
-AbstractMessageBroker::AbstractMessageBroker(AbstractSubsystem * owner, unsigned int port, unsigned int maxClients,
-		unsigned int sendQueueSize, const Timeout& timeout, const std::list<std::string>& interfaces,
+AbstractMessageBroker::AbstractMessageBroker(AbstractSubsystem * owner, unsigned int port, size_t maxClients,
+		size_t sendQueueSize, const Timeout& timeout, const std::list<std::string>& interfaces,
 		unsigned int backLog) :
 	AbstractSubsystem(owner),
+	_taskDispatcher(this, maxClients * 2),
+	_listenerThread(*this),
 	_port(port),
 	_portRwLock(),
 	_sendQueueSize(sendQueueSize),
@@ -23,9 +25,7 @@ AbstractMessageBroker::AbstractMessageBroker(AbstractSubsystem * owner, unsigned
 	_interfaces(interfaces),
 	_interfacesRwLock(),
 	_backLog(backLog),
-	_backLogRwLock(),
-	_listenerThread(*this),
-	_taskDispatcher(this, maxClients * 2)
+	_backLogRwLock()
 {}
 
 void AbstractMessageBroker::start()

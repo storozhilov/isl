@@ -2,7 +2,6 @@
 
 #include <isl/FileLogTarget.hxx>
 #include <isl/Core.hxx>
-#include <isl/AbstractHTTPTask.hxx>
 #include "EchoMessageBrokerServer.hxx"
 
 int main(int argc, char *argv[])
@@ -20,5 +19,4 @@ int main(int argc, char *argv[])
 	isl::Core::debugLog.disconnectTargets();
 	isl::Core::warningLog.disconnectTargets();
 	isl::Core::errorLog.disconnectTargets();
-	std::cout << "Server stopped" << std::endl;
 }

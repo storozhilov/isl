@@ -18,7 +18,7 @@
 
 int main(int argc, char *argv[])
 {
-	isl::Http::debugLog.connectTarget(isl::FileLogTarget("server.log"));;
+	isl::Core::debugLog.connectTarget(isl::FileLogTarget("server.log"));;
 	isl::TcpSocket s;
 	s.open();
 	s.bind(LISTEN_PORT);
@@ -46,8 +46,8 @@ int main(int argc, char *argv[])
 				totalBytesRead += bytesRead;
 			}
 			std::cout << "Source filename is \"" << r.uri() << '"' << std::endl;
-			std::cout << "Current directory is \"" << r.header("X-Current-Directory") << '"' << std::endl;
-			std::cout << "Target filename/directory is \"" << r.header("X-Dest-Filename") << '"' << std::endl;
+			std::cout << "Current directory is \"" << isl::Http::paramValue(r.header(), "X-Current-Directory") << '"' << std::endl;
+			std::cout << "Target filename/directory is \"" << isl::Http::paramValue(r.header(), "X-Dest-Filename") << '"' << std::endl;
 			isl::HttpResponseStreamWriter w(*ss.get());
 			w.setHeaderField("X-Copy-Status", "OK");
 			/*if (!w.writeBodyless()) {

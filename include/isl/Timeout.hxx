@@ -9,33 +9,53 @@ namespace isl
 class Timeout
 {
 public:
-	Timeout(unsigned int seconds = 0, unsigned int nanoSeconds = 0) :
-		_seconds(seconds + nanoSeconds / 1000000000),
-		_nanoSeconds(nanoSeconds % 1000000000)
+	Timeout(unsigned int seconds = 0, unsigned int milliSeconds = 0, unsigned int microSeconds = 0, unsigned int nanoSeconds = 0) :
+		_seconds(seconds + milliSeconds / 1000 + microSeconds / 1000000 + nanoSeconds / 1000000000),
+		_nanoSeconds(milliSeconds % 1000 * 1000000 + microSeconds % 1000000 * 1000 + nanoSeconds % 1000000000)
 	{}
 
 	unsigned int seconds() const
 	{
 		return _seconds;
 	}
+	unsigned int milliSeconds() const
+	{
+		return _nanoSeconds / 1000000;
+	}
+	unsigned int microSeconds() const
+	{
+		return _nanoSeconds % 1000000 / 1000;
+	}
 	unsigned int nanoSeconds() const
 	{
-		return _nanoSeconds;
+		return _nanoSeconds % 1000;
+	}
+	timespec timeSpec() const
+	{
+		timespec result;
+		result.tv_sec = _seconds;
+		result.tv_nsec = _nanoSeconds;
+		return result;
 	}
 	timespec limit() const
 	{
-		timespec startTime;
-		clock_gettime(CLOCK_REALTIME, &startTime);
-		timespec timeoutLimit;
-		timeoutLimit.tv_nsec = startTime.tv_nsec + _nanoSeconds;
-		timeoutLimit.tv_sec = startTime.tv_sec + _seconds;
-		return timeoutLimit;
+		timespec now;
+		clock_gettime(CLOCK_REALTIME, &now);
+		timespec result;
+		result.tv_nsec = (now.tv_nsec + _nanoSeconds) % 1000000000;
+		result.tv_sec = now.tv_sec + _seconds + (now.tv_nsec + _nanoSeconds) / 1000000000;
+		return result;
+	}
+	inline bool isZero() const
+	{
+		return (_seconds == 0) && (_nanoSeconds == 0);
+	}
+	inline void reset()
+	{
+		_seconds = 0;
+		_nanoSeconds = 0;
 	}
 
-	static Timeout milliSecond(unsigned int ms = 1)
-	{
-		return Timeout(ms / 1000, ms % 1000 * 1000000);
-	}
 private:
 	unsigned int _seconds;
 	unsigned int _nanoSeconds;

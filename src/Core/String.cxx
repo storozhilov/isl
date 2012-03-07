@@ -36,7 +36,7 @@ std::string String::encodePercent(const std::string &str)
 	encodedString.setf(std::ios::hex, std::ios::basefield);
 	encodedString.unsetf(std::ios::showbase);
 	encodedString.fill('0');
-	for (int i = 0; i < str.length(); ++i) {
+	for (size_t i = 0; i < str.length(); ++i) {
 		unsigned char code = str[i];
 		if (Char::isSpace(code)) {
 			encodedString << '+';
@@ -52,7 +52,7 @@ std::string String::encodePercent(const std::string &str)
 std::string String::decodePercent(const std::string &str)
 {
 	std::string decodedString;
-	int i = 0;
+	size_t i = 0;
 	while (i < str.length()) {
 		if (str[i] == '%') {
 			if ((i + 2) >= str.length() || !Char::isHexDigit(str[i + 1]) || !Char::isHexDigit(str[i + 2])) {
@@ -103,7 +103,7 @@ void String::utf8Encode(std::string& dest, const wchar_t * source, size_t size)
 		return;
 	}
 	dest.reserve(size);							// Best case
-	int pos = 0;
+	size_t pos = 0;
 	// Skip utf8-encoded byte order mark if exists
 	if ((size >= 3) && (static_cast<unsigned char>(source[0]) == 0xEF) && (static_cast<unsigned char>(source[1]) == 0xBB) &&
 			(static_cast<unsigned char>(source[2]) == 0xBF)) {
@@ -217,7 +217,7 @@ void String::utf8Decode(std::wstring& dest, const char * source, size_t size)
 	if (!source) {
 		return;
 	}
-	for (int i = 0; i < size; ++i) {
+	for (size_t i = 0; i < size; ++i) {
 		wchar_t sourceChar = source[i];
 		if (sourceChar <= 0x0000007F) {
 			dest.push_back(static_cast<char>(sourceChar));
@@ -296,7 +296,7 @@ unsigned int String::toUnsignedInt(const std::string& str, bool * errorOccured, 
 	unsigned int result = 0;
 	switch (base) {
 		case DecimalBase:
-			for (unsigned int curPos = (strToParse[0] == '+' ? 1 : 0); curPos < strToParse.size(); ++curPos) {
+			for (size_t curPos = (strToParse[0] == '+' ? 1 : 0); curPos < strToParse.size(); ++curPos) {
 				if (!Char::isDigit(strToParse[curPos])) {
 					if (errorOccured) {
 						*errorOccured = true;
@@ -315,7 +315,7 @@ unsigned int String::toUnsignedInt(const std::string& str, bool * errorOccured, 
 			}
 			break;
 		case HexBase:
-			for (unsigned int curPos = 0; curPos < strToParse.size(); ++curPos) {
+			for (size_t curPos = 0; curPos < strToParse.size(); ++curPos) {
 				if (!Char::isHexDigit(strToParse[curPos])) {
 					if (errorOccured) {
 						*errorOccured = true;

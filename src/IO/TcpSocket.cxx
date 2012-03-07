@@ -113,9 +113,7 @@ TcpSocket * TcpSocket::accept(const Timeout& timeout)
 		throw Exception(IOError(SOURCE_LOCATION_ARGS, IOError::DeviceIsNotOpen));
 	}
 	// Waiting for incoming connection
-	timespec selectTimeout;
-	selectTimeout.tv_sec = timeout.seconds();
-	selectTimeout.tv_nsec = timeout.nanoSeconds();
+	timespec selectTimeout = timeout.timeSpec();
 	fd_set descriptorsSet;
 	FD_ZERO(&descriptorsSet);
 	FD_SET(descriptor(), &descriptorsSet);
@@ -151,7 +149,7 @@ void TcpSocket::connect(const std::string& address, unsigned int port)
 		throw Exception(IOError(SOURCE_LOCATION_ARGS, IOError::DeviceIsNotOpen));
 	}
 	struct sockaddr_in remoteAddress;
-	socklen_t remoteAddressSize = sizeof(remoteAddress);
+	//socklen_t remoteAddressSize = sizeof(remoteAddress);
 	remoteAddress.sin_family = AF_INET;
 	remoteAddress.sin_port = htons(port);
 	if (!inet_aton(address.c_str(), &remoteAddress.sin_addr)) {

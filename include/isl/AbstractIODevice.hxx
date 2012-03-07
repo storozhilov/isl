@@ -4,6 +4,7 @@
 #include <isl/Timeout.hxx>
 #include <isl/Mutex.hxx>
 #include <vector>
+#include <sys/types.h>
 
 namespace isl
 {
@@ -47,7 +48,7 @@ public:
 	    \param timeout Read timeout
 	    \return Count of the actually received bytes
 	*/
-	unsigned int read(char * buffer, unsigned int bufferSize, const Timeout& timeout = Timeout());
+	size_t read(char * buffer, size_t bufferSize, const Timeout& timeout = Timeout());
 	//! Writes character to the I/O device
  	/*!
 	    \param ch Character to write
@@ -62,16 +63,16 @@ public:
 	    \param timeout Write timeout
 	    \return Count of the actually sent bytes
 	*/
-	unsigned int write(const char * buffer, unsigned int bufferSize, const Timeout& timeout = Timeout());
+	size_t write(const char * buffer, size_t bufferSize, const Timeout& timeout = Timeout());
 protected:
 	//! Opening I/O device abstract method
 	virtual void openImplementation() = 0;
 	//! Closing I/O device abstract method
 	virtual void closeImplementation() = 0;
 	//! Reading from I/O device abstract method
-	virtual unsigned int readImplementation(char * buffer, unsigned int bufferSize, const Timeout& timeout) = 0;
+	virtual size_t readImplementation(char * buffer, size_t bufferSize, const Timeout& timeout) = 0;
 	//! Writing to I/O device abstract method
-	virtual unsigned int writeImplementation(const char * buffer, unsigned int bufferSize, const Timeout& timeout) = 0;
+	virtual size_t writeImplementation(const char * buffer, size_t bufferSize, const Timeout& timeout) = 0;
 
 	bool _isOpen;
 private:
@@ -95,7 +96,7 @@ private:
 	void readToReadBuffer(const Timeout& timeout = Timeout());
 
 	std::vector<char> _readBuffer;
-	unsigned int _readBufferPos;
+	std::vector<char>::size_type _readBufferPos;
 	std::vector<char> _ungetBuffer;
 };
 

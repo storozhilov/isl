@@ -64,11 +64,11 @@ std::list<std::string> HttpMessageStreamWriter::headerValues(const std::string &
 	return result;
 }
 
-Http::Header HttpMessageStreamWriter::header() const
+Http::Params HttpMessageStreamWriter::header() const
 {
-	Http::Header result;
+	Http::Params result;
 	for (Header::const_iterator i = _header.begin(); i != _header.end(); ++i) {
-		result.insert(Http::Header::value_type(i->first, i->second.first));
+		result.insert(Http::Params::value_type(i->first, i->second.first));
 	}
 	return result;
 }
@@ -83,7 +83,7 @@ void HttpMessageStreamWriter::removeHeaderField(const std::string &fieldName)
 	}
 	_header.erase(range.first, range.second);
 }
-bool HttpMessageStreamWriter::writeChunk(const char * buffer, unsigned int bufferSize, const Timeout& timeout)
+bool HttpMessageStreamWriter::writeChunk(const char * buffer, size_t bufferSize, const Timeout& timeout)
 {
 	if (needFlush()) {
 		throw Exception(Error(SOURCE_LOCATION_ARGS, L"Could not send data - flush needed"));
@@ -123,7 +123,7 @@ bool HttpMessageStreamWriter::writeChunk(const char * buffer, unsigned int buffe
 	}
 }
 
-bool HttpMessageStreamWriter::writeOnce(const char * buffer, unsigned int bufferSize, const Timeout& timeout)
+bool HttpMessageStreamWriter::writeOnce(const char * buffer, size_t bufferSize, const Timeout& timeout)
 {
 	if (_chunkedHeaderComposed) {
 		throw Exception(Error(SOURCE_LOCATION_ARGS, L"Could not send unencoded data while chunked encoding"));
@@ -201,7 +201,7 @@ bool HttpMessageStreamWriter::flush(const Timeout& timeout)
 	if (!needFlush()) {
 		return true;
 	}
-	unsigned int bytesSent = _device.write(_sendBuffer.data() + _sendBufferBytesSent, _sendBuffer.size() - _sendBufferBytesSent, timeout);
+	size_t bytesSent = _device.write(_sendBuffer.data() + _sendBufferBytesSent, _sendBuffer.size() - _sendBufferBytesSent, timeout);
 	if (!_transmissionStarted && (bytesSent > 0)) {
 		_transmissionStarted = true;
 	}

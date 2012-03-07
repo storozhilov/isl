@@ -34,8 +34,8 @@ private:
 	AbstractSocket& operator=(const AbstractSocket&);					// No copy
 
 	virtual void openImplementation();
-	virtual unsigned int readImplementation(char * buffer, unsigned int bufferSize, const Timeout& timeout);
-	virtual unsigned int writeImplementation(const char * buffer, unsigned int bufferSize, const Timeout& timeout);
+	virtual size_t readImplementation(char * buffer, size_t bufferSize, const Timeout& timeout);
+	virtual size_t writeImplementation(const char * buffer, size_t bufferSize, const Timeout& timeout);
 
 	void closeSocket();
 

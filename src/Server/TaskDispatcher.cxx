@@ -15,7 +15,7 @@ namespace isl
  * TaskDispatcher
 ------------------------------------------------------------------------------*/
 
-TaskDispatcher::TaskDispatcher(AbstractSubsystem * owner, unsigned int workersCount, unsigned int maxTaskQueueOverflowSize) :
+TaskDispatcher::TaskDispatcher(AbstractSubsystem * owner, size_t workersCount, size_t maxTaskQueueOverflowSize) :
 	AbstractSubsystem(owner),
 	_workersCount(workersCount),
 	_workersCountRwLock(),
@@ -37,9 +37,9 @@ TaskDispatcher::~TaskDispatcher()
 
 bool TaskDispatcher::perform(AbstractTask * task)
 {
-	unsigned int awaitingWorkersCount;
-	unsigned int taskQueueSize;
-	unsigned int currentMaxTaskQueueOverflowSize = maxTaskQueueOverflowSize();
+	size_t awaitingWorkersCount;
+	size_t taskQueueSize;
+	size_t currentMaxTaskQueueOverflowSize = maxTaskQueueOverflowSize();
 	bool taskPerformed = false;
 	{
 		MutexLocker locker(_taskCond.mutex());
@@ -73,13 +73,13 @@ bool TaskDispatcher::perform(AbstractTask * task)
 
 bool TaskDispatcher::perform(const TaskList& taskList)
 {
-	unsigned int tasksCount = taskList.size();
+	size_t tasksCount = taskList.size();
 	if (tasksCount <= 0) {
 		return true;
 	}
-	unsigned int awaitingWorkersCount;
-	unsigned int taskQueueSize;
-	unsigned int currentMaxTaskQueueOverflowSize = maxTaskQueueOverflowSize();
+	size_t awaitingWorkersCount;
+	size_t taskQueueSize;
+	size_t currentMaxTaskQueueOverflowSize = maxTaskQueueOverflowSize();
 	bool tasksPerformed = false;
 	{
 		MutexLocker locker(_taskCond.mutex());
@@ -110,7 +110,7 @@ void TaskDispatcher::start()
 	setState(IdlingState, StartingState);
 	Core::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, L"Starting subsystem"));
 	resetWorkers();
-	for (int i = 0; i < workersCount(); ++i) {
+	for (size_t i = 0; i < workersCount(); ++i) {
 		Worker * newWorker = createWorker(i);
 		_workers.push_back(newWorker);
 		newWorker->start();

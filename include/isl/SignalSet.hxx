@@ -39,7 +39,7 @@ public:
 		add(signo);
 		va_list args;
 		va_start(args, signo);
-		for (int i = 1; i < signalCount; ++i) {
+		for (unsigned int i = 1; i < signalCount; ++i) {
 			add(va_arg(args, int));
 		}
 		va_end(args);

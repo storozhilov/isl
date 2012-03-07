@@ -83,7 +83,7 @@ void AbstractIODevice::ungetChar(char ch)
 	}
 }
 
-unsigned int AbstractIODevice::read(char * buffer, unsigned int bufferSize, const Timeout& timeout)
+size_t AbstractIODevice::read(char * buffer, size_t bufferSize, const Timeout& timeout)
 {
 	if (!_isOpen) {
 		throw Exception(IOError(SOURCE_LOCATION_ARGS, IOError::DeviceIsNotOpen));
@@ -91,26 +91,24 @@ unsigned int AbstractIODevice::read(char * buffer, unsigned int bufferSize, cons
 	if (bufferSize <= 0) {
 		return 0;
 	}
-	unsigned int bytesCopied = 0;
+	size_t bytesCopied = 0;
 	// Utilizing the unget buffer first
 	while ((_ungetBuffer.size() > 0) && (bytesCopied <= bufferSize)) {
 		buffer[bytesCopied++] = _ungetBuffer.back();
 		_ungetBuffer.pop_back();
 	}
 	// Utilizing the read buffer & read from I/O device if needed
-	bool firstReading = true;
 	while (bytesCopied <= bufferSize) {
 		// Fill the read buffer if expired
 		if (_readBufferPos >= _readBuffer.size()) {
 			// Read buffer has been expired
-			readToReadBuffer(firstReading ? timeout : Timeout());
-			firstReading = false;
+			readToReadBuffer(timeout);
 		}
 		if (_readBuffer.size() <= 0) {
 			// Read timeout has been expired
 			break;
 		}
-		unsigned int bytesToCopy = std::min<unsigned int>(_readBuffer.size() - _readBufferPos, bufferSize - bytesCopied);
+		size_t bytesToCopy = std::min<size_t>(_readBuffer.size() - _readBufferPos, bufferSize - bytesCopied);
 		memcpy(buffer + bytesCopied, &_readBuffer[_readBufferPos], bytesToCopy);
 		_readBufferPos += bytesToCopy;
 		bytesCopied += bytesToCopy;
@@ -123,7 +121,7 @@ bool AbstractIODevice::putChar(char ch, const Timeout& timeout)
 	return write(&ch, 1, timeout) == 1;
 }
 
-unsigned int AbstractIODevice::write(const char * buffer, unsigned int bufferSize, const Timeout& timeout)
+size_t AbstractIODevice::write(const char * buffer, size_t bufferSize, const Timeout& timeout)
 {
 	if (!_isOpen) {
 		throw Exception(IOError(SOURCE_LOCATION_ARGS, IOError::DeviceIsNotOpen));
