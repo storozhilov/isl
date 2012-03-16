@@ -49,7 +49,6 @@ public:
 		// I/O functions
 		Socket,
 		Fcntl,
-		SetSockOpt,
 		Bind,
 		Listen,
 		PSelect,
@@ -66,6 +65,8 @@ public:
 		FStat,
 		GetSockName,
 		GetPeerName,
+		GetSockOpt,
+		SetSockOpt,
 		Connect,
 		ScanDir,
 		// Date & time functions
@@ -172,8 +173,6 @@ public:
 				return L"socket(2)";
 			case Fcntl:
 				return L"fcntl(2)";
-			case SetSockOpt:
-				return L"setsockopt(2)";
 			case Bind:
 				return L"bind(2)";
 			case Listen:
@@ -206,6 +205,10 @@ public:
 				return L"getsockname(2)";
 			case GetPeerName:
 				return L"getpeername(2)";
+			case GetSockOpt:
+				return L"getsockopt(2)";
+			case SetSockOpt:
+				return L"setsockopt(2)";
 			case Connect:
 				return L"connect(2)";
 			case ScanDir:

@@ -12,9 +12,9 @@ namespace isl
  * SignalHandler
 ------------------------------------------------------------------------------*/
 
-SignalHandler::SignalHandler(AbstractServer& server, const SignalSet& signalSet, const Timeout& timeout) :
-	AbstractSubsystem(&server),
-	_server(server),
+SignalHandler::SignalHandler(AbstractSubsystem * owner, const SignalSet& signalSet, const Timeout& timeout) :
+	AbstractSubsystem(owner),
+	_startStopMutex(),
 	_initialSignalMask(),
 	_blockedSignals(signalSet),
 	_timeout(timeout),
@@ -36,6 +36,7 @@ void SignalHandler::setTimeout(const Timeout& newTimeout)
 
 void SignalHandler::start()
 {
+	MutexLocker locker(_startStopMutex);
 	setState(IdlingState, StartingState);
 	Core::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, L"Starting subsystem"));
 	sigset_t blockedSignalMask = _blockedSignals.sigset();
@@ -45,11 +46,11 @@ void SignalHandler::start()
 	}
 	Core::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, L"Signals have been blocked"));
 	_signalHandlerThread.start();
-	Core::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, L"Subsystem has been started"));
 }
 
 void SignalHandler::stop()
 {
+	MutexLocker locker(_startStopMutex);
 	setState(StoppingState);
 	Core::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, L"Stopping subsystem"));
 	_signalHandlerThread.join();
@@ -62,27 +63,53 @@ void SignalHandler::stop()
 	Core::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, L"Subsystem has been stopped"));
 }
 
-bool SignalHandler::onSignal(int signo)
+void SignalHandler::onSignal(int signo)
 {
 	std::wostringstream oss;
-	oss << L"Signal #" << signo << L" has been received by signal handler - ";
+	oss << L"Signal #" << signo << L" has been received by signal handler -> ";
 	switch (signo) {
 		case SIGHUP:
 			oss << L"restarting server";
 			Core::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, oss.str()));
-			_server.restart();
-			return false;
+			{
+				AbstractServer * server = findServer();
+				if (server) {
+					server->doStop();
+					server->doStart();
+				} else {
+					Core::errorLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, L"Instance of isl::AbstractServer not found in subsystems tree for restarting"));
+				}
+			}
+			break;
 		case SIGINT:
 		case SIGTERM:
 			oss << L"stopping server";
 			Core::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, oss.str()));
-			_server.stop();
-			return false;
+			{
+				AbstractServer * server = findServer();
+				if (server) {
+					server->doExit();
+				} else {
+					Core::errorLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, L"Instance of isl::AbstractServer not found in subsystems tree for exiting"));
+				}
+			}
+			break;
 		default:
-			oss << L"no action defined" << signo;
-			Core::warningLog.log(oss.str());
-			return true;
+			oss << L"no action defined";
+			Core::errorLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, oss.str()));
 	}
+}
+
+AbstractServer * SignalHandler::findServer()
+{
+	AbstractSubsystem * curOwner = this;
+	while ((curOwner = curOwner->owner())) {
+		AbstractServer * server = dynamic_cast<AbstractServer *>(curOwner);
+		if (server) {
+			return server;
+		}
+	}
+	return 0;
 }
 
 /*------------------------------------------------------------------------------
@@ -91,8 +118,7 @@ bool SignalHandler::onSignal(int signo)
 
 SignalHandler::SignalHandlerThread::SignalHandlerThread(SignalHandler& signalHandler) :
 	Thread(true),
-	_signalHandler(signalHandler),
-	_timeoutCond()
+	_signalHandler(signalHandler)
 {}
 
 bool SignalHandler::SignalHandlerThread::hasPendingSignals() const
@@ -124,48 +150,38 @@ void SignalHandler::SignalHandlerThread::run()
 {
 	try {
 		_signalHandler.setState(StartingState, RunningState);
+		Core::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, L"Subsystem has been started"));
 		// Main subsystem's loop
 		while (true) {
-			// Checking out subsystem's state
-			AbstractSubsystem::State signalHandlerState = _signalHandler.state();
-			if (signalHandlerState != RunningState) {
-				Core::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS,
-						L"Signal handler is not in running state before inspecting pending signals. Stopping subsystem."));
-				break;
-			}
-			if (!hasPendingSignals()) {
-				// Sleeping using a wait condition and starting again
-				MutexLocker locker(_timeoutCond.mutex());
-				_timeoutCond.wait(_signalHandler._timeout);
-				continue;
-			}
-			// Extracting pending signals
-			std::list<int> pendingSignals;
-			do {
-				int pendingSignal = extractPendingSignal();
-				std::wostringstream oss;
-				oss << "Pending signal #" << pendingSignal << " detected";
-				Core::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, oss.str()));
-				pendingSignals.push_back(pendingSignal);
-			} while (hasPendingSignals());
-			// Processing pending signals
-			bool keepRunning = true;
-			for (std::list<int>::iterator i = pendingSignals.begin(); i != pendingSignals.end(); ++i) {
-				if (!_signalHandler.onSignal(*i)) {
-					keepRunning = false;
+			if (hasPendingSignals()) {
+				if (_signalHandler.state() != RunningState) {
+					Core::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS,
+							L"Signal handler is not in running state before processing pending signals -> exiting from signal handler thread"));
+					break;
+				}
+				while (hasPendingSignals()) {
+					// Processing pending signals
+					int pendingSignal = extractPendingSignal();
+					std::wostringstream oss;
+					oss << "Pending signal #" << pendingSignal << " detected";
+					Core::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, oss.str()));
+					_signalHandler.onSignal(pendingSignal);
+				}
+			} else {
+				if (_signalHandler.awaitNotState(RunningState, _signalHandler._timeout) != RunningState) {
+					Core::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS,
+							L"Signal handler is not in running state after inspecting for pending signals -> exiting from signal handler thread"));
 					break;
 				}
 			}
-			if (!keepRunning) {
-				break;
-			}
 		}
 	} catch (std::exception& e) {
-		Core::errorLog.log(ExceptionLogMessage(SOURCE_LOCATION_ARGS, e, L"Executing signal handler thread error. Stopping subsystem."));
+		Core::errorLog.log(ExceptionLogMessage(SOURCE_LOCATION_ARGS, e, L"Executing signal handler thread error -> exiting from signal handler thread"));
+		_signalHandler.setState(AbstractSubsystem::IdlingState);
 	} catch (...) {
-		Core::errorLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, L"Executing signal handler thread unknown error. Stopping subsystem."));
+		Core::errorLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, L"Executing signal handler thread unknown error -> exiting from signal handler thread"));
+		_signalHandler.setState(AbstractSubsystem::IdlingState);
 	}
-	//_signalHandler.setState(IdlingState);
 }
 
 } // namespace isl

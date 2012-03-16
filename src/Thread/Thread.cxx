@@ -59,13 +59,13 @@ void Thread::execute()
 {
 	if (_awaitStartup) {
 		MutexLocker locker(_awaitStartupCond->mutex());
-		_awaitStartupCond->wakeOne();
+		_awaitStartupCond->wakeAll();
 	}
 	{
 		WriteLocker locker(_isRunningRWLock);
 		if (_isRunning) {
 			//throw Exception(new ThreadError(ThreadError::ThreadIsAlreadyRunning, this));
-			throw std::runtime_error("Thread is already running");		// TODO
+			throw std::runtime_error("Thread is already running");
 		}
 		_isRunning = true;
 	}

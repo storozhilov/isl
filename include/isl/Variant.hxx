@@ -518,17 +518,17 @@ private:
 		}
 		virtual std::wstring compose(const Variant& var, const std::wstring& fmt) const
 		{
-			return var.value<Date>().toWString(fmt.empty() ? Date::IsoOutputWFormat : fmt);
+			return var.value<Date>().toWString(fmt.empty() ? Date::DefaultWFormat : fmt);
 		}
 	};
 public:
 	static std::wstring serialize(const Date& value)
 	{
-		return value.toWString(Date::IsoOutputWFormat);
+		return value.toWString();
 	}
 	static Date deserialize(const std::wstring& serializedValue)
 	{
-		return Date::fromWString(serializedValue, Date::IsoInputWFormat);
+		return Date::fromWString(serializedValue);
 	}
 	static int typeId()
 	{
@@ -558,17 +558,17 @@ private:
 		}
 		virtual std::wstring compose(const Variant& var, const std::wstring& fmt) const
 		{
-			return var.value<Time>().toWString(fmt.empty() ? Time::IsoOutputWFormat : fmt);
+			return var.value<Time>().toWString(fmt.empty() ? Time::DefaultWFormat : fmt);
 		}
 	};
 public:
 	static std::wstring serialize(const Time& value)
 	{
-		return value.toWString(Time::IsoOutputWFormat);
+		return value.toWString();
 	}
 	static Time deserialize(const std::wstring& serializedValue)
 	{
-		return Time::fromWString(serializedValue, Time::IsoInputWFormat);
+		return Time::fromWString(serializedValue);
 	}
 	static int typeId()
 	{
@@ -598,17 +598,17 @@ private:
 		}
 		virtual std::wstring compose(const Variant& var, const std::wstring& fmt) const
 		{
-			return var.value<DateTime>().toWString(fmt.empty() ? DateTime::IsoOutputWFormat : fmt);
+			return var.value<DateTime>().toWString(fmt.empty() ? DateTime::DefaultWFormat : fmt);
 		}
 	};
 public:
 	static std::wstring serialize(const DateTime& value)
 	{
-		return value.toWString(DateTime::IsoOutputWFormat);
+		return value.toWString();
 	}
 	static DateTime deserialize(const std::wstring& serializedValue)
 	{
-		return DateTime::fromWString(serializedValue, DateTime::IsoInputWFormat);
+		return DateTime::fromWString(serializedValue);
 	}
 	static int typeId()
 	{

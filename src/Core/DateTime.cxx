@@ -1,8 +1,10 @@
 #include <isl/DateTime.hxx>
+#include <isl/Core.hxx>
 #include <isl/Exception.hxx>
 #include <isl/SystemCallError.hxx>
 #include <sys/time.h>
 #include <errno.h>
+#include <iomanip>
 
 #include <iostream>
 
@@ -13,15 +15,8 @@ namespace isl
  * DateTime
  * ---------------------------------------------------------------------------*/
 
-const char * DateTime::HttpInputFormat = "%a, %d %b %Y %H:%M:%S %Z";
-const wchar_t * DateTime::HttpInputWFormat = L"%a, %d %b %Y %H:%M:%S %Z";
-const char * DateTime::HttpOutputFormat = "%a, %d %b %Y %H:%M:%S %Z";
-const wchar_t * DateTime::HttpOutputWFormat = L"%a, %d %b %Y %H:%M:%S %Z";
-
-const char * DateTime::IsoInputFormat = "%Y-%m-%d %H:%M:%S";
-const wchar_t * DateTime::IsoInputWFormat = L"%Y-%m-%d %H:%M:%S";
-const char * DateTime::IsoOutputFormat = "%Y-%m-%d %H:%M:%S";
-const wchar_t * DateTime::IsoOutputWFormat = L"%Y-%m-%d %H:%M:%S";
+const char * DateTime::DefaultFormat = "%Y-%m-%d %H:%M:%S.%f";
+const wchar_t * DateTime::DefaultWFormat = L"%Y-%m-%d %H:%M:%S.%f";
 
 DateTime::DateTime() :
 	_date(),
@@ -44,26 +39,6 @@ DateTime::DateTime(const Date& date, const Time& time) :
 	if (_date.isNull() || _time.isNull()) {
 		setNull();
 	}
-}
-
-bool DateTime::isNull() const
-{
-	return _date.isNull() || _time.isNull();
-}
-
-bool DateTime::isValid() const
-{
-	return !isNull();
-}
-
-Date DateTime::date() const
-{
-	return _date;
-}
-
-Time DateTime::time() const
-{
-	return _time;
 }
 
 bool DateTime::setDate(const Date& d)
@@ -90,12 +65,6 @@ bool DateTime::setTime(const Time& t)
 	}
 	_time = t;
 	return true;
-}
-
-void DateTime::setNull()
-{
-	_date.setNull();
-	_time.setNull();
 }
 
 DateTime DateTime::addDays(int ndays) const
@@ -165,34 +134,27 @@ std::string DateTime::toString(const std::string& format) const
 	if (isNull()) {
 		return "[null]";
 	}
-	tm bdt;
-	bdt.tm_sec = _time.second();
-	bdt.tm_min = _time.minute();
-	bdt.tm_hour = _time.hour();
-	bdt.tm_mday = _date.day();
-	bdt.tm_mon = _date.month() - 1;
-	bdt.tm_year = _date.year() - 1900;
-	bdt.tm_wday = _date.dayOfWeek(false) - 1;
-	bdt.tm_yday = _date.dayOfYear() - 1;
-	bdt.tm_isdst = 0;
-	bdt.tm_gmtoff = _time.gmtOffset();
-	bdt.tm_zone = 0;
-	char buf[FormatBufferSize];
-	size_t len = strftime(buf, FormatBufferSize, format.c_str(), &bdt);
-	if (len <= 0) {
-		throw Exception(SystemCallError(SOURCE_LOCATION_ARGS, SystemCallError::StrFTime, errno, L"Time formatting error"));
+	std::string result;
+	if (!DateTime::bdts2str(toBdts(), _time.msecond(), format, result)) {
+		result.assign("[invalid datetime format]");
 	}
-	return std::string(buf, len);
+	return result;
 }
 
-std::wstring DateTime::toWString(const std::wstring& format) const
+struct tm DateTime::toBdts() const
 {
-	return String::utf8Decode(toString(String::utf8Encode(format)));
-}
-
-time_t DateTime::secondsFromEpoch() const
-{
-	return _date.secondsFromEpoch() + _time.secondsFromEpoch();
+	struct tm bdts;
+	memset(&bdts, 0, sizeof(struct tm));
+	bdts.tm_sec = _time.second();
+	bdts.tm_min = _time.minute();
+	bdts.tm_hour = _time.hour();
+	bdts.tm_gmtoff = _time._gmtOffset;
+	bdts.tm_mday = _date.day();
+	bdts.tm_mon = _date.month() - 1;
+	bdts.tm_year = _date.year() - 1900;
+	bdts.tm_wday = _date.dayOfWeek(false) - 1;
+	bdts.tm_yday = _date.dayOfYear() - 1;
+	return bdts;
 }
 
 bool DateTime::operator==(const DateTime& other) const
@@ -245,38 +207,92 @@ bool DateTime::operator>=(const DateTime& other) const
 
 DateTime DateTime::fromSecondsFromEpoch(time_t nsecs, bool isLocalTime)
 {
-	tm bdt;
+	tm bdts;
 	if (isLocalTime) {
-		if (localtime_r(&nsecs, &bdt) == NULL) {
+		if (localtime_r(&nsecs, &bdts) == NULL) {
 			throw Exception(SystemCallError(SOURCE_LOCATION_ARGS, SystemCallError::LocalTimeR, errno, L"Error converting time_t to local time"));
 		}
 	} else {
-		if (gmtime_r(&nsecs, &bdt) == NULL) {
+		if (gmtime_r(&nsecs, &bdts) == NULL) {
 			throw Exception(SystemCallError(SOURCE_LOCATION_ARGS, SystemCallError::LocalTimeR, errno, L"Error converting time_t to GMT"));
 		}
 	}
-	return DateTime(Date(bdt.tm_year + 1900, bdt.tm_mon + 1, bdt.tm_mday), Time(bdt.tm_hour, bdt.tm_min, bdt.tm_sec, bdt.tm_gmtoff));
-}
-
-DateTime DateTime::now()
-{
-	return DateTime(Date::now(), Time::now());
+	return DateTime(Date(bdts.tm_year + 1900, bdts.tm_mon + 1, bdts.tm_mday), Time(bdts.tm_hour, bdts.tm_min, bdts.tm_sec, bdts.tm_gmtoff));
 }
 
 DateTime DateTime::fromString(const std::string& str, const std::string& fmt)
 {
-	tm bdt;
-	memset(&bdt, 0, sizeof(struct tm));
-	// TODO Correct parsing error handling!
-	if (strptime(str.c_str(), fmt.c_str(), &bdt) == NULL) {
-		throw Exception(SystemCallError(SOURCE_LOCATION_ARGS, SystemCallError::StrPTime, errno, L"Error parsing time value"));
+	struct tm bdts;
+	unsigned int msec;
+	if (!DateTime::str2bdts(str, fmt, bdts, msec)) {
+		return DateTime();
 	}
-	return DateTime(Date(bdt.tm_year + 1900, bdt.tm_mon + 1, bdt.tm_mday), Time(bdt.tm_hour, bdt.tm_min, bdt.tm_sec, bdt.tm_gmtoff));
+	return fromBdts(bdts, msec);
 }
 
-DateTime DateTime::fromWString(const std::wstring& str, const std::wstring& fmt)
+bool DateTime::str2bdts(const std::string& str, const std::string& fmt, struct tm& bdts, unsigned int& msec)
 {
-	return fromString(String::utf8Encode(str), String::utf8Encode(fmt));
+	memset(&bdts, 0, sizeof(struct tm));
+	msec = 0;
+	size_t fmtStartPos = 0;
+	const char * strPtr = str.c_str();
+	size_t millisecondFmtPos;
+	do {
+		millisecondFmtPos = fmt.find("%f", fmtStartPos);
+		std::string fmtPart = fmt.substr(fmtStartPos, millisecondFmtPos == std::string::npos ? std::string::npos : millisecondFmtPos - fmtStartPos);
+		strPtr = strptime(strPtr, fmtPart.c_str(), &bdts);
+		if (!strPtr) {
+			std::wostringstream msg;
+			msg << L"Error parsing \"" << String::utf8Decode(str) << L"\" string using \"" << String::utf8Decode(fmt) << L"\" format with strptime(3) system call";
+			Core::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, msg.str()));
+			return false;
+		}
+		if (millisecondFmtPos != std::string::npos) {
+			for (unsigned int i = 0; i < 3; ++i) {
+				if (*strPtr == '\0') {
+					std::wostringstream msg;
+					msg << L"Error parsing \"" << String::utf8Decode(str) << L"\" string using \"" << String::utf8Decode(fmt) << L"\" format: premature end of milliseconds value";
+					Core::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, msg.str()));
+					return false;
+				}
+				if (*strPtr < '0' || *strPtr > '9') {
+					std::wostringstream msg;
+					msg << L"Error parsing \"" << String::utf8Decode(str) << L"\" string using \"" << String::utf8Decode(fmt) << L"\" format: invalid milliseconds value";
+					Core::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, msg.str()));
+					return false;
+				}
+				msec = msec * 10 + *strPtr - '0';
+				++strPtr;
+			}
+			fmtStartPos = millisecondFmtPos + 2;
+		}
+	} while (millisecondFmtPos != std::string::npos && fmtStartPos < fmt.length());
+	return true;
+}
+
+bool DateTime::bdts2str(const struct tm& bdts, unsigned int msec, const std::string& fmt, std::string& str)
+{
+	str.clear();
+	char buf[FormatBufferSize];
+	size_t len = strftime(buf, FormatBufferSize, fmt.c_str(), &bdts);
+	if (len <= 0) {
+		std::wostringstream msg;
+		msg << L"Error formatting datetime value string using \"" << String::utf8Decode(fmt) << L"\" format with strftime(3) system call";
+		Core::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, msg.str()));
+		return false;
+	}
+	str.assign(buf, len);
+	// Substituting milliseconds if needed
+	size_t milliSecondPlaceholderPos = str.find("%f");
+	if (milliSecondPlaceholderPos != std::string::npos) {
+		std::ostringstream oss;
+		oss << std::setfill('0') << std::setw(3) << msec;
+		while (milliSecondPlaceholderPos != std::string::npos) {
+			str.replace(milliSecondPlaceholderPos, 2, oss.str());
+			milliSecondPlaceholderPos = str.find("%f");
+		}
+	}
+	return true;
 }
 
 } // namespace isl

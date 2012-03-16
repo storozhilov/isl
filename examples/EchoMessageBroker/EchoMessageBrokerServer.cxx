@@ -2,7 +2,7 @@
 
 EchoMessageBrokerServer::EchoMessageBrokerServer(int argc, char * argv[]) :
 	isl::AbstractServer(argc, argv),
-	_signalHandler(*this),
+	_signalHandler(this),
 	_messageBroker(this)
 {}
 

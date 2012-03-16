@@ -11,17 +11,29 @@
 namespace isl
 {
 
+//! UNIX-signal handler subsystem
 class SignalHandler : public AbstractSubsystem
 {
 public:
-	SignalHandler(AbstractServer& server, const SignalSet& signalSet = SignalSet(3, SIGHUP, SIGINT, SIGTERM),
-			const Timeout& timeout = Timeout(1));
-
+	//! Constructor
+	/*!
+	  \param owner Pointer to owner subsystem
+	  \param signalSet Set of UNIX-signals to track
+	  \param timeout Sleep timeout
+	*/
+	SignalHandler(AbstractSubsystem * owner, const SignalSet& signalSet = SignalSet(3, SIGHUP, SIGINT, SIGTERM), const Timeout& timeout = Timeout::defaultTimeout());
+	//! Returns
 	Timeout timeout() const;
 	void setTimeout(const Timeout& newTimeout);
-
+	//! Starts signal handler
 	virtual void start();
+	//! Stops signal handler
 	virtual void stop();
+protected:
+	//! Returns pointer to AbstractServer's instance among subsystem's owners or 0 if not found
+	AbstractServer * findServer();
+	//! On signal event handler
+	virtual void onSignal(int signo);
 private:
 	SignalHandler();
 	SignalHandler(const SignalHandler&);								// No copy
@@ -44,12 +56,9 @@ private:
 		virtual void run();
 
 		SignalHandler& _signalHandler;
-		WaitCondition _timeoutCond;
 	};
 
-	virtual bool onSignal(int signo);								// Returns true if to continue subsystem's execution
-
-	AbstractServer& _server;
+	Mutex _startStopMutex;
 	sigset_t _initialSignalMask;
 	SignalSet _blockedSignals;
 	Timeout _timeout;

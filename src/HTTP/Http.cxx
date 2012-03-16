@@ -5,6 +5,9 @@
 namespace isl
 {
 
+const char * Http::DateTimeFormat = "%a, %d %b %Y %H:%M:%S %Z";
+const wchar_t * Http::DateTimeWFormat = L"%a, %d %b %Y %H:%M:%S %Z";
+
 void Http::parseUri(const std::string& uriStr, std::string& path, std::string& query)
 {
 	size_t questionMarkPos = uriStr.find('?');

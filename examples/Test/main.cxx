@@ -5,7 +5,7 @@
 #include <isl/TcpSocket.hxx>
 #include <isl/Exception.hxx>
 #include <isl/SystemCallError.hxx>
-#include <isl/HttpError.hxx>
+#include <isl/Http.hxx>
 #include <isl/FileLogTarget.hxx>
 #include <isl/Core.hxx>
 #include <isl/DateTime.hxx>
@@ -42,12 +42,25 @@
 
 void testDateTime()
 {
-	const wchar_t * wfmt = L"%Y-%m-%d %H:%M:%S %z";
+	/*const wchar_t * wfmt = L"%Y-%m-%d %H:%M:%S %z";
 	isl::DateTime dt1 = isl::DateTime::now();
 	std::wcout << dt1.toWString(wfmt) << std::endl;
 	std::wcout << dt1.toWString(isl::DateTime::HttpOutputWFormat) << std::endl;
 	isl::Time t1 = isl::Time::now();
-	std::wcout << t1.toWString(wfmt) << std::endl;
+	std::wcout << t1.toWString(wfmt) << std::endl;*/
+
+	const wchar_t * inTimeFormat = L"%H:%M:%S.%f";
+	const wchar_t * outTimeFormat = L"%H/%M/%S.%f";
+	std::wcout << "Time is = " << isl::Time::fromWString(L"12:25:33.432", inTimeFormat).toWString(outTimeFormat) << std::endl;
+
+	const wchar_t * inDateFormat = L"%Y-%m-%d";
+	const wchar_t * outDateFormat = L"%d.%m.%Y";
+	std::wcout << "Date is " << isl::Date::fromWString(L"1974-12-28", inDateFormat).toWString(outDateFormat) << std::endl;
+
+	const wchar_t * inDateTimeFormat = L"%Y-%m-%d %H:%M:%S.%f%z";
+	//const wchar_t * outDateTimeFormat = L"%d.%m.%Y %H/%M/%S.%f%z";
+	const wchar_t * outDateTimeFormat = isl::Http::DateTimeWFormat;
+	std::wcout << "Date is " << isl::DateTime::fromWString(L"1974-12-28 12:33:21.436+0400", inDateTimeFormat).toWString(outDateTimeFormat) << std::endl;
 }
 
 void testVariant()
@@ -62,86 +75,89 @@ void testVariant()
 
 void testHttpRequestStreamReader()
 {
-	isl::TcpSocket s;
-	s.open();
-	s.bind(LISTEN_PORT);
-	s.listen(LISTEN_BACKLOG);
-	//char buf[BUFFER_SIZE];
-	while (true) {
-		isl::TcpSocket * ss = s.accept(isl::Timeout(ACCEPT_SECONDS_TIMEOUT));
-		if (!ss) {
-			std::cout << "Listen timeout has been expired" << std::endl;
-			continue;
-		}
-		isl::HttpRequestStreamReader r(*ss);
-		char buf[BUFFER_SIZE];
-		std::string body;
-		try {
-			while (!r.requestCompleted()) {
-				if (r.invalidRequest()) {
-					throw std::runtime_error("Invalid request");
-				}
-				unsigned int bytesRead = r.read(buf, BUFFER_SIZE, isl::Timeout(READ_SECONDS_TIMEOUT));
-				if (bytesRead > 0) {
-					body.append(buf, bytesRead);
-				}
-			}
-		} catch (isl::Exception& e) {
-			std::cerr << "Error occured: '" << isl::String::utf8Encode(e.debug()) << '\'' << std::endl;
-		} catch (std::exception& e) {
-			std::cerr << "Error occured: '" << e.what() << '\'' << std::endl;
-		} catch (...) {
-			std::cerr << "Unknown error occured." << std::endl;
-		}
-		std::cout << "HTTP-request has been read. Method: '" << r.method() << "', URI: '" << r.uri() << "' Version: '" << r.version() << "', Headers:" << std::endl;
-		isl::HttpRequestStreamReader::Header header = r.header();
-		for (isl::HttpRequestStreamReader::Header::const_iterator i = header.begin(); i != header.end(); ++i) {
-			std::cout << "\t'" << i->first << "': '" << i->second << '\'' << std::endl;
-		}
-		std::cout << "Body is:\n--\n" << body << "\n--" << std::endl;
-		/*while (true) {
-			try {
-				ss->ungetChar('r');
-				ss->ungetChar('a');
-				SS->ungetChar('B');
-				ss->ungetChar('o');
-				ss->ungetChar('o');
-				ss->ungetChar('F');
-
-				if (BUFFERED_READING) {
-					unsigned int bytesRead = ss->read(buf, BUFFER_SIZE, isl::Timeout(READ_SECONDS_TIMEOUT));
-					if (bytesRead <= 0) {
-						std::cout << "Read timeout has been expired" << std::endl;
-					} else {
-						std::cout << std::string(buf, bytesRead) << std::endl;
-					}
-				} else {
-					char ch;
-					if (ss->getChar(ch, isl::Timeout(READ_SECONDS_TIMEOUT))) {
-						std::cout << ch;
-						if (ch == 10) {
-							std::cout << std::flush;
-						}
-					} else {
-						std::cout << "Read timeout has been expired" << std::endl;
-					}
-				}
-			} catch (isl::Exception& e) {
-				std::cerr << e.what() << std::endl;
-				break;
-			}
-		}*/
-		delete ss;
-	}
+//	isl::TcpSocket s;
+//	s.open();
+//	s.bind(LISTEN_PORT);
+//	s.listen(LISTEN_BACKLOG);
+//	//char buf[BUFFER_SIZE];
+//	while (true) {
+//		isl::TcpSocket * ss = s.accept(isl::Timeout(ACCEPT_SECONDS_TIMEOUT));
+//		if (!ss) {
+//			std::cout << "Listen timeout has been expired" << std::endl;
+//			continue;
+//		}
+//		isl::HttpRequestStreamReader r(*ss);
+//		char buf[BUFFER_SIZE];
+//		std::string body;
+//		try {
+//			while (!r.requestCompleted()) {
+//				if (r.invalidRequest()) {
+//					throw std::runtime_error("Invalid request");
+//				}
+//				unsigned int bytesRead = r.read(buf, BUFFER_SIZE, isl::Timeout(READ_SECONDS_TIMEOUT));
+//				if (bytesRead > 0) {
+//					body.append(buf, bytesRead);
+//				}
+//			}
+//		} catch (isl::Exception& e) {
+//			std::cerr << "Error occured: '" << isl::String::utf8Encode(e.debug()) << '\'' << std::endl;
+//		} catch (std::exception& e) {
+//			std::cerr << "Error occured: '" << e.what() << '\'' << std::endl;
+//		} catch (...) {
+//			std::cerr << "Unknown error occured." << std::endl;
+//		}
+//		std::cout << "HTTP-request has been read. Method: '" << r.method() << "', URI: '" << r.uri() << "' Version: '" << r.version() << "', Headers:" << std::endl;
+//		isl::HttpRequestStreamReader::Header header = r.header();
+//		for (isl::HttpRequestStreamReader::Header::const_iterator i = header.begin(); i != header.end(); ++i) {
+//			std::cout << "\t'" << i->first << "': '" << i->second << '\'' << std::endl;
+//		}
+//		std::cout << "Body is:\n--\n" << body << "\n--" << std::endl;
+//		/*while (true) {
+//			try {
+//				ss->ungetChar('r');
+//				ss->ungetChar('a');
+//				SS->ungetChar('B');
+//				ss->ungetChar('o');
+//				ss->ungetChar('o');
+//				ss->ungetChar('F');
+//
+//				if (BUFFERED_READING) {
+//					unsigned int bytesRead = ss->read(buf, BUFFER_SIZE, isl::Timeout(READ_SECONDS_TIMEOUT));
+//					if (bytesRead <= 0) {
+//						std::cout << "Read timeout has been expired" << std::endl;
+//					} else {
+//						std::cout << std::string(buf, bytesRead) << std::endl;
+//					}
+//				} else {
+//					char ch;
+//					if (ss->getChar(ch, isl::Timeout(READ_SECONDS_TIMEOUT))) {
+//						std::cout << ch;
+//						if (ch == 10) {
+//							std::cout << std::flush;
+//						}
+//					} else {
+//						std::cout << "Read timeout has been expired" << std::endl;
+//					}
+//				}
+//			} catch (isl::Exception& e) {
+//				std::cerr << e.what() << std::endl;
+//				break;
+//			}
+//		}*/
+//		delete ss;
+//	}
 }
 
 int main(int argc, char *argv[])
 {
 	std::cout << "Test executable has been started" << std::endl;
 
-	//testDateTime();
+	isl::Core::debugLog.connectTarget(isl::FileLogTarget("test.log"));
+
+	testDateTime();
+	return 0;
 	//testVariant();
-	testHttpRequestStreamReader();
+	//testHttpRequestStreamReader();
 
 	/*isl::Core::debugLog.setPrefix(L"DEBUG");
 	isl::Core::debugLog.connectTarget(isl::FileLogTarget("test.log"));

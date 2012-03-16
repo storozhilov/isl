@@ -71,7 +71,7 @@ void FileLogDevice::writeMessage(const std::wstring& prefix, const std::wstring&
 		size_t endlPos = (crlfPos < crPos) ? crlfPos : crPos;
 		std::wstring currentLine = msg.substr(curPos, endlPos - curPos);
 		curPos = (endlPos == std::wstring::npos) ? std::wstring::npos : ((crlfPos < crPos) ? endlPos + 2 : endlPos + 1);
-		std::string stringToWrite = now.toString("%Y-%m-%d %H:%M:%S");
+		std::string stringToWrite = now.toString("%Y-%m-%d %H:%M:%S.%f");
 		if (isFirstLine) {
 			stringToWrite += ": ";
 		} else {

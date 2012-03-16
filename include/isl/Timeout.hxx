@@ -6,6 +6,19 @@
 namespace isl
 {
 
+#ifndef ISL__DEFAULT_TIMEOUT_SECONDS
+#define ISL__DEFAULT_TIMEOUT_SECONDS 0
+#endif
+#ifndef ISL__DEFAULT_TIMEOUT_MILLI_SECONDS
+#define ISL__DEFAULT_TIMEOUT_MILLI_SECONDS 100
+#endif
+#ifndef ISL__DEFAULT_TIMEOUT_MICRO_SECONDS
+#define ISL__DEFAULT_TIMEOUT_MICRO_SECONDS 0
+#endif
+#ifndef ISL__DEFAULT_TIMEOUT_NANO_SECONDS
+#define ISL__DEFAULT_TIMEOUT_NANO_SECONDS 0
+#endif
+
 class Timeout
 {
 public:
@@ -56,6 +69,10 @@ public:
 		_nanoSeconds = 0;
 	}
 
+	inline static Timeout defaultTimeout()
+	{
+		return Timeout(ISL__DEFAULT_TIMEOUT_SECONDS, ISL__DEFAULT_TIMEOUT_MILLI_SECONDS, ISL__DEFAULT_TIMEOUT_MICRO_SECONDS, ISL__DEFAULT_TIMEOUT_NANO_SECONDS);
+	}
 private:
 	unsigned int _seconds;
 	unsigned int _nanoSeconds;

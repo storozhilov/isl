@@ -1,6 +1,9 @@
 #include <isl/Time.hxx>
+#include <isl/DateTime.hxx>
+#include <isl/Core.hxx>
 #include <isl/Exception.hxx>
 #include <isl/SystemCallError.hxx>
+#include <iomanip>
 #include <sys/time.h>
 #include <errno.h>
 
@@ -11,51 +14,19 @@ namespace isl
  * Time
  * ---------------------------------------------------------------------------*/
 
-const char * Time::IsoInputFormat = "%H:%M:%S";
-const wchar_t * Time::IsoInputWFormat = L"%H:%M:%S";
-const char * Time::IsoOutputFormat = "%H:%M:%S";
-const wchar_t * Time::IsoOutputWFormat = L"%H:%M:%S";
+const char * Time::DefaultFormat = "%H:%M:%S";
+const wchar_t * Time::DefaultWFormat = L"%H:%M:%S";
 
 Time::Time() :
 	_millisecond(NullTime),
 	_gmtOffset(0)
 {}
 
-Time::Time(int hour, int minute, int second, int millisecond, int gmtOffset) :
+Time::Time(int hour, int minute, int second, int millisecond, long int gmtOffset) :
 	_millisecond(NullTime),
 	_gmtOffset(gmtOffset)
 {
 	setTime(hour, minute, second, millisecond);
-}
-
-bool Time::isNull() const
-{
-	return (_millisecond == NullTime);
-}
-
-bool Time::isValid() const
-{
-	return !isNull();
-}
-
-int Time::hour() const
-{
-	return (isValid()) ? _millisecond / MillisecondsPerHour : 0;
-}
-
-int Time::minute() const
-{
-	return (isValid()) ? (_millisecond % MillisecondsPerHour) / MillisecondsPerMinute : 0;
-}
-
-int Time::second() const
-{
-	return (isValid()) ? (_millisecond / 1000) % SecondsPerMinute : 0;
-}
-
-int Time::msecond() const
-{
-	return (isValid()) ? _millisecond % 1000 : 0;
 }
 
 std::string Time::toString(const std::string& format) const
@@ -63,29 +34,22 @@ std::string Time::toString(const std::string& format) const
 	if (isNull()) {
 		return "[null]";
 	}
-	tm bdt;
-	bdt.tm_sec = second();
-	bdt.tm_min = minute();
-	bdt.tm_hour = hour();
-	bdt.tm_mday = 0;
-	bdt.tm_mon = 0;
-	bdt.tm_year = 0;
-	bdt.tm_wday = 0;
-	bdt.tm_yday = 0;
-	bdt.tm_isdst = 0;
-	bdt.tm_gmtoff = _gmtOffset;
-	bdt.tm_zone = 0;
-	char buf[FormatBufferSize];
-	size_t len = strftime(buf, FormatBufferSize, format.c_str(), &bdt);
-	if (len <= 0) {
-		throw Exception(SystemCallError(SOURCE_LOCATION_ARGS, SystemCallError::StrFTime, errno, L"Time formatting error"));
+	std::string result;
+	if (!DateTime::bdts2str(toBdts(), msecond(), format, result)) {
+		result.assign("[invalid time format]");
 	}
-	return std::string(buf, len);
+	return result;
 }
 
-std::wstring Time::toWString(const std::wstring& format) const
+struct tm Time::toBdts() const
 {
-	return String::utf8Decode(toString(String::utf8Encode(format)));
+	struct tm bdts;
+	memset(&bdts, 0, sizeof(struct tm));
+	bdts.tm_sec = second();
+	bdts.tm_min = minute();
+	bdts.tm_hour = hour();
+	bdts.tm_gmtoff = _gmtOffset;
+	return bdts;
 }
 
 time_t Time::secondsFromEpoch() const
@@ -103,11 +67,6 @@ bool Time::setTime(int hour, int minute, int second, int millisecond)
 	return true;
 }
 
-void Time::setNull()
-{
-	_millisecond = NullTime;
-}
-
 Time Time::addMSeconds(int nmseconds) const
 {
 	if (isNull() || (nmseconds == 0)) {
@@ -123,21 +82,6 @@ Time Time::addMSeconds(int nmseconds) const
 		result._millisecond = (_millisecond + nmseconds) % MillisecondsPerDay;
 	}
 	return result;
-}
-
-Time Time::addSeconds(int nseconds) const
-{
-	return addMSeconds(nseconds * 1000);
-}
-
-Time Time::addMinutes(int nminutes) const
-{
-	return addMSeconds(nminutes * MillisecondsPerMinute);
-}
-
-Time Time::addHours(int nhours) const
-{
-	return addMSeconds(nhours * MillisecondsPerHour);
 }
 
 int Time::msecondsTo(const Time& time) const
@@ -186,17 +130,17 @@ int Time::elapsed() const
 
 Time Time::fromSecondsFromEpoch(time_t nsecs, bool isLocalTime)
 {
-	tm bdt;
+	tm bdts;
 	if (isLocalTime) {
-		if (localtime_r(&nsecs, &bdt) == NULL) {
+		if (localtime_r(&nsecs, &bdts) == NULL) {
 			throw Exception(SystemCallError(SOURCE_LOCATION_ARGS, SystemCallError::LocalTimeR, errno, L"Error converting time_t to local time"));
 		}
 	} else {
-		if (gmtime_r(&nsecs, &bdt) == NULL) {
+		if (gmtime_r(&nsecs, &bdts) == NULL) {
 			throw Exception(SystemCallError(SOURCE_LOCATION_ARGS, SystemCallError::LocalTimeR, errno, L"Error converting time_t to GMT"));
 		}
 	}
-	return Time(bdt.tm_hour, bdt.tm_min, bdt.tm_sec, bdt.tm_gmtoff);
+	return Time(bdts.tm_hour, bdts.tm_min, bdts.tm_sec, bdts.tm_gmtoff);
 }
 
 Time Time::now()
@@ -206,11 +150,11 @@ Time Time::now()
 	if (gettimeofday(&tv, &tz) != 0) {
 		throw Exception(SystemCallError(SOURCE_LOCATION_ARGS, SystemCallError::GetTimeOfDay, errno, L"Fetching time of day error"));
 	}
-	tm bdt;
-	if (localtime_r(&(tv.tv_sec), &bdt) == NULL) {
+	tm bdts;
+	if (localtime_r(&(tv.tv_sec), &bdts) == NULL) {
 		throw Exception(SystemCallError(SOURCE_LOCATION_ARGS, SystemCallError::LocalTimeR, errno, L"Error converting time_t to local time"));
 	}
-	return Time(bdt.tm_hour, bdt.tm_min, bdt.tm_sec, tv.tv_usec / 1000, bdt.tm_gmtoff);
+	return Time(bdts.tm_hour, bdts.tm_min, bdts.tm_sec, tv.tv_usec / 1000, bdts.tm_gmtoff);
 }
 
 bool Time::operator==(const Time& other) const
@@ -270,18 +214,12 @@ bool Time::isValid(int hour, int minute, int second, int millisecond)
 
 Time Time::fromString(const std::string& str, const std::string& fmt)
 {
-	tm bdt;
-	memset(&bdt, 0, sizeof(struct tm));
-	// TODO Correct parsing error handling!
-	if (strptime(str.c_str(), fmt.c_str(), &bdt) == NULL) {
-		throw Exception(SystemCallError(SOURCE_LOCATION_ARGS, SystemCallError::StrPTime, errno, L"Error parsing time value"));
+	struct tm bdts;
+	unsigned int msec;
+	if (!DateTime::str2bdts(str, fmt, bdts, msec)) {
+		return Time();
 	}
-	return Time(bdt.tm_hour, bdt.tm_min, bdt.tm_sec);
-}
-
-Time Time::fromWString(const std::wstring& str, const std::wstring& fmt)
-{
-	return fromString(String::utf8Encode(str), String::utf8Encode(fmt));
+	return fromBdts(bdts, msec);
 }
 
 } // namespace isl

@@ -87,6 +87,12 @@ void TcpSocket::bind(unsigned int port, const std::list<std::string>& interfaces
 	if (!isOpen()) {
 		throw Exception(IOError(SOURCE_LOCATION_ARGS, IOError::DeviceIsNotOpen));
 	}
+	// Setting SO_REUSEADDR to true
+	int reuseAddr = 1;
+	if (setsockopt(descriptor(), SOL_SOCKET, SO_REUSEADDR, &reuseAddr, sizeof(reuseAddr)) < 0) {
+		throw Exception(SystemCallError(SOURCE_LOCATION_ARGS, SystemCallError::SetSockOpt, errno));
+	}
+	// Binding the socket
 	sockaddr_in addr;
 	bzero(&addr, sizeof(addr));
 	addr.sin_family = AF_INET;

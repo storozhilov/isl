@@ -60,6 +60,6 @@ if os.environ.get('ISL_BUILD_EXAPMLES','').upper() == 'YES':
 	#Default(staticLibraryBuilder, sharedLibraryBuilder, testExampleBuilder, sourceBrouserExampleBuilder, echoMessageBrokerExampleBuilder)
 	#Default(staticLibraryBuilder, sharedLibraryBuilder, testExampleBuilder, httpCopyServerExampleBuilder, httpCopyClientExampleBuilder, sourceBrouserExampleBuilder, echoMessageBrokerExampleBuilder)
 	#Default(staticLibraryBuilder, sharedLibraryBuilder, httpServerExampleBuilder, httpCopyServerExampleBuilder, httpCopyClientExampleBuilder, sourceBrouserExampleBuilder, echoMessageBrokerExampleBuilder)
-	Default(staticLibraryBuilder, sharedLibraryBuilder, httpServerExampleBuilder, httpCopyServerExampleBuilder, httpCopyClientExampleBuilder, echoMessageBrokerExampleBuilder)
+	Default(staticLibraryBuilder, sharedLibraryBuilder, httpServerExampleBuilder, httpCopyServerExampleBuilder, httpCopyClientExampleBuilder, echoMessageBrokerExampleBuilder, testExampleBuilder)
 else:
 	Default(staticLibraryBuilder, sharedLibraryBuilder)

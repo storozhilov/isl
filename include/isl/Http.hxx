@@ -13,6 +13,11 @@ namespace isl
 class Http
 {
 public:
+	//! HTTP datetime narrow character format string
+	static const char * DateTimeFormat;
+	//! HTTP datetime wide character format string
+	static const wchar_t * DateTimeWFormat;
+
 	//! Container for header, get and post data
 	typedef std::multimap<std::string, std::string> Params;
 	//! HTTP-request cookie

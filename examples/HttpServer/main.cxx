@@ -33,8 +33,11 @@ class HttpService : public isl::AbstractTcpService
 {
 public:
 	HttpService(AbstractSubsystem * owner, unsigned int port, size_t maxClients) :
-		AbstractTcpService(owner, port, maxClients)
-	{}
+		AbstractTcpService(owner, maxClients)
+	{
+		addListener(port);
+		addListener(port + 1);
+	}
 private:
 	class HttpTask : public isl::AbstractTcpService::AbstractTask
 	{
@@ -105,12 +108,14 @@ class HttpServer : public isl::AbstractServer
 public:
 	HttpServer(int argc, char * argv[]) :
 		isl::AbstractServer(argc, argv),
-		_signalHandler(*this),
+		_startStopMutex(),
+		_signalHandler(this),
 		_httpService(this, LISTEN_PORT, MAX_CLIENTS)
 	{}
 	
 	virtual void start()
 	{
+		isl::MutexLocker locker(_startStopMutex);
 		setState(IdlingState, StartingState);
 		_signalHandler.start();
 		_httpService.start();
@@ -118,25 +123,17 @@ public:
 	}
 	virtual void stop()
 	{
+		isl::MutexLocker locker(_startStopMutex);
 		setState(StoppingState);
 		_signalHandler.stop();
 		_httpService.stop();
 		setState(IdlingState);
 	}
-	virtual void restart()
-	{
-		setState(StoppingState);
-		_signalHandler.stop();
-		_httpService.stop();
-		setState(StoppingState, StartingState);
-		_signalHandler.start();
-		_httpService.start();
-		setState(StartingState, RunningState);
-	}
 private:
 	HttpServer();
 	HttpServer(const HttpServer&);
 
+	isl::Mutex _startStopMutex;
 	isl::SignalHandler _signalHandler;
 	HttpService _httpService;
 };

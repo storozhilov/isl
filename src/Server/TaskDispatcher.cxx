@@ -17,6 +17,7 @@ namespace isl
 
 TaskDispatcher::TaskDispatcher(AbstractSubsystem * owner, size_t workersCount, size_t maxTaskQueueOverflowSize) :
 	AbstractSubsystem(owner),
+	_startStopMutex(),
 	_workersCount(workersCount),
 	_workersCountRwLock(),
 	_taskCond(),
@@ -107,6 +108,7 @@ bool TaskDispatcher::perform(const TaskList& taskList)
 
 void TaskDispatcher::start()
 {
+	MutexLocker locker(_startStopMutex);
 	setState(IdlingState, StartingState);
 	Core::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, L"Starting subsystem"));
 	resetWorkers();
@@ -121,6 +123,7 @@ void TaskDispatcher::start()
 
 void TaskDispatcher::stop()
 {
+	MutexLocker locker(_startStopMutex);
 	setState(StoppingState);
 	Core::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, L"Stopping subsystem"));
 	{
@@ -163,7 +166,7 @@ void TaskDispatcher::Worker::run()
 	Core::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, L"Worker has been started"));
 	while (true) {
 		if (shouldTerminate()) {
-			Core::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, L"Task dispatcher termination has been detected before task pick up - exiting from the worker thread"));
+			Core::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, L"Task dispatcher termination has been detected before task pick up -> exiting from the worker thread"));
 			break;
 		}
 		std::auto_ptr<AbstractTask> task;
@@ -186,7 +189,7 @@ void TaskDispatcher::Worker::run()
 			}
 		}
 		if (shouldTerminate()) {
-			Core::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, L"Task dispatcher termination has been detected after task pick up - exiting from the worker thread"));
+			Core::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, L"Task dispatcher termination has been detected after task pick up -> exiting from the worker thread"));
 			break;
 		}
 		if (task.get()) {

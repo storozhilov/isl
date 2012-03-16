@@ -1,15 +1,14 @@
 #include <isl/AbstractServer.hxx>
 #include <isl/Core.hxx>
-#include <stdlib.h>
-#include <pthread.h>
 
 namespace isl
 {
 
-AbstractServer::AbstractServer(int argc, char * argv[], const Timeout& timeout) :
+AbstractServer::AbstractServer(int argc, char * argv[]) :
 	AbstractSubsystem(0),
 	_argv(),
-	_timeout(timeout)
+	_commandsQueue(),
+	_commandsCond()
 {
 	_argv.reserve(argc);
 	for (int i = 0; i < argc; ++i) {
@@ -17,17 +16,70 @@ AbstractServer::AbstractServer(int argc, char * argv[], const Timeout& timeout) 
 	}
 }
 
+void AbstractServer::doStart()
+{
+	sendCommand(StartCommand);
+}
+
+void AbstractServer::doStop()
+{
+	sendCommand(StopCommand);
+}
+
+void AbstractServer::doExit()
+{
+	sendCommand(ExitCommand);
+}
+
 void AbstractServer::run()
 {
 	start();
+	MutexLocker locker(_commandsCond.mutex());
 	while (true) {
-		if (awaitState(_timeout) == IdlingState) {
-			Core::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, L"Idling state detected - exiting from the main thread"));
-			break;
+		while (!_commandsQueue.empty()) {
+			// Processing pending commands
+			Command cmd = _commandsQueue.back();
+			_commandsQueue.pop_back();
+			switch (cmd) {
+				case StartCommand:
+					Core::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, L"Start command received -> starting server"));
+					beforeStart();
+					start();
+					afterStart();
+					break;
+				case StopCommand:
+					Core::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, L"Stop command received -> stopping server"));
+					beforeStop();
+					stop();
+					afterStop();
+					Core::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, L"Server has been stopped"));
+					break;
+				case ExitCommand:
+					Core::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, L"Exit command received -> stopping server"));
+					beforeStop();
+					stop();
+					afterStop();
+					Core::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, L"Server has been stopped -> exiting"));
+					beforeExit();
+					return;
+				default:
+					std::wostringstream msg;
+					msg << L"Unknown server subsystem command :" << cmd;
+					Core::errorLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, msg.str()));
+			}
 		}
-
+		_commandsCond.wait();
 	}
-	Core::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, L"Server has been stopped"));
+}
+
+void AbstractServer::sendCommand(Command cmd)
+{
+	MutexLocker locker(_commandsCond.mutex());
+	if (_commandsQueue.size() >= MaxCommandQueueSize) {
+		Core::errorLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, L"Server commands queue overflow detected"));
+	}
+	_commandsQueue.push_front(cmd);
+	_commandsCond.wakeOne();
 }
 
 } // namespace isl

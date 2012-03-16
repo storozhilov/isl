@@ -125,6 +125,7 @@ private:
 	typedef std::deque<AbstractTask *> Tasks;
 	typedef std::list<Worker *> Workers;
 
+	Mutex _startStopMutex;
 	size_t _workersCount;
 	mutable ReadWriteLock _workersCountRwLock;
 	WaitCondition _taskCond;

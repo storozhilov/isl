@@ -1,4 +1,5 @@
 #include <isl/Date.hxx>
+#include <isl/DateTime.hxx>
 #include <isl/Exception.hxx>
 #include <isl/SystemCallError.hxx>
 #include <algorithm>
@@ -13,10 +14,8 @@ namespace isl
  * Date
  * ---------------------------------------------------------------------------*/
 
-const char * Date::IsoInputFormat = "%Y-%m-%d";
-const wchar_t * Date::IsoInputWFormat = L"%Y-%m-%d";
-const char * Date::IsoOutputFormat = "%Y-%m-%d";
-const wchar_t * Date::IsoOutputWFormat = L"%Y-%m-%d";
+const char * Date::DefaultFormat = "%Y-%m-%d";
+const wchar_t * Date::DefaultWFormat = L"%Y-%m-%d";
 const int Date::_monthDays[] = { 0, 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31 };
 
 Date::Date() :
@@ -35,21 +34,6 @@ Date::Date(int year, int month, int day) :
 	setDate(year, month, day);
 }
 
-bool Date::isNull() const
-{
-	return (_dayNumber == 0);
-}
-
-bool Date::isValid() const
-{
-	return !isNull();
-}
-
-int Date::day() const
-{
-	return _day;
-}
-
 int Date::dayOfWeek(bool mondayStartsWeek) const
 {
 	// TODO Handle 'mondayStartsWeek' param
@@ -62,17 +46,6 @@ int Date::dayOfWeek(bool mondayStartsWeek) const
 	}
 }
 
-int Date::dayOfYear() const
-{
-	return (_dayNumber - Date(_year, 1, 1)._dayNumber + 1);
-}
-
-int Date::weekNumber(bool mondayStartsWeek) const
-{
-	int actualYear;
-	return weekNumber(actualYear, mondayStartsWeek);
-}
-	
 int Date::weekNumber(int& actualYear, bool mondayStartsWeek) const
 {
 	// TODO Handle 'mondayStartsWeek' param
@@ -104,31 +77,6 @@ int Date::weekNumber(int& actualYear, bool mondayStartsWeek) const
 	}
 }
 
-int Date::daysInMonth() const
-{
-	return daysInMonth(_year, _month);
-}
-
-int Date::daysInYear() const
-{
-	return daysInYear(_year);
-}
-
-int Date::daysTo(const Date& date) const
-{
-	return date._dayNumber - _dayNumber;
-}
-
-int Date::month() const
-{
-	return _month;
-}
-
-int Date::year() const
-{
-	return _year;
-}
-
 bool Date::setDate(int year, int month, int day)
 {
 	_dayNumber = dayNumberFromDate(year, month, day);
@@ -143,14 +91,6 @@ bool Date::setDate(int year, int month, int day)
 		_day = day;
 		return true;
 	}
-}
-
-void Date::setNull()
-{
-	_dayNumber = 0;
-	_year = 0;
-	_month = 0;
-	_day = 0;
 }
 
 Date Date::addDays(int ndays) const
@@ -231,29 +171,23 @@ std::string Date::toString(const std::string& format) const
 	if (isNull()) {
 		return "[null]";
 	}
-	tm bdt;
-	bdt.tm_sec = 0;
-	bdt.tm_min = 0;
-	bdt.tm_hour = 0;
-	bdt.tm_mday = day();
-	bdt.tm_mon = month() - 1;
-	bdt.tm_year = year() - 1900;
-	bdt.tm_wday = dayOfWeek(false) - 1;
-	bdt.tm_yday = dayOfYear() - 1;
-	bdt.tm_isdst = 0;
-	bdt.tm_gmtoff = 0;
-	bdt.tm_zone = 0;
-	char buf[FormatBufferSize];
-	size_t len = strftime(buf, FormatBufferSize, format.c_str(), &bdt);
-	if (len <= 0) {
-		throw Exception(SystemCallError(SOURCE_LOCATION_ARGS, SystemCallError::StrFTime, errno, L"Time formatting error"));
+	std::string result;
+	if (!DateTime::bdts2str(toBdts(), 0, format, result)) {
+		result.assign("[invalid date format]");
 	}
-	return std::string(buf, len);
+	return result;
 }
 
-std::wstring Date::toWString(const std::wstring& format) const
+struct tm Date::toBdts() const
 {
-	return String::utf8Decode(toString(String::utf8Encode(format)));
+	struct tm bdts;
+	memset(&bdts, 0, sizeof(struct tm));
+	bdts.tm_mday = day();
+	bdts.tm_mon = month() - 1;
+	bdts.tm_year = year() - 1900;
+	bdts.tm_wday = dayOfWeek(false) - 1;
+	bdts.tm_yday = dayOfYear() - 1;
+	return bdts;
 }
 
 time_t Date::secondsFromEpoch() const
@@ -264,31 +198,49 @@ time_t Date::secondsFromEpoch() const
 
 bool Date::operator==(const Date& other) const
 {
+	if (!isValid() || !other.isValid()) {
+		return false;
+	}
 	return _dayNumber == other._dayNumber;
 }
 
 bool Date::operator!=(const Date& other) const
 {
+	if (!isValid() || !other.isValid()) {
+		return false;
+	}
 	return _dayNumber != other._dayNumber;
 }
 
 bool Date::operator<(const Date& other) const
 {
+	if (!isValid() || !other.isValid()) {
+		return false;
+	}
 	return _dayNumber < other._dayNumber;
 }
 
 bool Date::operator<=(const Date& other) const
 {
+	if (!isValid() || !other.isValid()) {
+		return false;
+	}
 	return _dayNumber <= other._dayNumber;
 }
 
 bool Date::operator>(const Date& other) const
 {
+	if (!isValid() || !other.isValid()) {
+		return false;
+	}
 	return _dayNumber > other._dayNumber;
 }
 
 bool Date::operator>=(const Date& other) const
 {
+	if (!isValid() || !other.isValid()) {
+		return false;
+	}
 	return _dayNumber >= other._dayNumber;
 }
 
@@ -338,17 +290,17 @@ int Date::daysInMonth(int year, int month)
 
 Date Date::fromSecondsFromEpoch(time_t nsecs, bool isLocalTime)
 {
-	tm bdt;
+	tm bdts;
 	if (isLocalTime) {
-		if (localtime_r(&nsecs, &bdt) == NULL) {
+		if (localtime_r(&nsecs, &bdts) == NULL) {
 			throw Exception(SystemCallError(SOURCE_LOCATION_ARGS, SystemCallError::LocalTimeR, errno, L"Error converting time_t to local time"));
 		}
 	} else {
-		if (gmtime_r(&nsecs, &bdt) == NULL) {
+		if (gmtime_r(&nsecs, &bdts) == NULL) {
 			throw Exception(SystemCallError(SOURCE_LOCATION_ARGS, SystemCallError::LocalTimeR, errno, L"Error converting time_t to GMT"));
 		}
 	}
-	return Date(bdt.tm_year + 1900, bdt.tm_mon + 1, bdt.tm_mday);
+	return Date(bdts.tm_year + 1900, bdts.tm_mon + 1, bdts.tm_mday);
 }
 
 Date Date::now()
@@ -358,27 +310,21 @@ Date Date::now()
 	if (gettimeofday(&tv, &tz) != 0) {
 		throw Exception(SystemCallError(SOURCE_LOCATION_ARGS, SystemCallError::GetTimeOfDay, errno, L"Fetching time of day error"));
 	}
-	tm bdt;
-	if (localtime_r(&(tv.tv_sec), &bdt) == NULL) {
+	tm bdts;
+	if (localtime_r(&(tv.tv_sec), &bdts) == NULL) {
 		throw Exception(SystemCallError(SOURCE_LOCATION_ARGS, SystemCallError::LocalTimeR, errno, L"Error converting time_t to local time"));
 	}
-	return Date(bdt.tm_year + 1900, bdt.tm_mon + 1, bdt.tm_mday);
+	return Date(bdts.tm_year + 1900, bdts.tm_mon + 1, bdts.tm_mday);
 }
 
 Date Date::fromString(const std::string& str, const std::string& fmt)
 {
-	tm bdt;
-	memset(&bdt, 0, sizeof(struct tm));
-	// TODO Correct parsing error handling!
-	if (strptime(str.c_str(), fmt.c_str(), &bdt) == NULL) {
-		throw Exception(SystemCallError(SOURCE_LOCATION_ARGS, SystemCallError::StrPTime, errno, L"Error parsing date value"));
+	struct tm bdts;
+	unsigned int msec;
+	if (!DateTime::str2bdts(str, fmt, bdts, msec)) {
+		return Date();
 	}
-	return Date(bdt.tm_year + 1900, bdt.tm_mon + 1, bdt.tm_mday);
-}
-
-Date Date::fromWString(const std::wstring& str, const std::wstring& fmt)
-{
-	return fromString(String::utf8Encode(str), String::utf8Encode(fmt));
+	return fromBdts(bdts);
 }
 
 int Date::dayNumberFromDate(int year, int month, int day)
