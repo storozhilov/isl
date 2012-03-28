@@ -52,6 +52,11 @@ public:
 	{
 		return (_errors.size() == 1) && (*_errors.begin())->instanceOf<T>();
 	}
+	//! Returns constant reference to the error list
+	const ErrorList& errors() const
+	{
+		return _errors;
+	}
 	//! Returns messages of the exception's errors
 	const wchar_t * message() const throw();
 	//! Returns debug information of the exception's errors

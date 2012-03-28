@@ -9,14 +9,12 @@
 namespace isl
 {
 
-/*------------------------------------------------------------------------------
- * AbstractServer
-------------------------------------------------------------------------------*/
-
 //! Base class for server
 /*!
-  Starting & stopping server could not be done directly by start() & stop() methods as it could be done with any another subsystem.
+  Starting & stopping server could not be done directly by start() & stop() methods cause it should be done in main thread.
   You should use doStart(), doStop(), doExit() methods which are sends command to the main thread to make an appropriate action.
+
+  TODO Use MessageBus<Command> for commands queue!
 */
 class AbstractServer : public AbstractSubsystem
 {
@@ -43,28 +41,26 @@ public:
 		return _argv.at(argNo);
 	}
 	//! Sends start command to the server
-	void doStart();
+	void doStart()
+	{
+		sendCommand(StartCommand);
+	}
 	//! Sends stop command to the server
-	void doStop();
+	void doStop()
+	{
+		sendCommand(StopCommand);
+	}
 	//! Sends exit command to the server
-	void doExit();
+	void doExit()
+	{
+		sendCommand(ExitCommand);
+	}
 protected:
-	virtual void start() = 0;
-	virtual void stop() = 0;
-	//! Before start event handler
-	virtual void beforeStart()
+	//! Before run event handler
+	virtual void beforeRun()
 	{}
-	//! After start event handler
-	virtual void afterStart()
-	{}
-	//! Before stop event handler
-	virtual void beforeStop()
-	{}
-	//! After stop event handler
-	virtual void afterStop()
-	{}
-	//! Before exit event handler
-	virtual void beforeExit()
+	//! After run event handler
+	virtual void afterRun()
 	{}
 private:
 	enum Command {

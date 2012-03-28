@@ -238,8 +238,8 @@ int main(int argc, char *argv[])
 	//char buf[BUFFER_SIZE];
 	
 	while (true) {
-		isl::TcpSocket * ss = s.accept(isl::Timeout(ACCEPT_SECONDS_TIMEOUT));
-		if (!ss) {
+		std::auto_ptr<isl::TcpSocket> ss(s.accept(isl::Timeout(ACCEPT_SECONDS_TIMEOUT)));
+		if (!ss.get()) {
 			std::cout << "Listen timeout has been expired" << std::endl;
 			continue;
 		}
@@ -276,7 +276,6 @@ int main(int argc, char *argv[])
 				break;
 			}
 		}
-		delete ss;
 	}
 	/*std::wcout << isl::WFormat(L"$0, '$1', ${a{b}c}0, $$, ${sdasd{}}_, ${efg}1").arg(isl::Variant(2.5)).arg(isl::Variant(std::wstring(L"foo"))).compose() << std::endl;
 	std::wcout << isl::Utf8TextCodec().decode(isl::Format("$0, '$1', ${a{b}c}0, $$, ${sdasd{}}_, ${efg}1").arg(isl::Variant(2.6)).arg(isl::Variant(std::wstring(L"bar"))).compose()) << std::endl;

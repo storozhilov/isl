@@ -6,7 +6,6 @@
 #include <isl/Thread.hxx>
 #include <isl/Timeout.hxx>
 #include <isl/TaskDispatcher.hxx>
-#include <isl/AbstractTask.hxx>
 #include <isl/DateTime.hxx>
 #include <deque>
 #include <memory>
@@ -17,6 +16,8 @@ namespace isl
 //! Base class for the TCP message broker implementation
 /*
    TODO Documentation!!!
+   TODO Migration to new subsystem architecture
+   TODO Multiple listeners support
 */
 class AbstractMessageBroker : public AbstractSubsystem
 {
@@ -28,6 +29,7 @@ public:
 			const std::list<std::string>& interfaces = std::list<std::string>(),
 			unsigned int backLog = 15);
 	//! Abstract message
+	//! Migration to global isl::AbstractMessage!!!
 	class AbstractMessage
 	{
 	public:
@@ -50,7 +52,8 @@ public:
 
 	class ReceiverTask;
 	//! Message sender task
-	class SenderTask : public AbstractTask
+	// TODO Migration to isl::MessageQueue!!!
+	class SenderTask : public TaskDispatcher::AbstractTask
 	{
 	public:
 		SenderTask(AbstractMessageBroker& broker, TcpSocket * socket);
@@ -77,7 +80,7 @@ public:
 
 		typedef std::deque<AbstractMessage *> MessageQueue;
 
-		virtual void executeImplementation(TaskDispatcher::Worker& worker);
+		virtual void executeImpl(TaskDispatcher::Worker& worker);
 
 		AbstractMessageBroker& _broker;
 		std::auto_ptr<TcpSocket> _socketAutoPtr;
@@ -89,7 +92,7 @@ public:
 		friend class ReceiverTask;
 	};
 	//! Message receiver task
-	class ReceiverTask : public AbstractTask
+	class ReceiverTask : public TaskDispatcher::AbstractTask
 	{
 	public:
 		ReceiverTask(SenderTask& senderTask);
@@ -114,7 +117,7 @@ public:
 
 		ReceiverTask& operator=(const ReceiverTask&);						// No copy
 
-		virtual void executeImplementation(TaskDispatcher::Worker& worker);
+		virtual void executeImpl(TaskDispatcher::Worker& worker);
 
 		SenderTask& _senderTask;
 		AbstractMessageBroker& _broker;
@@ -175,7 +178,7 @@ public:
 	//! Thread-safely returns maximum clients amount
 	inline size_t maxClients() const
 	{
-		return _taskDispatcher.workersCount() / 2;
+		return _taskDispatcher.workersAmount() / 2;
 	}
 	//! Thread-safely sets new maximum clients amount
 	/*!
@@ -184,7 +187,7 @@ public:
 	*/
 	inline void setMaxClients(size_t newValue)
 	{
-		_taskDispatcher.setWorkersCount(newValue * 2);
+		_taskDispatcher.setWorkersAmount(newValue * 2);
 	}
 	//! Thread-safely returns interfaces that should be listen to
 	inline std::list<std::string> interfaces() const

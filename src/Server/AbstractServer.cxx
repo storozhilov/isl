@@ -4,6 +4,10 @@
 namespace isl
 {
 
+/*------------------------------------------------------------------------------
+ * AbstractServer
+------------------------------------------------------------------------------*/
+
 AbstractServer::AbstractServer(int argc, char * argv[]) :
 	AbstractSubsystem(0),
 	_argv(),
@@ -16,23 +20,9 @@ AbstractServer::AbstractServer(int argc, char * argv[]) :
 	}
 }
 
-void AbstractServer::doStart()
-{
-	sendCommand(StartCommand);
-}
-
-void AbstractServer::doStop()
-{
-	sendCommand(StopCommand);
-}
-
-void AbstractServer::doExit()
-{
-	sendCommand(ExitCommand);
-}
-
 void AbstractServer::run()
 {
+	beforeRun();
 	start();
 	MutexLocker locker(_commandsCond.mutex());
 	while (true) {
@@ -43,24 +33,18 @@ void AbstractServer::run()
 			switch (cmd) {
 				case StartCommand:
 					Core::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, L"Start command received -> starting server"));
-					beforeStart();
 					start();
-					afterStart();
 					break;
 				case StopCommand:
 					Core::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, L"Stop command received -> stopping server"));
-					beforeStop();
 					stop();
-					afterStop();
 					Core::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, L"Server has been stopped"));
 					break;
 				case ExitCommand:
 					Core::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, L"Exit command received -> stopping server"));
-					beforeStop();
 					stop();
-					afterStop();
 					Core::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, L"Server has been stopped -> exiting"));
-					beforeExit();
+					afterRun();
 					return;
 				default:
 					std::wostringstream msg;

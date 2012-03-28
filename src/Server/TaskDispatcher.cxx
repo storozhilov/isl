@@ -1,5 +1,4 @@
 #include <isl/TaskDispatcher.hxx>
-#include <isl/AbstractTask.hxx>
 #include <isl/Mutex.hxx>
 #include <isl/Core.hxx>
 #include <isl/Exception.hxx>
@@ -15,10 +14,9 @@ namespace isl
  * TaskDispatcher
 ------------------------------------------------------------------------------*/
 
-TaskDispatcher::TaskDispatcher(AbstractSubsystem * owner, size_t workersCount, size_t maxTaskQueueOverflowSize) :
+TaskDispatcher::TaskDispatcher(AbstractSubsystem * owner, size_t workersAmount, size_t maxTaskQueueOverflowSize) :
 	AbstractSubsystem(owner),
-	_startStopMutex(),
-	_workersCount(workersCount),
+	_workersAmount(workersAmount),
 	_workersCountRwLock(),
 	_taskCond(),
 	_awaitingWorkersCount(0),
@@ -36,7 +34,7 @@ TaskDispatcher::~TaskDispatcher()
 	}
 }
 
-bool TaskDispatcher::perform(AbstractTask * task)
+bool TaskDispatcher::perform(TaskDispatcher::AbstractTask * task)
 {
 	size_t awaitingWorkersCount;
 	size_t taskQueueSize;
@@ -72,7 +70,7 @@ bool TaskDispatcher::perform(AbstractTask * task)
 	return taskPerformed;
 }
 
-bool TaskDispatcher::perform(const TaskList& taskList)
+bool TaskDispatcher::perform(const TaskDispatcher::TaskList& taskList)
 {
 	size_t tasksCount = taskList.size();
 	if (tasksCount <= 0) {
@@ -106,42 +104,6 @@ bool TaskDispatcher::perform(const TaskList& taskList)
 	return tasksPerformed;
 }
 
-void TaskDispatcher::start()
-{
-	MutexLocker locker(_startStopMutex);
-	setState(IdlingState, StartingState);
-	Core::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, L"Starting subsystem"));
-	resetWorkers();
-	for (size_t i = 0; i < workersCount(); ++i) {
-		Worker * newWorker = createWorker(i);
-		_workers.push_back(newWorker);
-		newWorker->start();
-	}
-	setState(StartingState, RunningState);
-	Core::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, L"Subsystem has been started"));
-}
-
-void TaskDispatcher::stop()
-{
-	MutexLocker locker(_startStopMutex);
-	setState(StoppingState);
-	Core::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, L"Stopping subsystem"));
-	{
-		MutexLocker locker(_taskCond.mutex());
-		_taskCond.wakeAll();
-	}
-	for (Workers::iterator i = _workers.begin(); i != _workers.end(); ++i) {
-		(*i)->join();
-	}
-	setState(IdlingState);
-	Core::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, L"Subsystem has been stopped"));
-}
-
-TaskDispatcher::Worker * TaskDispatcher::createWorker(unsigned int workerId)
-{
-	return new Worker(*this, workerId);
-}
-
 void TaskDispatcher::resetWorkers()
 {
 	for (Workers::iterator i = _workers.begin(); i != _workers.end(); ++i) {
@@ -150,14 +112,79 @@ void TaskDispatcher::resetWorkers()
 	_workers.clear();
 }
 
+void TaskDispatcher::beforeStart()
+{
+	Core::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, L"Starting task dispatcher"));
+	Core::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, L"Creating workers"));
+	for (size_t i = 0; i < workersAmount(); ++i) {
+		Worker * newWorker = createWorker(i);
+		_workers.push_back(newWorker);
+	}
+	Core::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, L"Workers have been created"));
+}
+
+void TaskDispatcher::afterStart()
+{
+	Core::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, L"Task dispatcher has been started"));
+}
+
+void TaskDispatcher::beforeStop()
+{
+	Core::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, L"Stopping task dispatcher"));
+	Core::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, L"Waking up workers"));
+	{
+		MutexLocker locker(_taskCond.mutex());
+		_taskCond.wakeAll();
+	}
+}
+
+void TaskDispatcher::afterStop()
+{
+	Core::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, L"Deleting workers"));
+	resetWorkers();
+	Core::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, L"Workers have been deleted"));
+	Core::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, L"Task dispatcher has been stopped"));
+}
+
+/*------------------------------------------------------------------------------
+ * TaskDispatcher::AbstractTask
+------------------------------------------------------------------------------*/
+
+TaskDispatcher::AbstractTask::AbstractTask() :
+	_executed(false)
+{}
+
+TaskDispatcher::AbstractTask::~AbstractTask()
+{}
+
+void TaskDispatcher::AbstractTask::execute(TaskDispatcher::Worker& worker)
+{
+	if (_executed) {
+		throw Exception(Error(SOURCE_LOCATION_ARGS, L"Task has been already executed"));
+	}
+	try {
+		beforeExecute();
+		executeImpl(worker);
+	} catch (...) {
+		_executed = true;
+		afterExecute();
+		throw;
+	}
+	_executed = true;
+	afterExecute();
+}
+
 /*------------------------------------------------------------------------------
  * TaskDispatcher::Worker
 ------------------------------------------------------------------------------*/
 
 TaskDispatcher::Worker::Worker(TaskDispatcher& taskDispatcher, unsigned int id) :
-	Thread(true),
+	SubsystemThread(taskDispatcher, true),
 	_taskDispatcher(taskDispatcher),
 	_id(id)
+{}
+
+TaskDispatcher::Worker::~Worker()
 {}
 	
 void TaskDispatcher::Worker::run()

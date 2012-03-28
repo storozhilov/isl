@@ -16,6 +16,7 @@ public:
 		// pthread functions
 		PThreadCreate,
 		PThreadJoin,
+		PThreadTimedJoinNp,
 		PThreadMutexInit,
 		PThreadMutexLock,
 		PThreadMutexTryLock,
@@ -109,6 +110,8 @@ public:
 				return L"pthread_create(3)";
 			case PThreadJoin:
 				return L"pthread_join(3)";
+			case PThreadTimedJoinNp:
+				return L"pthread_timedjoin_np(3)";
 			case PThreadMutexInit:
 				return L"pthread_mutex_init(3)";
 			case PThreadMutexLock:

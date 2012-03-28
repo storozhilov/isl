@@ -58,7 +58,7 @@ AbstractMessageBroker::ReceiverTask * AbstractMessageBroker::createReceiverTask(
 ------------------------------------------------------------------------------*/
 
 AbstractMessageBroker::SenderTask::SenderTask(AbstractMessageBroker& broker, TcpSocket * socket) :
-	AbstractTask(),
+	TaskDispatcher::AbstractTask(),
 	_broker(broker),
 	_socketAutoPtr(socket),
 	_sendCond(),
@@ -86,7 +86,7 @@ bool AbstractMessageBroker::SenderTask::sendMessage(AbstractMessage * msg)
 	return true;
 }
 
-void AbstractMessageBroker::SenderTask::executeImplementation(TaskDispatcher::Worker& worker)
+void AbstractMessageBroker::SenderTask::executeImpl(TaskDispatcher::Worker& worker)
 {
 	while (true) {
 		std::auto_ptr<AbstractMessage> msg;
@@ -148,7 +148,7 @@ AbstractMessageBroker::ReceiverTask::ReceiverTask(SenderTask& senderTask) :
 	_terminateFlagRWLock()
 {}
 
-void AbstractMessageBroker::ReceiverTask::executeImplementation(TaskDispatcher::Worker& worker)
+void AbstractMessageBroker::ReceiverTask::executeImpl(TaskDispatcher::Worker& worker)
 {
 	// Finally to terminate sender task:
 	SenderTaskTerminator senderTaskTerminator(_senderTask);
@@ -264,7 +264,7 @@ void AbstractMessageBroker::ListenerThread::run()
 			socketAutoPtr.release();
 			std::auto_ptr<ReceiverTask> receiverTaskAutoPtr(_broker.createReceiverTask(*senderTaskAutoPtr.get()));
 			// Making a tasks list and perfoming it in the task dispatcher
-			std::list<AbstractTask *> tasks;
+			std::list<TaskDispatcher::AbstractTask *> tasks;
 			tasks.push_back(receiverTaskAutoPtr.get());
 			tasks.push_back(senderTaskAutoPtr.get());
 			if (_broker._taskDispatcher.perform(tasks)) {

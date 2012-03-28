@@ -6,15 +6,19 @@
 #include <isl/WaitCondition.hxx>
 #include <isl/Core.hxx>
 #include <isl/Debug.hxx>
+#include <isl/Error.hxx>
+#include <isl/SubsystemThread.hxx>
 #include <string>
 #include <set>
+
+#include <algorithm>
 
 #include <stdexcept>
 
 namespace isl
 {
 
-//! Subsystem generalization class
+//! Subsystem base class
 class AbstractSubsystem
 {
 public:
@@ -29,19 +33,30 @@ public:
 	//! Constructs a new subsystem
 	/*!
 	  \param owner The owner subsystem of the new subsystem
-	  TODO Registration in the owner subsystem
 	*/
 	AbstractSubsystem(AbstractSubsystem * owner) :
 		_owner(owner),
+		_children(),
+		_threads(),
 		_state(IdlingState),
-		_stateCond()
-	{}
+		_stateCond(),
+		_startStopMutex()
+	{
+		if (_owner) {
+			_owner->registerChild(this);
+		}
+	}
 	//! Virtual destructor cause class is virtual
-	/*!
-	  TODO Unregistration in the owner subsystem
-	*/
 	virtual ~AbstractSubsystem()
-	{}
+	{
+		if (_owner) {
+			_owner->unregisterChild(this);
+		}
+		for (Children::iterator i = _children.begin(); i != _children.end(); ++i) {
+			// TODO Warning log message?
+			(*i)->_owner = 0;
+		}
+	}
 	//! Returns an owner of the subsystem
 	inline AbstractSubsystem * owner() const
 	{
@@ -53,18 +68,30 @@ public:
 		MutexLocker locker(_stateCond.mutex());
 		return _state;
 	}
-	//! Awaits once for subsystem's state to be set
-	/*!
-	  \param timeout Timeout of waiting for state
-	  \return Finally inspected state
-	*/
-	/*inline State awaitStateChange(Timeout timeout)
+	//! Returns TRUE if subsystem is idling
+	inline bool isIdling() const
 	{
-
 		MutexLocker locker(_stateCond.mutex());
-		_stateCond.wait(timeout);
-		return _state;
-	}*/
+		return _state == IdlingState;
+	}
+	//! Returns TRUE if subsystem is starting
+	inline bool isStarting() const
+	{
+		MutexLocker locker(_stateCond.mutex());
+		return _state == StartingState;
+	}
+	//! Returns TRUE if subsystem is running
+	inline bool isRunning() const
+	{
+		MutexLocker locker(_stateCond.mutex());
+		return _state == RunningState;
+	}
+	//! Returns TRUE if subsystem is stopping
+	inline bool isStopping() const
+	{
+		MutexLocker locker(_stateCond.mutex());
+		return _state == StoppingState;
+	}
 	//! Inspects subsystem's state to be equal to passed one and returns immediately or waits for state to be changed during timeout otherwise
 	/*!
 	  \param state State to inspect for
@@ -125,19 +152,22 @@ public:
 		_stateCond.wait(timeout);
 		return _state;
 	}
-	//! Asynchronously starting subsystem abstract virtual method to override in descendants
-	/*!
-	  All state manipulations are under this method's control
-	  \return True if the starting process has been successfully launched
-	  TODO Add default implementation, which starts all children subsystems?
-	*/
-	virtual void start() = 0;
-	//! Synchronously stopping subsystem abstract virtual method to override in descendants
-	/*!
-	  All state manipulations are under this method's control
-	  TODO Add default implementation, which stops all children subsystems?
-	*/
-	virtual void stop() = 0;
+	//! Asynchronously starts subsystem
+	void start()
+	{
+		MutexLocker locker(_startStopMutex);
+		beforeStart();
+		startImpl();
+		afterStart();
+	}
+	//! Synchronously stops subsystem
+	void stop()
+	{
+		MutexLocker locker(_startStopMutex);
+		beforeStop();
+		stopImpl();
+		afterStop();
+	}
 	//! Returns state name by state value
 	static const wchar_t * stateName(State state)
 	{
@@ -159,6 +189,10 @@ public:
 		}
 	}
 protected:
+	inline Mutex& startStopMutex()
+	{
+		return _startStopMutex;
+	}
 	//! Thread-safely sets subsystem's state
 	inline State setState(State newState)
 	{
@@ -170,7 +204,7 @@ protected:
 		}
 		return oldState;
 	}
-	//! Thread-safely sets subsystem's state from one to another
+	//! Thread-safely changes subsystem's state from one to another
 	/*!
 	  \param oldState Subsystem's state to switch from
 	  \param newState Subsystem's state to switch to
@@ -185,15 +219,92 @@ protected:
 		_state = newState;
 		_stateCond.wakeAll();
 	}
+
+	virtual void beforeStart()
+	{}
+
+	virtual void startImpl()
+	{
+		setState(IdlingState, StartingState);
+		// Starting children subsystems
+		for (Children::iterator i = _children.begin(); i != _children.end(); ++i) {
+			(*i)->start();
+		}
+		// Starting threads
+		for (Threads::iterator i = _threads.begin(); i != _threads.end(); ++i) {
+			(*i)->start();
+		}
+		setState(StartingState, RunningState);
+	}
+
+	virtual void afterStart()
+	{}
+
+	virtual void beforeStop()
+	{}
+
+	virtual void stopImpl()
+	{
+		setState(StoppingState);
+		// Stopping threads (TODO Timed join & killing thread if it have not been joined)
+		for (Threads::iterator i = _threads.begin(); i != _threads.end(); ++i) {
+			(*i)->join();
+		}
+		// Stopping chldren subsystems
+		for (Children::iterator i = _children.begin(); i != _children.end(); ++i) {
+			(*i)->stop();
+		}
+		setState(IdlingState);
+	}
+
+	virtual void afterStop()
+	{}
 private:
 	AbstractSubsystem();
 	AbstractSubsystem(const AbstractSubsystem&);							// No copy
 
 	AbstractSubsystem& operator=(const AbstractSubsystem&);						// No copy
 
+	typedef std::list<AbstractSubsystem *> Children;
+	typedef std::list<SubsystemThread *> Threads;
+
+	void registerChild(AbstractSubsystem * child)
+	{
+		if (std::find(_children.begin(), _children.end(), child) != _children.end()) {
+			throw Exception(Error(SOURCE_LOCATION_ARGS, L"Child subsystem has been already registered in subsystem"));
+		}
+		_children.push_back(child);
+	}
+	void unregisterChild(AbstractSubsystem * child)
+	{
+		Children::iterator childPos = std::find(_children.begin(), _children.end(), child);
+		if (childPos == _children.end()) {
+			throw Exception(Error(SOURCE_LOCATION_ARGS, L"Child subsystem have not been registered in subsystem"));
+		}
+		_children.erase(childPos);
+	}
+	void registerThread(SubsystemThread * thread)
+	{
+		if (std::find(_threads.begin(), _threads.end(), thread) != _threads.end()) {
+			throw Exception(Error(SOURCE_LOCATION_ARGS, L"Thread has been already registered in subsystem"));
+		}
+		_threads.push_back(thread);
+	}
+	void unregisterThread(SubsystemThread * thread)
+	{
+		Threads::iterator threadPos = std::find(_threads.begin(), _threads.end(), thread);
+		if (threadPos == _threads.end()) {
+			throw Exception(Error(SOURCE_LOCATION_ARGS, L"Child subsystem have not been registered in subsystem"));
+		}
+		_threads.erase(threadPos);
+	}
+
 	AbstractSubsystem * _owner;
+	Children _children;
+	Threads _threads;
 	State _state;
 	mutable WaitCondition _stateCond;
+	Mutex _startStopMutex;
 
 	static const wchar_t NotDefinedStateName[];
 	static const wchar_t IdlingStateName[];
@@ -201,217 +312,9 @@ private:
 	static const wchar_t RunningStateName[];
 	static const wchar_t RestartingStateName[];
 	static const wchar_t StoppingStateName[];
-};
 
-////! Subsystem generalization class
-//class AbstractSubsystem
-//{
-//public:
-//	//! Subsystem state constants
-//	enum State {
-//		IdlingState,		//!< Subsystem is idling
-//		StartingState,		//!< Subsystem is starting up
-//		RunningState,		//!< Subsystem is running
-//		StoppingState		//!< Subsystem is shutting down
-//	};
-//	//! Constructs a new subsystem
-//	/*!
-//	  \param owner The owner subsystem of the new subsystem
-//	  TODO Registration in the owner subsystem
-//	*/
-//	AbstractSubsystem(AbstractSubsystem * owner) :
-//		_owner(owner),
-//		_state(IdlingState),
-//		_stateCond()
-//	{}
-//	//! Virtual destructor cause class is virtual
-//	/*!
-//	  TODO Unregistration in the owner subsystem
-//	*/
-//	virtual ~AbstractSubsystem()
-//	{}
-//	//! Thread-safely returns subsystem's state
-//	inline State state() const
-//	{
-//		MutexLocker locker(_stateCond.mutex());
-//		return _state;
-//	}
-//	//! Awaits once for subsystem's state to be set to passed one during a passed timeout
-//	/*!
-//	  \param state State to wait for
-//	  \param timeout Timeout of waiting for state
-//	  \return Finally inspected state
-//	*/
-//	/*inline State awaitState(State state, Timeout timeout)
-//	{
-//
-//		MutexLocker locker(_stateCond.mutex());
-//		if (_state == state) {
-//			return _state;
-//		}
-//		_stateCond.wait(timeout);
-//		return _state;
-//	}*/
-//	//! Awaits once for subsystem's state to be set
-//	/*!
-//	  \param timeout Timeout of waiting for state
-//	  \return Finally inspected state
-//	*/
-//	inline State awaitStateChange(Timeout timeout)
-//	{
-//
-//		MutexLocker locker(_stateCond.mutex());
-//		_stateCond.wait(timeout);
-//		return _state;
-//	}
-//	//! Asynchronously starting subsystem abstract virtual method to override in descendants
-//	/*!
-//	  All state manipulations are under this method's control
-//	  \return True if the starting process has been successfully launched
-//	  TODO Add default implementation, which starts all children subsystems?
-//	*/
-//	virtual void start() = 0;
-//	//! Synchronously stopping subsystem abstract virtual method to override in descendants
-//	/*!
-//	  All state manipulations are under this method's control
-//	  TODO Add default implementation, which stops all children subsystems?
-//	*/
-//	virtual void stop() = 0;
-//	//! Returns state name by state value
-//	static const wchar_t * stateName(State state)
-//	{
-//		switch (state) {
-//			case IdlingState:
-//				return IdlingStateName;
-//				break;
-//			case StartingState:
-//				return StartingStateName;
-//				break;
-//			case RunningState:
-//				return RunningStateName;
-//				break;
-//			case StoppingState:
-//				return StoppingStateName;
-//				break;
-//			default:
-//				return NotDefinedStateName;
-//		}
-//	}
-//protected:
-//	//! Subsystem's state mutex locker helper class
-//	/*!
-//	  Use this class if you want to proceed some actions during particular state only.
-//	*/
-//	class StateLocker
-//	{
-//	public:
-//		StateLocker(AbstractSubsystem& subsystem) :
-//			_subsystem(subsystem)
-//		{
-//			_subsystem._stateCond.mutex().lock();
-//		}
-//		~StateLocker()
-//		{
-//			_subsystem._stateCond.mutex().unlock();
-//		}
-//
-//		State state() const
-//		{
-//			return _subsystem._state;
-//		}
-//		State setState(State newState)
-//		{
-//			/*State oldState = _subsystem._state;
-//			if (newState != oldState) {
-//				_subsystem._state = newState;
-//				_subsystem._stateCond.wakeAll();
-//			}
-//			return oldState;*/
-//			return _subsystem.setStateUnsafe(newState);
-//		}
-//		void setState(State oldState, State newState)
-//		{
-//			/*if (_subsystem._state != oldState) {
-//				// TODO Use isl::Exception class
-//				throw new std::runtime_error("Invalid subsystem state to switch from");
-//			}
-//			_subsystem._state = newState;
-//			_subsystem._stateCond.wakeAll();*/
-//			_subsystem.setStateUnsafe(oldState, newState);
-//		}
-//		inline State awaitStateChange(Timeout timeout)
-//		{
-//			_subsystem._stateCond.wait(timeout);
-//			return _subsystem._state;
-//		}
-//	private:
-//		StateLocker();
-//		StateLocker(const StateLocker&);
-//
-//		StateLocker& operator=(const StateLocker&);
-//		
-//		AbstractSubsystem& _subsystem;
-//	};
-//	//! Thread-safely sets subsystem's state
-//	inline State setState(State newState)
-//	{
-//		/*MutexLocker locker(_stateCond.mutex());
-//		_state = newState;
-//		_stateCond.wakeAll();*/
-//		return setStateUnsafe(newState);
-//	}
-//	//! Thread-safely sets subsystem's state from one to another
-//	/*!
-//	  \param oldState Subsystem's state to switch from
-//	  \param newState Subsystem's state to switch to
-//	*/
-//	inline void setState(State oldState, State newState)
-//	{
-//		/*MutexLocker locker(_stateCond.mutex());
-//		if (_state != oldState) {
-//			// TODO Use isl::Exception class
-//			throw new std::runtime_error("Invalid subsystem state to switch from");
-//		}
-//		_state = newState;
-//		_stateCond.wakeAll();*/
-//		setStateUnsafe(oldState, newState);
-//	}
-//private:
-//	AbstractSubsystem();
-//	AbstractSubsystem(const AbstractSubsystem&);							// No copy
-//
-//	AbstractSubsystem& operator=(const AbstractSubsystem&);						// No copy
-//
-//	State setStateUnsafe(State newState)
-//	{
-//		State oldState = _state;
-//		if (newState != oldState) {
-//			_state = newState;
-//			_stateCond.wakeAll();
-//		}
-//		return oldState;
-//	}
-//	inline void setStateUnsafe(State oldState, State newState)
-//	{
-//		if (_state != oldState) {
-//			// TODO Use isl::Exception class
-//			throw new std::runtime_error("Invalid subsystem state to switch from");
-//		}
-//		_state = newState;
-//		_stateCond.wakeAll();
-//	}
-//
-//	AbstractSubsystem * _owner;
-//	State _state;
-//	mutable WaitCondition _stateCond;
-//
-//	static const wchar_t NotDefinedStateName[];
-//	static const wchar_t IdlingStateName[];
-//	static const wchar_t StartingStateName[];
-//	static const wchar_t RunningStateName[];
-//	static const wchar_t RestartingStateName[];
-//	static const wchar_t StoppingStateName[];
-//};
+	friend class SubsystemThread;
+};
 
 } // namespace isl
 

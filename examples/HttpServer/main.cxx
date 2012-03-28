@@ -3,7 +3,9 @@
 #include <isl/Core.hxx>
 #include <isl/AbstractServer.hxx>
 #include <isl/SignalHandler.hxx>
-#include <isl/AbstractTcpService.hxx>
+//#include <isl/AbstractTcpService.hxx>
+#include <isl/AbstractSyncTcpService.hxx>
+#include <isl/AbstractAsyncTcpService.hxx>
 #include <isl/TcpSocket.hxx>
 #include <isl/Exception.hxx>
 #include <isl/HttpRequestReader.hxx>
@@ -29,7 +31,7 @@
 	std::cout << "l.tv_sec = " << l.tv_sec << ", l.tv_nsec = " << l.tv_nsec << std::endl;
 }*/
 
-class HttpService : public isl::AbstractTcpService
+/*class HttpService : public isl::AbstractTcpService
 {
 public:
 	HttpService(AbstractSubsystem * owner, unsigned int port, size_t maxClients) :
@@ -49,10 +51,10 @@ private:
 	private:
 		HttpTask();
 
-		virtual void executeImplementation(isl::TaskDispatcher::Worker& worker)
+		virtual void executeImpl(isl::TaskDispatcher::Worker& worker)
 		{
 			try {
-				_requestReader.receive();
+				_requestReader.receive(isl::Timeout(TRANSMISSION_SECONDS_TIMEOUT));
 			} catch (isl::Exception& e) {
 				std::cerr << isl::String::utf8Encode(e.debug()) << std::endl;
 				isl::HttpResponseStreamWriter responseWriter(socket(), "500");
@@ -73,7 +75,7 @@ private:
 				return;
 			}
 			std::ostringstream oss;
-			oss << "<html><head><title>HTTP-_requestReader has been recieved</title></head><body>" <<
+			oss << "<html><head><title>HTTP-request has been recieved</title></head><body>" <<
 				"<p>URI: &quot;" << _requestReader.uri() << "&quot;</p>" <<
 				"<p>path: &quot;" << isl::String::decodePercent(_requestReader.path()) << "&quot;</p>" <<
 				"<p>query: &quot;" << _requestReader.query() << "&quot;</p>";
@@ -101,6 +103,80 @@ private:
 	{
 		return new HttpTask(socket);
 	}
+};*/
+
+class HttpService : public isl::AbstractSyncTcpService
+{
+public:
+	HttpService(AbstractSubsystem * owner, unsigned int port, size_t maxClients) :
+		AbstractSyncTcpService(owner, maxClients)
+	{
+		addListener(port);
+		addListener(port + 1);
+	}
+private:
+	class HttpTask : public isl::AbstractSyncTcpService::AbstractTask
+	{
+	public:
+		HttpTask(AbstractSyncTcpService& service, isl::TcpSocket * socket) :
+			isl::AbstractSyncTcpService::AbstractTask(service, socket),
+			_requestReader(*socket)
+		{}
+	private:
+		HttpTask();
+
+		virtual void executeImpl(isl::TaskDispatcher::Worker& worker)
+		{
+			try {
+				_requestReader.receive(isl::Timeout(TRANSMISSION_SECONDS_TIMEOUT));
+			} catch (isl::Exception& e) {
+				std::cerr << isl::String::utf8Encode(e.debug()) << std::endl;
+				isl::HttpResponseStreamWriter responseWriter(socket(), "500");
+				responseWriter.setHeaderField("Content-Type", "text/html; charset=utf-8");
+				responseWriter.writeOnce(isl::String::utf8Encode(e.debug()));
+				return;
+			} catch (std::exception& e) {
+				std::cerr << e.what() << std::endl;
+				isl::HttpResponseStreamWriter responseWriter(socket(), "500");
+				responseWriter.setHeaderField("Content-Type", "text/html; charset=utf-8");
+				responseWriter.writeOnce(e.what());
+				return;
+			} catch (...) {
+				std::cerr << "Unknown error occured." << std::endl;
+				isl::HttpResponseStreamWriter responseWriter(socket(), "500");
+				responseWriter.setHeaderField("Content-Type", "text/html; charset=utf-8");
+				responseWriter.writeOnce("Unknown error occured.");
+				return;
+			}
+			std::ostringstream oss;
+			oss << "<html><head><title>HTTP-request has been recieved</title></head><body>" <<
+				"<p>URI: &quot;" << _requestReader.uri() << "&quot;</p>" <<
+				"<p>path: &quot;" << isl::String::decodePercent(_requestReader.path()) << "&quot;</p>" <<
+				"<p>query: &quot;" << _requestReader.query() << "&quot;</p>";
+			for (isl::Http::Params::const_iterator i = _requestReader.get().begin(); i != _requestReader.get().end(); ++i) {
+				oss << "<p>get[&quot;" << i->first << "&quot;] = &quot;" << i->second << "&quot;</p>";
+			}
+			for (isl::Http::Params::const_iterator i = _requestReader.header().begin(); i != _requestReader.header().end(); ++i) {
+				oss << "<p>header[&quot;" << i->first << "&quot;] = &quot;" << i->second << "&quot;</p>";
+			}
+			for (isl::Http::RequestCookies::const_iterator i = _requestReader.cookies().begin(); i != _requestReader.cookies().end(); ++i) {
+				oss << "<p>cookie[&quot;" << i->first << "&quot;] = &quot;" << i->second.value << "&quot;</p>";
+			}
+			oss << "</body></html>";
+			isl::HttpResponseStreamWriter responseWriter(socket());
+			responseWriter.setHeaderField("Content-Type", "text/html; charset=utf-8");
+			responseWriter.writeOnce(oss.str());
+		}
+
+		isl::HttpRequestReader _requestReader;
+	};
+
+	HttpService();
+
+	virtual isl::AbstractSyncTcpService::AbstractTask * createTask(isl::TcpSocket * socket)
+	{
+		return new HttpTask(*this, socket);
+	}
 };
 
 class HttpServer : public isl::AbstractServer
@@ -108,12 +184,13 @@ class HttpServer : public isl::AbstractServer
 public:
 	HttpServer(int argc, char * argv[]) :
 		isl::AbstractServer(argc, argv),
-		_startStopMutex(),
+		//_startStopMutex(),
 		_signalHandler(this),
+		//_taskDispatcher(this, 10)//,
 		_httpService(this, LISTEN_PORT, MAX_CLIENTS)
 	{}
 	
-	virtual void start()
+	/*virtual void start()
 	{
 		isl::MutexLocker locker(_startStopMutex);
 		setState(IdlingState, StartingState);
@@ -128,13 +205,31 @@ public:
 		_signalHandler.stop();
 		_httpService.stop();
 		setState(IdlingState);
-	}
+	}*/
 private:
 	HttpServer();
 	HttpServer(const HttpServer&);
 
-	isl::Mutex _startStopMutex;
+	void beforeStart()
+	{
+		isl::Core::debugLog.log(isl::DebugLogMessage(SOURCE_LOCATION_ARGS, L"Starting server"));
+	}
+	void afterStart()
+	{
+		isl::Core::debugLog.log(isl::DebugLogMessage(SOURCE_LOCATION_ARGS, L"Server has been started"));
+	}
+	void beforeStop()
+	{
+		isl::Core::debugLog.log(isl::DebugLogMessage(SOURCE_LOCATION_ARGS, L"Stopping server"));
+	}
+	void afterStop()
+	{
+		isl::Core::debugLog.log(isl::DebugLogMessage(SOURCE_LOCATION_ARGS, L"Server has been stopped"));
+	}
+
+	//isl::Mutex _startStopMutex;
 	isl::SignalHandler _signalHandler;
+	//isl::TaskDispatcher _taskDispatcher;
 	HttpService _httpService;
 };
 

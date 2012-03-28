@@ -12,17 +12,18 @@ class WaitCondition;
 class Thread
 {
 public:
-	Thread(bool awaitStartup = false);
+	Thread();
+	Thread(bool awaitStartup);
 	virtual ~Thread();
 
 	void start();
 	void join();
+	bool join(const Timeout& timeout);
 	bool isRunning() const;
 	void execute();
 protected:
 	virtual void run() = 0;
 private:
-	Thread();
 	Thread(const Thread&);						// No copy
 
 	Thread& operator=(const Thread&);				// No copy

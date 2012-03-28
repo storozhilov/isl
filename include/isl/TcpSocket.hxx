@@ -1,21 +1,30 @@
 #ifndef ISL__TCP_SOCKET__HXX
 #define ISL__TCP_SOCKET__HXX
 
-#include <isl/AbstractSocket.hxx>
+#include <isl/AbstractIODevice.hxx>
+#include <isl/ReadWriteLock.hxx>
+#include <list>
 #include <string>
+#include <memory>
 
 namespace isl
 {
 
-/*------------------------------------------------------------------------------
- * TcpSocket
-------------------------------------------------------------------------------*/
-
-class TcpSocket : public AbstractSocket
+//! TcpSocket with asynchronous mode support - you can read wrom it in one thread and write to it in another one.
+/*!\
+  TODO Documentation!!!
+*/
+class TcpSocket : public AbstractIODevice
 {
 public:
 	TcpSocket();
+	virtual ~TcpSocket();
 
+	inline int descriptor() const
+	{
+		return _descriptor;
+	}
+	// TODO Should return std::string or isl::IpInterface
 	inline std::wstring localAddress() const
 	{
 		return _localAddress;
@@ -24,6 +33,7 @@ public:
 	{
 		return _localPort;
 	}
+	// TODO Should return std::string or isl::IpInterface
 	inline std::wstring remoteAddress() const
 	{
 		return _remoteAddress;
@@ -31,6 +41,11 @@ public:
 	inline unsigned int remotePort() const
 	{
 		return _remotePort;
+	}
+	inline bool connected() const
+	{
+		ReadLocker locker(_connectedRwLock);
+		return _connected;
 	}
 	inline void bind(unsigned int port)
 	{
@@ -43,26 +58,33 @@ public:
 	}
 	void bind(unsigned int port, const std::list<std::string>& interfaces);
 	void listen(unsigned int backLog);
-	TcpSocket * accept(const Timeout& timeout = Timeout());
-	inline bool connected() const
-	{
-		return _connected;
-	}
-	void connect(const std::string& address, unsigned int port);				// TODO Use HostAddress class?
+	std::auto_ptr<TcpSocket> accept(const Timeout& timeout = Timeout());
+	void connect(const std::string& address, unsigned int port);				// TODO Use IpInterface class?
 private:
 	TcpSocket(const TcpSocket&);								// No copy
 	TcpSocket(int descriptor);
 
 	TcpSocket& operator=(const TcpSocket&);							// No copy
 
-	virtual void closeImplementation();
-	virtual int createDescriptor();
+	inline void setIsConnected(bool newIsConnected)
+	{
+		WriteLocker locker(_connectedRwLock);
+		_connected = newIsConnected;
+	}
+	void closeSocket();
 
+	virtual void openImplementation();
+	virtual void closeImplementation();
+	virtual size_t readImplementation(char * buffer, size_t bufferSize, const Timeout& timeout);
+	virtual size_t writeImplementation(const char * buffer, size_t bufferSize, const Timeout& timeout);
+
+	int _descriptor;
 	std::wstring _localAddress;
 	unsigned int _localPort;
 	std::wstring _remoteAddress;
 	unsigned int _remotePort;
 	bool _connected;
+	mutable ReadWriteLock _connectedRwLock;
 
 	friend class AbstractTcpListener;
 

@@ -29,6 +29,17 @@ public:
 	{
 		return new IOError(*this);
 	}
+
+	static bool isInException(const Exception& e, Type type)
+	{
+		for (Exception::ErrorList::const_iterator i = e.errors().begin(); i != e.errors().end(); ++i) {
+			IOError * err = dynamic_cast<IOError *>(*i);
+			if (err && (err->_type == type)) {
+				return true;
+			}
+		}
+		return false;
+	}
 protected:
 	virtual std::wstring composeMessage() const
 	{

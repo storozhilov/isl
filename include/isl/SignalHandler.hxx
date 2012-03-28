@@ -4,6 +4,7 @@
 #include <isl/AbstractSubsystem.hxx>
 #include <isl/AbstractServer.hxx>
 #include <isl/Thread.hxx>
+#include <isl/SubsystemThread.hxx>
 #include <isl/WaitCondition.hxx>
 #include <isl/ReadWriteLock.hxx>
 #include <isl/SignalSet.hxx>
@@ -19,16 +20,21 @@ public:
 	/*!
 	  \param owner Pointer to owner subsystem
 	  \param signalSet Set of UNIX-signals to track
-	  \param timeout Sleep timeout
+	  \param timeout Sleeping timeout
 	*/
 	SignalHandler(AbstractSubsystem * owner, const SignalSet& signalSet = SignalSet(3, SIGHUP, SIGINT, SIGTERM), const Timeout& timeout = Timeout::defaultTimeout());
-	//! Returns
-	Timeout timeout() const;
-	void setTimeout(const Timeout& newTimeout);
-	//! Starts signal handler
-	virtual void start();
-	//! Stops signal handler
-	virtual void stop();
+	//! Returns sleepeing timeout
+	inline Timeout timeout() const
+	{
+		ReadLocker locker(_timeoutRWLock);
+		return _timeout;
+	}
+	//! Sets sleepeing timeout
+	inline void setTimeout(const Timeout& newTimeout)
+	{
+		WriteLocker locker(_timeoutRWLock);
+		_timeout = newTimeout;
+	}
 protected:
 	//! Returns pointer to AbstractServer's instance among subsystem's owners or 0 if not found
 	AbstractServer * findServer();
@@ -40,7 +46,7 @@ private:
 
 	SignalHandler& operator=(const SignalHandler&);							// No copy
 
-	class SignalHandlerThread : public Thread
+	class SignalHandlerThread : public SubsystemThread
 	{
 	public:
 		SignalHandlerThread(SignalHandler& signalHandler);
@@ -58,7 +64,11 @@ private:
 		SignalHandler& _signalHandler;
 	};
 
-	Mutex _startStopMutex;
+	virtual void beforeStart();
+	virtual void afterStart();
+	virtual void beforeStop();
+	virtual void afterStop();
+
 	sigset_t _initialSignalMask;
 	SignalSet _blockedSignals;
 	Timeout _timeout;

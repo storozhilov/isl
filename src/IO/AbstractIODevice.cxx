@@ -29,8 +29,8 @@ AbstractIODevice::~AbstractIODevice()
 void AbstractIODevice::open()
 {
 	if (_isOpen) {
-		Core::warningLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, L"I/O-device is already opened"));
-		return;
+		Core::warningLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, L"I/O-device is already opened -> reopening the device"));
+		close();
 	}
 	openImplementation();
 	_isOpen = true;
@@ -42,7 +42,10 @@ void AbstractIODevice::close()
 		Core::warningLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, L"I/O-device is already closed"));
 		return;
 	}
-	openImplementation();
+	closeImplementation();
+	_readBuffer.clear();
+	_readBufferPos = 0;
+	_ungetBuffer.clear();
 	_isOpen = false;
 }
 

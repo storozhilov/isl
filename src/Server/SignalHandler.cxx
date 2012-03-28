@@ -14,7 +14,6 @@ namespace isl
 
 SignalHandler::SignalHandler(AbstractSubsystem * owner, const SignalSet& signalSet, const Timeout& timeout) :
 	AbstractSubsystem(owner),
-	_startStopMutex(),
 	_initialSignalMask(),
 	_blockedSignals(signalSet),
 	_timeout(timeout),
@@ -22,54 +21,13 @@ SignalHandler::SignalHandler(AbstractSubsystem * owner, const SignalSet& signalS
 	_signalHandlerThread(*this)
 {}
 
-Timeout SignalHandler::timeout() const
-{
-	ReadLocker locker(_timeoutRWLock);
-	return _timeout;
-}
-
-void SignalHandler::setTimeout(const Timeout& newTimeout)
-{
-	WriteLocker locker(_timeoutRWLock);
-	_timeout = newTimeout;
-}
-
-void SignalHandler::start()
-{
-	MutexLocker locker(_startStopMutex);
-	setState(IdlingState, StartingState);
-	Core::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, L"Starting subsystem"));
-	sigset_t blockedSignalMask = _blockedSignals.sigset();
-	if (pthread_sigmask(SIG_SETMASK, &blockedSignalMask, &_initialSignalMask)) {
-		setState(IdlingState);
-		throw Exception(SystemCallError(SOURCE_LOCATION_ARGS, SystemCallError::PThreadSigMask, errno));
-	}
-	Core::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, L"Signals have been blocked"));
-	_signalHandlerThread.start();
-}
-
-void SignalHandler::stop()
-{
-	MutexLocker locker(_startStopMutex);
-	setState(StoppingState);
-	Core::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, L"Stopping subsystem"));
-	_signalHandlerThread.join();
-	Core::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, L"Signal handler thread has been stopped"));
-	if (pthread_sigmask(SIG_SETMASK, &_initialSignalMask, 0)) {
-		std::wcerr << SystemCallError(SOURCE_LOCATION_ARGS, SystemCallError::PThreadSigMask, errno).message() << std::endl;
-	}
-	Core::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, L"Signals have been unblocked"));
-	setState(IdlingState);
-	Core::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, L"Subsystem has been stopped"));
-}
-
 void SignalHandler::onSignal(int signo)
 {
 	std::wostringstream oss;
 	oss << L"Signal #" << signo << L" has been received by signal handler -> ";
 	switch (signo) {
 		case SIGHUP:
-			oss << L"restarting server";
+			oss << L"sendong restart command to server";
 			Core::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, oss.str()));
 			{
 				AbstractServer * server = findServer();
@@ -83,7 +41,7 @@ void SignalHandler::onSignal(int signo)
 			break;
 		case SIGINT:
 		case SIGTERM:
-			oss << L"stopping server";
+			oss << L"sending exit command to server";
 			Core::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, oss.str()));
 			{
 				AbstractServer * server = findServer();
@@ -112,12 +70,44 @@ AbstractServer * SignalHandler::findServer()
 	return 0;
 }
 
+void SignalHandler::beforeStart()
+{
+	Core::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, L"Starting signal handler"));
+	Core::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, L"Blocking signals"));
+	sigset_t blockedSignalMask = _blockedSignals.sigset();
+	if (pthread_sigmask(SIG_SETMASK, &blockedSignalMask, &_initialSignalMask)) {
+		setState(IdlingState);
+		throw Exception(SystemCallError(SOURCE_LOCATION_ARGS, SystemCallError::PThreadSigMask, errno));
+	}
+	Core::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, L"Signals have been blocked"));
+}
+
+void SignalHandler::afterStart()
+{
+	Core::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, L"Signal handler has been started"));
+}
+
+void SignalHandler::beforeStop()
+{
+	Core::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, L"Stopping signal handler"));
+}
+
+void SignalHandler::afterStop()
+{
+	Core::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, L"Unblocking signals"));
+	if (pthread_sigmask(SIG_SETMASK, &_initialSignalMask, 0)) {
+		std::wcerr << SystemCallError(SOURCE_LOCATION_ARGS, SystemCallError::PThreadSigMask, errno).message() << std::endl;
+	}
+	Core::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, L"Signals have been unblocked"));
+	Core::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, L"Signal handler has been stopped"));
+}
+
 /*------------------------------------------------------------------------------
  * SignalHandler::SignalHandlerThread
 ------------------------------------------------------------------------------*/
 
 SignalHandler::SignalHandlerThread::SignalHandlerThread(SignalHandler& signalHandler) :
-	Thread(true),
+	SubsystemThread(signalHandler, true),
 	_signalHandler(signalHandler)
 {}
 
@@ -148,16 +138,13 @@ int SignalHandler::SignalHandlerThread::extractPendingSignal() const
 
 void SignalHandler::SignalHandlerThread::run()
 {
+	Core::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, L"Signal handler thread has been started"));
 	try {
-		_signalHandler.setState(StartingState, RunningState);
-		Core::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, L"Subsystem has been started"));
-		// Main subsystem's loop
 		while (true) {
 			if (hasPendingSignals()) {
-				if (_signalHandler.state() != RunningState) {
-					Core::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS,
-							L"Signal handler is not in running state before processing pending signals -> exiting from signal handler thread"));
-					break;
+				if (shouldTerminate()) {
+					Core::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, L"Signal handler termination detected before processing pending signals -> exiting from signal handler thread"));
+					return;
 				}
 				while (hasPendingSignals()) {
 					// Processing pending signals
@@ -168,10 +155,9 @@ void SignalHandler::SignalHandlerThread::run()
 					_signalHandler.onSignal(pendingSignal);
 				}
 			} else {
-				if (_signalHandler.awaitNotState(RunningState, _signalHandler._timeout) != RunningState) {
-					Core::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS,
-							L"Signal handler is not in running state after inspecting for pending signals -> exiting from signal handler thread"));
-					break;
+				if (awaitTermination(_signalHandler.timeout())) {
+					Core::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, L"Signal handler termination detected after inspecting for pending signals -> exiting from signal handler thread"));
+					return;
 				}
 			}
 		}

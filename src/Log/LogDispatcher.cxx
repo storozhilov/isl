@@ -96,9 +96,9 @@ void LogDispatcher::disconnectLogFromDevices(Log *log)
 	_connections.erase(connectedDevices.first, connectedDevices.second);
 #ifdef LOG_DISPATCHER_DEBUG_MESSAGES_ON
 	if (connectedDevices.first != _connections.end()) {
-		std::cout << "LogDispatcher::disconnectLogFromDevices(): Log has been disconnected form the log devices" << std::endl;
+		std::cout << "LogDispatcher::disconnectLogFromDevices(): Log has been disconnected from the log devices" << std::endl;
 	} else {
-		std::cout << "LogDispatcher::disconnectLogFromDevices(): Log is already disconnected form the log devices" << std::endl;
+		std::cout << "LogDispatcher::disconnectLogFromDevices(): Log is already disconnected from the log devices" << std::endl;
 	}
 #endif
 	sweepDevices();

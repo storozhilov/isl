@@ -13,8 +13,11 @@
 #include <unistd.h>
 #include <fcntl.h>
 
-//#include <sstream>
 #include <stdexcept>
+
+#if defined (__SVR4) && defined (__sun)					// See http://www.bolthole.com/solaris/
+#define MSG_NOSIGNAL 0							// TODO See http://track.sipfoundry.org/browse/XPL-111
+#endif
 
 namespace isl
 {
@@ -24,21 +27,25 @@ namespace isl
 ------------------------------------------------------------------------------*/
 
 TcpSocket::TcpSocket() :
-	AbstractSocket(),
+	AbstractIODevice(),
+	_descriptor(-1),
 	_localAddress(),
 	_localPort(),
 	_remoteAddress(),
 	_remotePort(),
-	_connected(false)
+	_connected(false),
+	_connectedRwLock()
 {}
 
 TcpSocket::TcpSocket(int descriptor) :
-	AbstractSocket(descriptor),
+	AbstractIODevice(),
+	_descriptor(descriptor),
 	_localAddress(),
 	_localPort(),
 	_remoteAddress(),
 	_remotePort(),
-	_connected(false)
+	_connected(false),
+	_connectedRwLock()
 {
 	// Obtaining remote address/port
 	struct sockaddr_in remoteAddress;
@@ -82,6 +89,13 @@ TcpSocket::TcpSocket(int descriptor) :
 	//Core::debugLog.logMessage(msg.str());
 }
 
+TcpSocket::~TcpSocket()
+{
+	if (isOpen()) {
+		closeSocket();
+	}
+}
+
 void TcpSocket::bind(unsigned int port, const std::list<std::string>& interfaces)
 {
 	if (!isOpen()) {
@@ -113,7 +127,7 @@ void TcpSocket::listen(unsigned int backLog)
 	}
 }
 
-TcpSocket * TcpSocket::accept(const Timeout& timeout)
+std::auto_ptr<TcpSocket> TcpSocket::accept(const Timeout& timeout)
 {
 	if (!isOpen()) {
 		throw Exception(IOError(SOURCE_LOCATION_ARGS, IOError::DeviceIsNotOpen));
@@ -126,7 +140,7 @@ TcpSocket * TcpSocket::accept(const Timeout& timeout)
 	int descriptorsCount = pselect(descriptor() + 1, &descriptorsSet, NULL, NULL, &selectTimeout, NULL);
 	if (descriptorsCount == 0) {
 		// Timeout expired
-		return 0;
+		return std::auto_ptr<TcpSocket>();
 	} else if (descriptorsCount < 0) {
 		throw Exception(SystemCallError(SOURCE_LOCATION_ARGS, SystemCallError::PSelect, errno));
 	}
@@ -146,7 +160,7 @@ TcpSocket * TcpSocket::accept(const Timeout& timeout)
 			throw Exception(SystemCallError(SOURCE_LOCATION_ARGS, SystemCallError::Fcntl, errno));
 		}
 	}
-	return new TcpSocket(pendingSocketDescriptor);
+	return std::auto_ptr<TcpSocket>(new TcpSocket(pendingSocketDescriptor));
 }
 
 void TcpSocket::connect(const std::string& address, unsigned int port)
@@ -171,21 +185,110 @@ void TcpSocket::connect(const std::string& address, unsigned int port)
 	}
 	_remoteAddress = Utf8TextCodec().decode(remoteAddressBuf);
 	_remotePort = ntohs(remoteAddress.sin_port);*/
+	setIsConnected(true);
+}
+
+void TcpSocket::closeSocket()
+{
+	if (::close(_descriptor)) {
+		Core::errorLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, SystemCallError(SOURCE_LOCATION_ARGS, SystemCallError::Close, errno).message()));
+	}
+	_descriptor = -1;
+	setIsConnected(false);
+}
+
+void TcpSocket::openImplementation()
+{
+	// Creating the socket
+	_descriptor = socket(PF_INET, SOCK_STREAM, 0);
+	if (_descriptor < 0) {
+		throw Exception(SystemCallError(SOURCE_LOCATION_ARGS, SystemCallError::Socket, errno));
+	}
+	// Making the socket non-blocking
+	int socketFlags = fcntl(_descriptor, F_GETFL, 0);
+	if (socketFlags < 0) {
+		throw Exception(SystemCallError(SOURCE_LOCATION_ARGS, SystemCallError::Fcntl, errno));
+	}
+	if (!(socketFlags | O_NONBLOCK)) {
+		socketFlags |= O_NONBLOCK;
+		if (fcntl(_descriptor, F_SETFL, socketFlags) < 0) {
+			throw Exception(SystemCallError(SOURCE_LOCATION_ARGS, SystemCallError::Fcntl, errno));
+		}
+	}
 }
 
 void TcpSocket::closeImplementation()
 {
-	AbstractSocket::closeImplementation();
-	_connected = false;
+	closeSocket();
 }
 
-int TcpSocket::createDescriptor()
+size_t TcpSocket::readImplementation(char * buffer, size_t bufferSize, const Timeout& timeout)
 {
-	int newDescriptor = socket(PF_INET, SOCK_STREAM, 0);
-	if (newDescriptor < 0) {
-		throw Exception(SystemCallError(SOURCE_LOCATION_ARGS, SystemCallError::Socket, errno));
+	timespec readTimeout = timeout.timeSpec();
+	fd_set readDescriptorsSet;
+	FD_ZERO(&readDescriptorsSet);
+	FD_SET(_descriptor, &readDescriptorsSet);
+	int descriptorsCount = pselect(_descriptor + 1, &readDescriptorsSet, NULL, NULL, &readTimeout, NULL);
+	if (descriptorsCount < 0) {
+		throw Exception(SystemCallError(SOURCE_LOCATION_ARGS, SystemCallError::PSelect, errno));
+	} else if (descriptorsCount == 0) {
+		// Timeout expired
+		//throw Exception(TimeoutExpiredIOError(SOURCE_LOCATION_ARGS));
+		return 0;
 	}
-	return newDescriptor;
+	ssize_t bytesReceived = recv(_descriptor, buffer, bufferSize, 0);
+	if (bytesReceived < 0) {
+		throw Exception(SystemCallError(SOURCE_LOCATION_ARGS, SystemCallError::Recv, errno));
+		//if (errno == EAGAIN || errno == EWOULDBLOCK) {
+		//	// No more data available
+		//	return 0;
+		//} else {
+		//	throw Exception(SystemCallError(SystemCallError::Recv, errno, SOURCE_LOCATION_ARGS));
+		//}
+	} else if (bytesReceived == 0) {
+		// Connection has been aborted by the client.
+		setIsConnected(false);
+		throw Exception(IOError(SOURCE_LOCATION_ARGS, IOError::ConnectionAborted));
+	}
+	return bytesReceived;
+}
+
+size_t TcpSocket::writeImplementation(const char * buffer, size_t bufferSize, const Timeout& timeout)
+{
+	timespec writeTimeout = timeout.timeSpec();
+	fd_set writeDescriptorsSet;
+	FD_ZERO(&writeDescriptorsSet);
+	FD_SET(_descriptor, &writeDescriptorsSet);
+	int descriptorsCount = pselect(_descriptor + 1, NULL, &writeDescriptorsSet, NULL, &writeTimeout, NULL);
+	if (descriptorsCount < 0) {
+		throw Exception(SystemCallError(SOURCE_LOCATION_ARGS, SystemCallError::PSelect, errno));
+	} else if (descriptorsCount == 0) {
+		// Timeout expired
+		//throw Exception(TimeoutExpiredIOError(SOURCE_LOCATION_ARGS));
+		return 0;
+	}
+	ssize_t bytesSent = ::send(_descriptor, buffer, bufferSize, MSG_NOSIGNAL);
+	if (bytesSent < 0) {
+		if (errno == EPIPE) {
+			// Handled because send(2) man page says: "EPIPE: The local end has been shut down on a connection oriented socket.
+			// In this case the process will also receive a SIGPIPE unless MSG_NOSIGNAL is set."
+			setIsConnected(false);
+			throw Exception(IOError(SOURCE_LOCATION_ARGS, IOError::ConnectionAborted));
+		} else {
+			throw Exception(SystemCallError(SOURCE_LOCATION_ARGS, SystemCallError::Send, errno));
+		}
+		//if (errno == EAGAIN || errno == EWOULDBLOCK) {
+		//	// No more data available
+		//	return totalBytesSent;
+		//} else {
+		//	throw Exception(SystemCallError(SystemCallError::Send, errno, SOURCE_LOCATION_ARGS));
+		//}
+	} else if (bytesSent == 0) {
+		// Connection has been aborted by the client.
+		setIsConnected(false);
+		throw Exception(IOError(SOURCE_LOCATION_ARGS, IOError::ConnectionAborted));
+	}
+	return bytesSent;
 }
 
 } // namespace isl
