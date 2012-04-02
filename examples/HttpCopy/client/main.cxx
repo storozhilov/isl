@@ -34,7 +34,7 @@ int main(int argc, char *argv[])
 		}
 		isl::TcpSocket s;
 		s.open();
-		s.connect(CONNECT_ADDR, CONNECT_PORT);
+		s.connect(isl::TcpAddrInfo(isl::TcpAddrInfo::IpV4, CONNECT_ADDR, CONNECT_PORT));
 		isl::HttpRequestStreamWriter w(s, argv[1], "PUT");
 		w.setHeaderField("X-Current-Directory", cwd);
 		w.setHeaderField("X-Dest-Filename", argv[2]);

@@ -111,8 +111,8 @@ public:
 	HttpService(AbstractSubsystem * owner, unsigned int port, size_t maxClients) :
 		AbstractSyncTcpService(owner, maxClients)
 	{
-		addListener(port);
-		addListener(port + 1);
+		addListener(isl::TcpAddrInfo(isl::TcpAddrInfo::IpV4, isl::TcpAddrInfo::WildcardAddress, port));
+		addListener(isl::TcpAddrInfo(isl::TcpAddrInfo::IpV4, isl::TcpAddrInfo::WildcardAddress, port + 1));
 	}
 private:
 	class HttpTask : public isl::AbstractSyncTcpService::AbstractTask

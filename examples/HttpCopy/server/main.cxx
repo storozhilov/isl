@@ -21,7 +21,7 @@ int main(int argc, char *argv[])
 	isl::Core::debugLog.connectTarget(isl::FileLogTarget("server.log"));;
 	isl::TcpSocket s;
 	s.open();
-	s.bind(LISTEN_PORT);
+	s.bind(isl::TcpAddrInfo(isl::TcpAddrInfo::IpV4, isl::TcpAddrInfo::WildcardAddress, LISTEN_PORT));
 	s.listen(LISTEN_BACKLOG);
 	while (true) {
 		std::auto_ptr<isl::TcpSocket>ss(s.accept(isl::Timeout(ACCEPT_SECONDS_TIMEOUT)));

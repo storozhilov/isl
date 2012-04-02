@@ -3,6 +3,7 @@
 
 #include <isl/AbstractIODevice.hxx>
 #include <isl/ReadWriteLock.hxx>
+#include <isl/TcpAddrInfo.hxx>
 #include <list>
 #include <string>
 #include <memory>
@@ -10,56 +11,52 @@
 namespace isl
 {
 
-//! TcpSocket with asynchronous mode support - you can read wrom it in one thread and write to it in another one.
-/*!\
-  TODO Documentation!!!
+//! TCP-socket implementation
+/*!
+  This is a TCP-socket implementation with asynchronous mode support - you can read from it in one thread and write to it in another one.
 */
 class TcpSocket : public AbstractIODevice
 {
 public:
+	// Constructor
 	TcpSocket();
+	// Destructor
 	virtual ~TcpSocket();
-
+	// Returns a TCP-socket descriptor
 	inline int descriptor() const
 	{
 		return _descriptor;
 	}
-	// TODO Should return std::string or isl::IpInterface
-	inline std::wstring localAddress() const
-	{
-		return _localAddress;
-	}
-	inline unsigned int localPort() const
-	{
-		return _localPort;
-	}
-	// TODO Should return std::string or isl::IpInterface
-	inline std::wstring remoteAddress() const
-	{
-		return _remoteAddress;
-	}
-	inline unsigned int remotePort() const
-	{
-		return _remotePort;
-	}
+	//! Returns a constant reference to local address info if socket has been connected or throws an exception otherwise
+	const TcpAddrInfo& localAddr() const;
+	//! Returns a constant reference to remote address info if socket has been connected or throws an exception otherwise
+	const TcpAddrInfo& remoteAddr() const;
+	//! Tread-safely returns connected status
 	inline bool connected() const
 	{
 		ReadLocker locker(_connectedRwLock);
 		return _connected;
 	}
-	inline void bind(unsigned int port)
-	{
-		bind(port, std::list<std::string>());
-	}
-	inline void bind(unsigned int port, const std::string& interface)
-	{
-		std::list<std::string> interfaces(1, interface);
-		bind(port, interfaces);
-	}
-	void bind(unsigned int port, const std::list<std::string>& interfaces);
+	//! Binds socket to an interface
+	/*!
+	  \param addrInfo Address info to bind to
+	*/
+	void bind(const TcpAddrInfo& addrInfo);
+	//! Switching socket to the listening state
+	/*!
+	  \param backLog Listen backlog
+	*/
 	void listen(unsigned int backLog);
+	//! Accepting TCP-connection
+	/*!
+	  \param timeout Timeout to wait for incoming connection
+	*/
 	std::auto_ptr<TcpSocket> accept(const Timeout& timeout = Timeout());
-	void connect(const std::string& address, unsigned int port);				// TODO Use IpInterface class?
+	//! Connects to an inteface
+	/*!
+	  \param addrInfo Interface address info to connect to
+	*/
+	void connect(const TcpAddrInfo& addrInfo);
 private:
 	TcpSocket(const TcpSocket&);								// No copy
 	TcpSocket(int descriptor);
@@ -72,6 +69,7 @@ private:
 		_connected = newIsConnected;
 	}
 	void closeSocket();
+	void fetchPeersData();
 
 	virtual void openImplementation();
 	virtual void closeImplementation();
@@ -83,6 +81,8 @@ private:
 	unsigned int _localPort;
 	std::wstring _remoteAddress;
 	unsigned int _remotePort;
+	std::auto_ptr<TcpAddrInfo> _localAddr;
+	std::auto_ptr<TcpAddrInfo> _remoteAddr;
 	bool _connected;
 	mutable ReadWriteLock _connectedRwLock;
 

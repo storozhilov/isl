@@ -13,8 +13,6 @@
 #include <unistd.h>
 #include <fcntl.h>
 
-#include <stdexcept>
-
 #if defined (__SVR4) && defined (__sun)					// See http://www.bolthole.com/solaris/
 #define MSG_NOSIGNAL 0							// TODO See http://track.sipfoundry.org/browse/XPL-111
 #endif
@@ -33,6 +31,8 @@ TcpSocket::TcpSocket() :
 	_localPort(),
 	_remoteAddress(),
 	_remotePort(),
+	_localAddr(),
+	_remoteAddr(),
 	_connected(false),
 	_connectedRwLock()
 {}
@@ -44,49 +44,14 @@ TcpSocket::TcpSocket(int descriptor) :
 	_localPort(),
 	_remoteAddress(),
 	_remotePort(),
+	_localAddr(),
+	_remoteAddr(),
 	_connected(false),
 	_connectedRwLock()
 {
-	// Obtaining remote address/port
-	struct sockaddr_in remoteAddress;
-	socklen_t remoteAddressSize = sizeof(remoteAddress);
-	//if (getpeername(descriptor, reinterpret_cast<struct sockaddr *>(&remoteAddress), &remoteAddressSize)) {
-	//	throw Exception(SystemCallError(SystemCallError::GetSockName, errno, SOURCE_LOCATION_ARGS));
-	//}
-	if (getpeername(descriptor, reinterpret_cast<struct sockaddr *>(&remoteAddress), &remoteAddressSize)) {
-		if (errno == ENOTCONN) {
-			_isOpen = true;
-			return;
-		}
-		throw Exception(SystemCallError(SOURCE_LOCATION_ARGS, SystemCallError::GetSockName, errno));
-	}
+	fetchPeersData();
 	_isOpen = true;
 	_connected = true;
-	char remoteAddressBuf[INET6_ADDRSTRLEN];
-	if (!inet_ntop(AF_INET, &remoteAddress.sin_addr, remoteAddressBuf, INET6_ADDRSTRLEN)) {
-		throw Exception(SystemCallError(SOURCE_LOCATION_ARGS, SystemCallError::InetNToP, errno));
-	}
-	_remoteAddress = String::utf8Decode(remoteAddressBuf);
-	_remotePort = ntohs(remoteAddress.sin_port);
-	// Obtaining local address/port
-	struct sockaddr_in localAddress;
-	socklen_t localAddressSize = sizeof(localAddress);
-	if (getsockname(descriptor, reinterpret_cast<struct sockaddr *>(&localAddress), &localAddressSize)) {
-		throw Exception(SystemCallError(SOURCE_LOCATION_ARGS, SystemCallError::GetSockName, errno));
-	}
-	char localAddressBuf[INET6_ADDRSTRLEN];
-	if (!inet_ntop(AF_INET, &localAddress.sin_addr, localAddressBuf, INET6_ADDRSTRLEN)) {
-		throw Exception(SystemCallError(SOURCE_LOCATION_ARGS, SystemCallError::InetNToP, errno));
-	}
-	_localAddress = String::utf8Decode(localAddressBuf);
-	_localPort = ntohs(localAddress.sin_port);
-	// Setting opened state to true;
-	//_isOpen = true;
-	//std::wostringstream msg;
-	//msg << L"TcpSocket::TcpSocket(int): Connection established " << _localAddress << L':' <<
-	//				_localPort << L" (local) <-> " << _remoteAddress << L':' <<
-	//				_remotePort << L" (remote) with socket descriptor " << descriptor;
-	//Core::debugLog.logMessage(msg.str());
 }
 
 TcpSocket::~TcpSocket()
@@ -96,24 +61,39 @@ TcpSocket::~TcpSocket()
 	}
 }
 
-void TcpSocket::bind(unsigned int port, const std::list<std::string>& interfaces)
+const TcpAddrInfo& TcpSocket::localAddr() const
+{
+	if (!_localAddr.get()) {
+		throw Exception(Error(SOURCE_LOCATION_ARGS, L"Local address info have not been initialized"));
+	}
+	return *_localAddr.get();
+}
+
+const TcpAddrInfo& TcpSocket::remoteAddr() const
+{
+	if (!_remoteAddr.get()) {
+		throw Exception(Error(SOURCE_LOCATION_ARGS, L"Remote address info have not been initialized"));
+	}
+	return *_remoteAddr.get();
+}
+
+void TcpSocket::bind(const TcpAddrInfo& addrInfo)
 {
 	if (!isOpen()) {
 		throw Exception(IOError(SOURCE_LOCATION_ARGS, IOError::DeviceIsNotOpen));
 	}
 	// Setting SO_REUSEADDR to true
 	int reuseAddr = 1;
-	if (setsockopt(descriptor(), SOL_SOCKET, SO_REUSEADDR, &reuseAddr, sizeof(reuseAddr)) < 0) {
+	if (setsockopt(_descriptor, SOL_SOCKET, SO_REUSEADDR, &reuseAddr, sizeof(reuseAddr)) < 0) {
 		throw Exception(SystemCallError(SOURCE_LOCATION_ARGS, SystemCallError::SetSockOpt, errno));
 	}
-	// Binding the socket
-	sockaddr_in addr;
-	bzero(&addr, sizeof(addr));
-	addr.sin_family = AF_INET;
-	addr.sin_port = htons(port);
-	addr.sin_addr.s_addr = htonl(INADDR_ANY);					// TODO Handle 'interfaces' parameter
-	if (::bind(descriptor(), reinterpret_cast<struct sockaddr *>(&addr), sizeof(addr)) != 0) {
-		throw Exception(SystemCallError(SOURCE_LOCATION_ARGS, SystemCallError::Bind, errno));
+	// Binding to all endpoints
+	const struct addrinfo * ai = addrInfo.addrinfo();
+	while (ai) {
+		if (::bind(_descriptor, ai->ai_addr, ai->ai_addrlen) != 0) {
+			throw Exception(SystemCallError(SOURCE_LOCATION_ARGS, SystemCallError::Bind, errno));
+		}
+		ai = ai->ai_next;
 	}
 }
 
@@ -122,7 +102,7 @@ void TcpSocket::listen(unsigned int backLog)
 	if (!isOpen()) {
 		throw Exception(IOError(SOURCE_LOCATION_ARGS, IOError::DeviceIsNotOpen));
 	}
-	if (::listen(descriptor(), backLog) != 0) {
+	if (::listen(_descriptor, backLog) != 0) {
 		throw Exception(SystemCallError(SOURCE_LOCATION_ARGS, SystemCallError::Listen, errno));
 	}
 }
@@ -136,8 +116,8 @@ std::auto_ptr<TcpSocket> TcpSocket::accept(const Timeout& timeout)
 	timespec selectTimeout = timeout.timeSpec();
 	fd_set descriptorsSet;
 	FD_ZERO(&descriptorsSet);
-	FD_SET(descriptor(), &descriptorsSet);
-	int descriptorsCount = pselect(descriptor() + 1, &descriptorsSet, NULL, NULL, &selectTimeout, NULL);
+	FD_SET(_descriptor, &descriptorsSet);
+	int descriptorsCount = pselect(_descriptor + 1, &descriptorsSet, NULL, NULL, &selectTimeout, NULL);
 	if (descriptorsCount == 0) {
 		// Timeout expired
 		return std::auto_ptr<TcpSocket>();
@@ -145,7 +125,7 @@ std::auto_ptr<TcpSocket> TcpSocket::accept(const Timeout& timeout)
 		throw Exception(SystemCallError(SOURCE_LOCATION_ARGS, SystemCallError::PSelect, errno));
 	}
 	// Extracting and returning pending connection
-	int pendingSocketDescriptor = ::accept(descriptor(), NULL, NULL);
+	int pendingSocketDescriptor = ::accept(_descriptor, NULL, NULL);
 	if (pendingSocketDescriptor < 0) {
 		throw Exception(SystemCallError(SOURCE_LOCATION_ARGS, SystemCallError::Accept, errno));
 	}
@@ -163,28 +143,15 @@ std::auto_ptr<TcpSocket> TcpSocket::accept(const Timeout& timeout)
 	return std::auto_ptr<TcpSocket>(new TcpSocket(pendingSocketDescriptor));
 }
 
-void TcpSocket::connect(const std::string& address, unsigned int port)
+void TcpSocket::connect(const TcpAddrInfo& addrInfo)
 {
 	if (!isOpen()) {
 		throw Exception(IOError(SOURCE_LOCATION_ARGS, IOError::DeviceIsNotOpen));
 	}
-	struct sockaddr_in remoteAddress;
-	//socklen_t remoteAddressSize = sizeof(remoteAddress);
-	remoteAddress.sin_family = AF_INET;
-	remoteAddress.sin_port = htons(port);
-	if (!inet_aton(address.c_str(), &remoteAddress.sin_addr)) {
-		throw Exception(Error(SOURCE_LOCATION_ARGS, L"Invalid peer address"));
-	}
-	//if (::connect(descriptor(), &remoteAddress, sizeof(remoteAddress))) {
-	if (::connect(descriptor(), reinterpret_cast<struct sockaddr *>(&remoteAddress), sizeof(remoteAddress))) {
+	if (::connect(_descriptor, addrInfo.addrinfo()->ai_addr, addrInfo.addrinfo()->ai_addrlen)) {
 		throw Exception(SystemCallError(SOURCE_LOCATION_ARGS, SystemCallError::Connect, errno));
 	}
-	/*char remoteAddressBuf[INET6_ADDRSTRLEN];
-	if (!inet_ntop(AF_INET, &remoteAddress.sin_addr, remoteAddressBuf, INET6_ADDRSTRLEN)) {
-		throw Exception(SystemCallError(SystemCallError::InetNToP, errno, SOURCE_LOCATION_ARGS));
-	}
-	_remoteAddress = Utf8TextCodec().decode(remoteAddressBuf);
-	_remotePort = ntohs(remoteAddress.sin_port);*/
+	fetchPeersData();
 	setIsConnected(true);
 }
 
@@ -195,6 +162,52 @@ void TcpSocket::closeSocket()
 	}
 	_descriptor = -1;
 	setIsConnected(false);
+}
+
+void TcpSocket::fetchPeersData()
+{
+	// Fetching local address info
+	struct sockaddr la;
+	socklen_t las = sizeof(la);
+	if (getsockname(_descriptor, &la, &las)) {
+		throw Exception(SystemCallError(SOURCE_LOCATION_ARGS, SystemCallError::GetSockName, errno));
+	}
+	if (la.sa_family == AF_INET6) {
+		struct sockaddr_in6 * addrPtr = reinterpret_cast<struct sockaddr_in6 *>(&la);
+		char buf[INET6_ADDRSTRLEN];
+		if (!inet_ntop(AF_INET6, &(addrPtr->sin6_addr), buf, INET6_ADDRSTRLEN)) {
+			throw Exception(SystemCallError(SOURCE_LOCATION_ARGS, SystemCallError::InetNToP, errno));
+		}
+		_remoteAddr.reset(new TcpAddrInfo(TcpAddrInfo::IpV6, buf, ntohs(addrPtr->sin6_port)));
+	} else {
+		struct sockaddr_in * addrPtr = reinterpret_cast<struct sockaddr_in *>(&la);
+		char buf[INET_ADDRSTRLEN];
+		if (!inet_ntop(AF_INET, &(addrPtr->sin_addr), buf, INET_ADDRSTRLEN)) {
+			throw Exception(SystemCallError(SOURCE_LOCATION_ARGS, SystemCallError::InetNToP, errno));
+		}
+		_localAddr.reset(new TcpAddrInfo(TcpAddrInfo::IpV4, buf, ntohs(addrPtr->sin_port)));
+	}
+	// Fetching remote address info
+	struct sockaddr ra;
+	socklen_t ras = sizeof(ra);
+	if (getpeername(_descriptor, &ra, &ras)) {
+		throw Exception(SystemCallError(SOURCE_LOCATION_ARGS, SystemCallError::GetPeerName, errno));
+	}
+	if (ra.sa_family == AF_INET6) {
+		struct sockaddr_in6 * addrPtr = reinterpret_cast<struct sockaddr_in6 *>(&ra);
+		char buf[INET6_ADDRSTRLEN];
+		if (!inet_ntop(AF_INET6, &(addrPtr->sin6_addr), buf, INET6_ADDRSTRLEN)) {
+			throw Exception(SystemCallError(SOURCE_LOCATION_ARGS, SystemCallError::InetNToP, errno));
+		}
+		_remoteAddr.reset(new TcpAddrInfo(TcpAddrInfo::IpV6, buf, ntohs(addrPtr->sin6_port)));
+	} else {
+		struct sockaddr_in * addrPtr = reinterpret_cast<struct sockaddr_in *>(&ra);
+		char buf[INET_ADDRSTRLEN];
+		if (!inet_ntop(AF_INET, &(addrPtr->sin_addr), buf, INET_ADDRSTRLEN)) {
+			throw Exception(SystemCallError(SOURCE_LOCATION_ARGS, SystemCallError::InetNToP, errno));
+		}
+		_remoteAddr.reset(new TcpAddrInfo(TcpAddrInfo::IpV4, buf, ntohs(addrPtr->sin_port)));
+	}
 }
 
 void TcpSocket::openImplementation()

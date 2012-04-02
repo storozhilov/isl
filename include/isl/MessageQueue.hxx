@@ -9,12 +9,32 @@
 namespace isl
 {
 
-template <typename Msg> class MessageQueue
+template <typename Msg> class CopyMessageCloner
+{
+public:
+	static Msg * clone(const Msg& msg)
+	{
+		return new Msg(msg);
+	}
+};
+
+template <typename Msg> class CloneMessageCloner
+{
+public:
+	static Msg * clone(const Msg& msg)
+	{
+		return msg.clone();
+	}
+};
+
+template <typename Msg, typename Cloner = CopyMessageCloner<Msg> > class MessageQueue
 {
 public:
 	enum Constants {
 		DefaultMaxSize = 1024
 	};
+
+	typedef std::list<Msg> MessageList;
 
 	MessageQueue() :
 		_maxSize(DefaultMaxSize),
@@ -27,118 +47,76 @@ public:
 		_queueCond()
 	{}
 	virtual ~MessageQueue()
-	{}
-
-	bool push(const Msg& msg)
-	{
-		if (!isAccepting(msg)) {
-			Core::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, L"Message has been rejected by queue's filter"));
-			return false;
-		}
-		MutexLocker locker(_queueCond.mutex());
-		if (_queue.size() >= _maxSize) {
-			// TODO Maybe to throw an exception?
-			Core::errorLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, L"Maximum size of queue has been exceeded"));
-			return false;
-		}
-		_queue.push_front(msg);
-		_queueCond.wakeAll();
-		return true;
-	}
-
-	std::auto_ptr<Msg> pop(Timeout timeout = Timeout::defaultTimeout(), size_t * queueSize = 0)
-	{
-		if (queueSize) {
-			*queueSize = 0;
-		}
-		MutexLocker locker(_queueCond.mutex());
-		if (!_queue.empty()) {
-			std::auto_ptr<Msg> msg(new Msg(_queue.back()));
-			_queue.pop_back();
-			if (queueSize) {
-				*queueSize = _queue.size();
-			}
-			return msg;
-		}
-		_queueCond.wait(timeout);
-		if (_queue.empty()) {
-			return std::auto_ptr<Msg>();
-		}
-		std::auto_ptr<Msg> msg(new Msg(_queue.back()));
-		_queue.pop_back();
-		if (queueSize) {
-			*queueSize = _queue.size();
-		}
-		return msg;
-	}
-
-	size_t clear()
-	{
-		MutexLocker locker(_queueCond.mutex());
-		size_t queueSize = _queue.size();
-		_queue.clear();
-		return queueSize;
-	}
-
-	void wakeRecipients()
-	{
-		MutexLocker locker(_queueCond.mutex());
-		_queueCond.wakeAll();
-	}
-protected:
-	virtual bool isAccepting(const Msg& /*msg*/)
-	{
-		return true;
-	}
-private:
-	MessageQueue(const MessageQueue&);			// No copy
-
-	MessageQueue& operator=(const MessageQueue&);		// No copy
-
-	typedef std::deque<Msg> Messages;
-
-	size_t _maxSize;
-	Messages _queue;
-	WaitCondition _queueCond;
-};
-
-template <typename Msg> class ClonableMessageQueue
-{
-public:
-	enum Constants {
-		DefaultMaxSize = 1024
-	};
-
-	ClonableMessageQueue() :
-		_maxSize(DefaultMaxSize),
-		_queue(),
-		_queueCond()
-	{}
-	ClonableMessageQueue(size_t maxSize) :
-		_maxSize(maxSize),
-		_queue(),
-		_queueCond()
-	{}
-	virtual ~ClonableMessageQueue()
 	{
 		resetQueue();
 	}
 
-	bool push(Msg& msg)
+	inline size_t maxSize() const
 	{
-		if (!isAccepting(msg)) {
+		return _maxSize;
+	}
+	bool push(const Msg& msg)
+	{
+		MutexLocker locker(_queueCond.mutex());
+		if (_queue.size() >= _maxSize) {
+			Core::errorLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, L"Maximum size of queue has been exceeded"));
+			return false;
+		}
+		if (!isAccepting(msg, _queue.size())) {
 			Core::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, L"Message has been rejected by queue's filter"));
 			return false;
 		}
+		_queue.push_front(Cloner::clone(msg));
+		_queueCond.wakeOne();
+		return true;
+	}
+
+	bool push(Msg * msg)
+	{
 		MutexLocker locker(_queueCond.mutex());
 		if (_queue.size() >= _maxSize) {
-			// TODO Maybe to throw an exception?
-			Core::errorLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, L"Maximum size of message queue has been exceeded"));
+			Core::errorLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, L"Maximum size of queue has been exceeded"));
 			return false;
 		}
-		_queue.push_front(msg.clone());
-		_queueCond.wakeAll();
+		if (!isAccepting(msg, _queue.size())) {
+			Core::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, L"Message has been rejected by queue's filter"));
+			return false;
+		}
+		_queue.push_front(msg);
+		_queueCond.wakeOne();
 		return true;
+	}
+
+	size_t push(MessageList& msgs, bool allAcceptedOrNothing = false)
+	{
+		MutexLocker locker(_queueCond.mutex());
+		if (_queue.size() >= _maxSize) {
+			Core::errorLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, L"Maximum size of queue has been exceeded"));
+			return 0;
+		}
+		std::list<typename MessageList::iterator> acceptingMsgs;
+		for (typename MessageList::iterator i = msgs.begin(); i != msgs.end(); ++i) {
+			if (isAccepting(**i, _queue.size() + acceptingMsgs.size())) {
+				acceptingMsgs.push_back(i);
+			}
+		}
+		if (acceptingMsgs.empty()) {
+			return 0;
+		}
+		if (allAcceptedOrNothing && (_queue.size() + acceptingMsgs.size() >= _maxSize)) {
+			return 0;
+		}
+		size_t acceptedAmount = 0;
+		for (typename std::list<typename MessageList::iterator>::iterator i = acceptingMsgs.begin(); i != acceptingMsgs.end(); ++i) {
+			if (_queue.size() >= _maxSize) {
+				break;
+			}
+			_queue.push_front(**i);
+			msgs.erase(*i);
+			++acceptedAmount;
+		}
+		_queueCond.wakeAll();
+		return acceptedAmount;
 	}
 
 	std::auto_ptr<Msg> pop(Timeout timeout = Timeout::defaultTimeout(), size_t * queueSize = 0)
@@ -167,37 +145,41 @@ public:
 		return msg;
 	}
 
-	size_t clear()
+	void clear()
 	{
 		MutexLocker locker(_queueCond.mutex());
-		size_t queueSize = _queue.size();
 		resetQueue();
-		return queueSize;
 	}
 
+	void wakeRecipient()
+	{
+		MutexLocker locker(_queueCond.mutex());
+		_queueCond.wakeOne();
+	}
 	void wakeRecipients()
 	{
 		MutexLocker locker(_queueCond.mutex());
 		_queueCond.wakeAll();
 	}
 protected:
-	virtual bool isAccepting(Msg& /*msg*/)
+	virtual bool isAccepting(const Msg& /*msg*/, size_t /*queueSize*/)
 	{
 		return true;
 	}
 private:
-	ClonableMessageQueue(const ClonableMessageQueue&);			// No copy
+	MessageQueue(const MessageQueue&);			// No copy
 
-	ClonableMessageQueue& operator=(const ClonableMessageQueue&);		// No copy
-
-	typedef std::deque<Msg *> Messages;
+	MessageQueue& operator=(const MessageQueue&);		// No copy
 
 	void resetQueue()
 	{
 		for (typename Messages::iterator i = _queue.begin(); i != _queue.end(); ++i) {
 			delete (*i);
 		}
+		_queue.clear();
 	}
+
+	typedef std::deque<Msg *> Messages;
 
 	size_t _maxSize;
 	Messages _queue;

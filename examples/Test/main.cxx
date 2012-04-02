@@ -1,7 +1,7 @@
 #define LIBISL__DEBUGGING_ON 1
 
 #include <isl/LogMessage.hxx>
-
+#include <isl/TcpAddrInfo.hxx>
 #include <isl/TcpSocket.hxx>
 #include <isl/Exception.hxx>
 #include <isl/SystemCallError.hxx>
@@ -148,13 +148,52 @@ void testHttpRequestStreamReader()
 //	}
 }
 
+void dumpAddrInfo(const isl::TcpAddrInfo& ai)
+{
+	std::cout << ai.host();
+	if (!ai.service().empty()) {
+		std::cout << ':' << ai.service();
+	} else if (ai.port() > 0) {
+		std::cout << ':' << ai.port();
+	}
+	std::cout << ", canonical name: " << (ai.canonicalName().empty() ? "<not defined>" : ai.canonicalName()) << ": ";
+	for (isl::TcpAddrInfo::EndpointList::const_iterator i = ai.endpoints().begin(); i != ai.endpoints().end(); ++i) {
+		if (i != ai.endpoints().begin()) {
+			std::cout << ", ";
+		}
+		std::cout << i->host << ':' << i->port;
+	}
+	std::cout << std::endl;
+}
+
+void testTcpEndpoint()
+{
+	isl::TcpAddrInfo ep1(isl::TcpAddrInfo::IpV4, "192.168.1.1", "http");
+	dumpAddrInfo(ep1);
+	isl::TcpAddrInfo epCopy(ep1);
+	dumpAddrInfo(epCopy);
+	isl::TcpAddrInfo ep2(isl::TcpAddrInfo::IpV4, isl::TcpAddrInfo::LoopbackAddress, "http");
+	dumpAddrInfo(ep2);
+	epCopy = ep2;
+	dumpAddrInfo(epCopy);
+	isl::TcpAddrInfo ep3(isl::TcpAddrInfo::IpV4, isl::TcpAddrInfo::WildcardAddress, "http");
+	dumpAddrInfo(ep3);
+	isl::TcpAddrInfo ep4(isl::TcpAddrInfo::IpV4, "192.168.1.1", 8080);
+	dumpAddrInfo(ep4);
+	isl::TcpAddrInfo ep5(isl::TcpAddrInfo::IpV4, isl::TcpAddrInfo::LoopbackAddress, 8080);
+	dumpAddrInfo(ep5);
+	isl::TcpAddrInfo ep6(isl::TcpAddrInfo::IpV4, isl::TcpAddrInfo::WildcardAddress, 8080);
+	dumpAddrInfo(ep6);
+}
+
 int main(int argc, char *argv[])
 {
 	std::cout << "Test executable has been started" << std::endl;
 
 	isl::Core::debugLog.connectTarget(isl::FileLogTarget("test.log"));
 
-	testDateTime();
+	//testDateTime();
+	testTcpEndpoint();
 	return 0;
 	//testVariant();
 	//testHttpRequestStreamReader();
@@ -231,52 +270,52 @@ int main(int argc, char *argv[])
 	return 0;
 
 
-	isl::TcpSocket s;
-	s.open();
-	s.bind(LISTEN_PORT);
-	s.listen(LISTEN_BACKLOG);
-	//char buf[BUFFER_SIZE];
-	
-	while (true) {
-		std::auto_ptr<isl::TcpSocket> ss(s.accept(isl::Timeout(ACCEPT_SECONDS_TIMEOUT)));
-		if (!ss.get()) {
-			std::cout << "Listen timeout has been expired" << std::endl;
-			continue;
-		}
-		char buf[BUFFER_SIZE];
-		while (true) {
-			try {
-				ss->ungetChar('r');
-				ss->ungetChar('a');
-				ss->ungetChar('B');
-				ss->ungetChar('o');
-				ss->ungetChar('o');
-				ss->ungetChar('F');
-
-				if (BUFFERED_READING) {
-					unsigned int bytesRead = ss->read(buf, BUFFER_SIZE, isl::Timeout(READ_SECONDS_TIMEOUT));
-					if (bytesRead <= 0) {
-						std::cout << "Read timeout has been expired" << std::endl;
-					} else {
-						std::cout << std::string(buf, bytesRead) << std::endl;
-					}
-				} else {
-					char ch;
-					if (ss->getChar(ch, isl::Timeout(READ_SECONDS_TIMEOUT))) {
-						std::cout << ch;
-						if (ch == 10) {
-							std::cout << std::flush;
-						}
-					} else {
-						std::cout << "Read timeout has been expired" << std::endl;
-					}
-				}
-			} catch (isl::Exception& e) {
-				std::cerr << e.what() << std::endl;
-				break;
-			}
-		}
-	}
+//	isl::TcpSocket s;
+//	s.open();
+//	s.bind(LISTEN_PORT);
+//	s.listen(LISTEN_BACKLOG);
+//	//char buf[BUFFER_SIZE];
+//	
+//	while (true) {
+//		std::auto_ptr<isl::TcpSocket> ss(s.accept(isl::Timeout(ACCEPT_SECONDS_TIMEOUT)));
+//		if (!ss.get()) {
+//			std::cout << "Listen timeout has been expired" << std::endl;
+//			continue;
+//		}
+//		char buf[BUFFER_SIZE];
+//		while (true) {
+//			try {
+//				ss->ungetChar('r');
+//				ss->ungetChar('a');
+//				ss->ungetChar('B');
+//				ss->ungetChar('o');
+//				ss->ungetChar('o');
+//				ss->ungetChar('F');
+//
+//				if (BUFFERED_READING) {
+//					unsigned int bytesRead = ss->read(buf, BUFFER_SIZE, isl::Timeout(READ_SECONDS_TIMEOUT));
+//					if (bytesRead <= 0) {
+//						std::cout << "Read timeout has been expired" << std::endl;
+//					} else {
+//						std::cout << std::string(buf, bytesRead) << std::endl;
+//					}
+//				} else {
+//					char ch;
+//					if (ss->getChar(ch, isl::Timeout(READ_SECONDS_TIMEOUT))) {
+//						std::cout << ch;
+//						if (ch == 10) {
+//							std::cout << std::flush;
+//						}
+//					} else {
+//						std::cout << "Read timeout has been expired" << std::endl;
+//					}
+//				}
+//			} catch (isl::Exception& e) {
+//				std::cerr << e.what() << std::endl;
+//				break;
+//			}
+//		}
+//	}
 	/*std::wcout << isl::WFormat(L"$0, '$1', ${a{b}c}0, $$, ${sdasd{}}_, ${efg}1").arg(isl::Variant(2.5)).arg(isl::Variant(std::wstring(L"foo"))).compose() << std::endl;
 	std::wcout << isl::Utf8TextCodec().decode(isl::Format("$0, '$1', ${a{b}c}0, $$, ${sdasd{}}_, ${efg}1").arg(isl::Variant(2.6)).arg(isl::Variant(std::wstring(L"bar"))).compose()) << std::endl;
 	std::wcout << isl::Utf8TextCodec().decode(isl::Format("$0, '$1', ${a{b}c}0, $$, ${sdasd{}}_, ${efg}1").arg(isl::Variant(2.7)).arg(isl::Variant(std::string("foobar"))).compose()) << std::endl;

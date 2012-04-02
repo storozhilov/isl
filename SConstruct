@@ -24,20 +24,10 @@ env.Append(ENV = {'PATH' : os.environ['PATH']})
 # Build variables
 prefix = os.environ['PREFIX'] if ('PREFIX' in os.environ) else '/usr/local'
 targetName = 'lib/isl'
-sourceFiles = [
-Glob('./src/Core/*.cxx'),
-Glob('./src/Exception/*.cxx'),
-Glob('./src/HTTP/*.cxx'),
-Glob('./src/IO/*.cxx'),
-Glob('./src/Log/*.cxx'),
-Glob('./src/Server/*.cxx'),
-Glob('./src/Thread/*.cxx'),
-Glob('./src/MQ/*.cxx')
-]
 
 # Library builders
-staticLibraryBuilder = env.StaticLibrary(targetName, sourceFiles)
-sharedLibraryBuilder = env.SharedLibrary(targetName, sourceFiles)
+staticLibraryBuilder = env.StaticLibrary(targetName, Glob('src/*.cxx'))
+sharedLibraryBuilder = env.SharedLibrary(targetName, Glob('src/*.cxx'))
 
 # Examples builers
 testExampleBuilder = env.Program('examples/Test/test', Glob('examples/Test/*.cxx'), LIBS = ['isl', 'pthread', 'rt'], LIBPATH = 'lib')
@@ -60,6 +50,7 @@ if os.environ.get('ISL_BUILD_EXAPMLES','').upper() == 'YES':
 	#Default(staticLibraryBuilder, sharedLibraryBuilder, testExampleBuilder, sourceBrouserExampleBuilder, echoMessageBrokerExampleBuilder)
 	#Default(staticLibraryBuilder, sharedLibraryBuilder, testExampleBuilder, httpCopyServerExampleBuilder, httpCopyClientExampleBuilder, sourceBrouserExampleBuilder, echoMessageBrokerExampleBuilder)
 	#Default(staticLibraryBuilder, sharedLibraryBuilder, httpServerExampleBuilder, httpCopyServerExampleBuilder, httpCopyClientExampleBuilder, sourceBrouserExampleBuilder, echoMessageBrokerExampleBuilder)
-	Default(staticLibraryBuilder, sharedLibraryBuilder, httpServerExampleBuilder, httpCopyServerExampleBuilder, httpCopyClientExampleBuilder, echoMessageBrokerExampleBuilder, testExampleBuilder)
+	#Default(staticLibraryBuilder, sharedLibraryBuilder, httpServerExampleBuilder, httpCopyServerExampleBuilder, httpCopyClientExampleBuilder, echoMessageBrokerExampleBuilder, testExampleBuilder)
+	Default(staticLibraryBuilder, sharedLibraryBuilder, httpServerExampleBuilder, httpCopyServerExampleBuilder, httpCopyClientExampleBuilder, testExampleBuilder)
 else:
 	Default(staticLibraryBuilder, sharedLibraryBuilder)

@@ -42,12 +42,12 @@ protected:
 		//! Constructor
 		/*!
 		  \param service Reference to TCP-service object
-		  \param port TCP-port to bind to
-		  \param interfaces Network intarfaces to bind to
+		  \param addrInfo TCP-address info to bind to
+		  \param listenTimeout Timeout to wait for incoming connections
 		  \param backLog Listen backlog
 		*/
-		Listener(AbstractSyncTcpService& service, unsigned int port, const Timeout& listenTimeout, const std::list<std::string>& interfaces, unsigned int backLog) :
-			AbstractListener(service, port, listenTimeout, interfaces, backLog),
+		Listener(AbstractSyncTcpService& service, const TcpAddrInfo& addrInfo, const Timeout& listenTimeout, unsigned int backLog) :
+			AbstractListener(service, addrInfo, listenTimeout, backLog),
 			_service(service)
 		{}
 	private:
@@ -65,7 +65,7 @@ protected:
 				Core::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, L"Server socket has been created"));
 				serverSocket.open();
 				Core::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, L"Server socket has been opened"));
-				serverSocket.bind(port(), interfaces());
+				serverSocket.bind(addrInfo());
 				Core::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, L"Server socket has been binded"));
 				serverSocket.listen(backLog());
 				Core::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, L"Server socket has been switched to the listening state"));
@@ -83,6 +83,10 @@ protected:
 						// Accepting TCP-connection timeout expired
 						continue;
 					}
+					std::wostringstream msg;
+					msg << L"TCP-connection has been received from " << String::utf8Decode(socketAutoPtr.get()->remoteAddr().firstEndpoint().host) << L':' <<
+						socketAutoPtr.get()->remoteAddr().firstEndpoint().port << std::endl;
+					Core::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, msg.str()));
 					std::auto_ptr<AbstractTask> taskAutoPtr(_service.createTask(socketAutoPtr.get()));
 					socketAutoPtr.release();
 					if (taskDispatcher().perform(taskAutoPtr.get())) {
@@ -144,15 +148,14 @@ protected:
 
 	//! Creating listener factory method
 	/*!
-	  \param port TCP-port to bind to
+	  \param addrInfo TCP-address info to bind to
 	  \param listenTimeout Timeout to wait for incoming connections
-	  \param interfaces Network interfaces to bind to
 	  \param backLog Listen backlog
 	  \return New listener
 	*/
-	virtual AbstractListener * createListener(unsigned int port, const Timeout& listenTimeout, const std::list<std::string>& interfaces, unsigned int backLog)
+	virtual AbstractListener * createListener(const TcpAddrInfo& addrInfo, const Timeout& listenTimeout, unsigned int backLog)
 	{
-		return new Listener(*this, port, listenTimeout, interfaces, backLog);
+		return new Listener(*this, addrInfo, listenTimeout, backLog);
 	}
 	//! Creating task factory method to override
 	/*!
