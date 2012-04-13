@@ -19,6 +19,9 @@ namespace isl
 {
 
 //! Subsystem base class
+/*!
+  TODO Maybe bool shouldTerminate() method?
+*/
 class AbstractSubsystem
 {
 public:
@@ -91,6 +94,12 @@ public:
 	{
 		MutexLocker locker(_stateCond.mutex());
 		return _state == StoppingState;
+	}
+	//! Returns TRUE if subsystem is stopping or stopped
+	inline bool shouldTerminate() const
+	{
+		MutexLocker locker(_stateCond.mutex());
+		return _state == StoppingState || _state == IdlingState;
 	}
 	//! Inspects subsystem's state to be equal to passed one and returns immediately or waits for state to be changed during timeout otherwise
 	/*!
@@ -246,7 +255,7 @@ protected:
 	virtual void stopImpl()
 	{
 		setState(StoppingState);
-		// Stopping threads (TODO Timed join & killing thread if it have not been joined)
+		// Stopping threads (TODO Timed join & killing thread if it has not been terminated)
 		for (Threads::iterator i = _threads.begin(); i != _threads.end(); ++i) {
 			(*i)->join();
 		}

@@ -51,7 +51,7 @@ private:
 	private:
 		HttpTask();
 
-		virtual void executeImpl(isl::TaskDispatcher::Worker& worker)
+		virtual void executeImpl(isl::TaskDispatcher::WorkerThread& worker)
 		{
 			try {
 				_requestReader.receive(isl::Timeout(TRANSMISSION_SECONDS_TIMEOUT));
@@ -125,7 +125,7 @@ private:
 	private:
 		HttpTask();
 
-		virtual void executeImpl(isl::TaskDispatcher::Worker& worker)
+		virtual void execute(TaskDispatcherType::WorkerThread& worker)
 		{
 			try {
 				_requestReader.receive(isl::Timeout(TRANSMISSION_SECONDS_TIMEOUT));
@@ -173,9 +173,9 @@ private:
 
 	HttpService();
 
-	virtual isl::AbstractSyncTcpService::AbstractTask * createTask(isl::TcpSocket * socket)
+	virtual std::auto_ptr<isl::AbstractSyncTcpService::AbstractTask> createTask(isl::TcpSocket * socket, ListenerThread& /*listener*/)
 	{
-		return new HttpTask(*this, socket);
+		return std::auto_ptr<isl::AbstractSyncTcpService::AbstractTask>(new HttpTask(*this, socket));
 	}
 };
 

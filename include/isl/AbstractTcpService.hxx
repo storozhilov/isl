@@ -17,6 +17,9 @@ namespace isl
 class AbstractTcpService : public AbstractSubsystem
 {
 public:
+//	typedef BasicTaskDispatcher::AbstractTask AbstractTaskType;
+//	typedef BasicTaskDispatcher<AbstractTaskType> TaskDispatcherType;
+
 	//! Constructor
 	/*!
 	  \param owner Pointer to the owner subsystem
@@ -115,8 +118,11 @@ public:
 		_taskDispatcher.setMaxTaskQueueOverflowSize(newValue);
 	}
 protected:
+	typedef AbstractTask AbstractTaskType;
+	typedef BasicTaskDispatcher<AbstractTaskType> TaskDispatcherType;
+
 	//! Base class for TCP-listener thread
-	class AbstractListener : public SubsystemThread
+	class AbstractListenerThread : public SubsystemThread
 	{
 	public:
 		//! Constructor
@@ -126,7 +132,7 @@ protected:
 		  \param listenTimeout Timeout to wait for incoming connections
 		  \param backLog Listen backlog
 		*/
-		AbstractListener(AbstractTcpService& service, const TcpAddrInfo& addrInfo, const Timeout& listenTimeout, unsigned int backLog) :
+		AbstractListenerThread(AbstractTcpService& service, const TcpAddrInfo& addrInfo, const Timeout& listenTimeout, unsigned int backLog) :
 			SubsystemThread(service, true),
 			_service(service),
 			_addrInfo(addrInfo),
@@ -155,7 +161,7 @@ protected:
 		}
 	protected:
 		//! Returns a reference to task dispatcher
-		inline TaskDispatcher& taskDispatcher()
+		inline TaskDispatcherType& taskDispatcher()
 		{
 			return _service._taskDispatcher;
 		}
@@ -166,10 +172,10 @@ protected:
 		virtual void onStop()
 		{}
 	private:
-		AbstractListener();
-		AbstractListener(const AbstractListener&);								// No copy
+		AbstractListenerThread();
+		AbstractListenerThread(const AbstractListenerThread&);								// No copy
 
-		AbstractListener& operator=(const AbstractListener&);							// No copy
+		AbstractListenerThread& operator=(const AbstractListenerThread&);							// No copy
 
 		AbstractTcpService& _service;
 		const TcpAddrInfo _addrInfo;
@@ -199,8 +205,9 @@ protected:
 		{
 			ReadLocker locker(_listenerConfigsRwLock);
 			for (ListenerConfigs::const_iterator i = _listenerConfigs.begin(); i != _listenerConfigs.end(); ++i) {
-				AbstractListener * newListener = createListener(i->second.addrInfo, i->second.listenTimeout, i->second.backLog);
-				_listeners.push_back(newListener);
+				std::auto_ptr<AbstractListenerThread> newListenerAutoPtr(createListener(i->second.addrInfo, i->second.listenTimeout, i->second.backLog));
+				_listeners.push_back(newListenerAutoPtr.get());
+				newListenerAutoPtr.release();
 			}
 		}
 		Core::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, L"Listeners have been created"));
@@ -217,9 +224,9 @@ protected:
 	  \param addrInfo TCP-address info to bind to
 	  \param listenTimeout Timeout to wait for incoming connections
 	  \param backLog Listen backlog
-	  \return New listener
+	  \return auto_ptr with new listener
 	*/
-	virtual AbstractListener * createListener(const TcpAddrInfo& addrInfo, const Timeout& listenTimeout, unsigned int backLog) = 0;
+	virtual std::auto_ptr<AbstractListenerThread> createListener(const TcpAddrInfo& addrInfo, const Timeout& listenTimeout, unsigned int backLog) = 0;
 private:
 	AbstractTcpService();
 	AbstractTcpService(const AbstractTcpService&);						// No copy
@@ -239,7 +246,7 @@ private:
 		unsigned int backLog;
 	};
 	typedef std::map<unsigned int, ListenerConfig> ListenerConfigs;
-	typedef std::list<AbstractListener *> Listeners;
+	typedef std::list<AbstractListenerThread *> Listeners;
 
 	inline void resetListenerThreads()
 	{
@@ -253,10 +260,9 @@ private:
 	ListenerConfigs _listenerConfigs;
 	ReadWriteLock _listenerConfigsRwLock;
 	Listeners _listeners;
-	TaskDispatcher _taskDispatcher;
+	TaskDispatcherType _taskDispatcher;
 };
 
 } // namespace isl
 
 #endif
-

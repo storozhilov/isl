@@ -36,14 +36,16 @@ public:
 		setWorkersAmount(newValue * 2);
 	}
 protected:
-	//! Shared socket for proper thread-safe socket disposal during receiver and sender task destruction
-	class SharedSocket
+	//! Connection, which is to be thread-safely erased during sender's and receiver's destructor invocations. Feel free to subclass.
+	class Connection
 	{
 	public:
-		SharedSocket(TcpSocket * socketPtr) :
+		Connection(TcpSocket * socketPtr) :
 			_socket(socketPtr),
 			_refsCount(0),
 			_refsCountMutex()
+		{}
+		virtual ~Connection()
 		{}
 		int incRef()
 		{
@@ -60,13 +62,18 @@ protected:
 			return *_socket.get();
 		}
 	private:
+		Connection();
+		Connection(const Connection&);							// No copy
+
+		Connection& operator=(const Connection&);					// No copy
+
 		std::auto_ptr<TcpSocket> _socket;
 		int _refsCount;
 		Mutex _refsCountMutex;
 	};
 
-	//! Asynchronous TCP-service listener thread
-	class Listener : public AbstractListener
+	//! Asynchronous TCP-service listener thread. Feel free to subclass.
+	class ListenerThread : public AbstractListenerThread
 	{
 	public:
 		//! Constructor
@@ -76,20 +83,20 @@ protected:
 		  \param listenTimeout Timeout to wait for incoming connections
 		  \param backLog Listen backlog
 		*/
-		Listener(AbstractAsyncTcpService& service, const TcpAddrInfo& addrInfo, const Timeout& listenTimeout, unsigned int backLog) :
-			AbstractListener(service, addrInfo, listenTimeout, backLog),
+		ListenerThread(AbstractAsyncTcpService& service, const TcpAddrInfo& addrInfo, const Timeout& listenTimeout, unsigned int backLog) :
+			AbstractListenerThread(service, addrInfo, listenTimeout, backLog),
 			_service(service)
 		{}
 	private:
-		Listener();
-		Listener(const Listener&);								// No copy
+		ListenerThread();
+		ListenerThread(const ListenerThread&);								// No copy
 
-		Listener& operator=(const Listener&);							// No copy
+		ListenerThread& operator=(const ListenerThread&);							// No copy
 
 		virtual void run()
 		{
 			onStart();
-			Core::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, L"Listener has been started"));
+			Core::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, L"Listener thread has been started"));
 			try {
 				TcpSocket serverSocket;
 				Core::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, L"Server socket has been created"));
@@ -117,13 +124,13 @@ protected:
 					msg << L"TCP-connection has been received from " << String::utf8Decode(socketAutoPtr.get()->remoteAddr().firstEndpoint().host) << L':' <<
 						socketAutoPtr.get()->remoteAddr().firstEndpoint().port << std::endl;
 					Core::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, msg.str()));
-					std::auto_ptr<SharedSocket> sharedSocketAutoPtr(new SharedSocket(socketAutoPtr.get()));
+					std::auto_ptr<Connection> connectionAutoPtr(_service.createConnection(socketAutoPtr.get()));
 					socketAutoPtr.release();
-					std::auto_ptr<TaskDispatcher::AbstractTask> receiverTaskAutoPtr(_service.createReceiverTask(sharedSocketAutoPtr.get()));
-					SharedSocket * sharedSocketPtr = sharedSocketAutoPtr.get();
-					sharedSocketAutoPtr.release();
-					std::auto_ptr<TaskDispatcher::AbstractTask> senderTaskAutoPtr(_service.createSenderTask(sharedSocketPtr));
-					std::list<TaskDispatcher::AbstractTask *> taskList;
+					std::auto_ptr<AbstractTaskType> receiverTaskAutoPtr(_service.createReceiverTask(*this, connectionAutoPtr.get()));
+					Connection * connectionPtr = connectionAutoPtr.get();
+					connectionAutoPtr.release();
+					std::auto_ptr<AbstractTaskType> senderTaskAutoPtr(_service.createSenderTask(*this, connectionPtr));
+					std::list<AbstractTaskType *> taskList;
 					taskList.push_back(receiverTaskAutoPtr.get());
 					taskList.push_back(senderTaskAutoPtr.get());
 					if (taskDispatcher().perform(taskList)) {
@@ -144,25 +151,25 @@ protected:
 		AbstractAsyncTcpService& _service;
 	};
 	//! Base class for asynchronous TCP-service receiver task
-	class AbstractReceiverTask : public TaskDispatcher::AbstractTask
+	class AbstractReceiverTask : public AbstractTaskType
 	{
 	public:
 		//! Constructor
 		/*!
-		  \param sharedSocket Shared socket to use for I/O
+		  \param connection Connection to use for I/O
 		*/
-		AbstractReceiverTask(AbstractAsyncTcpService& service, SharedSocket * sharedSocket) :
-			TaskDispatcher::AbstractTask(),
+		AbstractReceiverTask(AbstractAsyncTcpService& service, Connection * connection) :
+			AbstractTaskType(),
 			_service(service),
-			_sharedSocket(sharedSocket)
+			_connection(connection)
 		{
-			_sharedSocket->incRef();
+			_connection->incRef();
 		}
 		virtual ~AbstractReceiverTask()
 		{
-			if (_sharedSocket->decRef() <= 0) {
-				delete _sharedSocket;
-				Core::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, L"Client connection socket has been destroyed"));
+			if (_connection->decRef() <= 0) {
+				delete _connection;
+				Core::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, L"Connection object has been destroyed"));
 			}
 		}
 		//! Returns reference to TCP-service
@@ -170,17 +177,21 @@ protected:
 		{
 			return _service;
 		}
+		//! Returns reference to connection
+		/*inline Connection& connection()
+		{
+			return _connection;
+		}*/
 		//! Returns reference to the socket
 		inline TcpSocket& socket() const
 		{
-			return _sharedSocket->socket();
+			return _connection->socket();
 		}
 	protected:
 		// Returns true if task should be terminated
 		inline bool shouldTerminate() const
 		{
-			AbstractSubsystem::State state = _service.state();
-			return state != AbstractSubsystem::StartingState && state != AbstractSubsystem::RunningState;
+			return _service.shouldTerminate();
 		}
 	private:
 		AbstractReceiverTask();
@@ -189,28 +200,28 @@ protected:
 		AbstractReceiverTask& operator=(const AbstractReceiverTask&);					// No copy
 
 		AbstractAsyncTcpService& _service;
-		SharedSocket * _sharedSocket;
+		Connection * _connection;
 	};
 	//! Base class for asynchronous TCP-service sender task
-	class AbstractSenderTask : public TaskDispatcher::AbstractTask
+	class AbstractSenderTask : public AbstractTaskType
 	{
 	public:
 		//! Constructor
 		/*!
 		  \param socket Socket to use for I/O
 		*/
-		AbstractSenderTask(AbstractAsyncTcpService& service, SharedSocket * sharedSocket) :
-			TaskDispatcher::AbstractTask(),
+		AbstractSenderTask(AbstractAsyncTcpService& service, Connection * connection) :
+			AbstractTaskType(),
 			_service(service),
-			_sharedSocket(sharedSocket)
+			_connection(connection)
 		{
-			_sharedSocket->incRef();
+			_connection->incRef();
 		}
 		virtual ~AbstractSenderTask()
 		{
-			if (_sharedSocket->decRef() <= 0) {
-				delete _sharedSocket;
-				Core::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, L"Client connection socket has been destroyed"));
+			if (_connection->decRef() <= 0) {
+				delete _connection;
+				Core::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, L"Connection object has been destroyed"));
 			}
 		}
 		//! Returns reference to TCP-service
@@ -218,17 +229,21 @@ protected:
 		{
 			return _service;
 		}
+		//! Returns reference to connection
+		/*inline Connection& connection()
+		{
+			return _connection;
+		}*/
 		//! Returns reference to the socket
 		inline TcpSocket& socket() const
 		{
-			return _sharedSocket->socket();
+			return _connection->socket();
 		}
 	protected:
 		// Returns true if task should be terminated
 		inline bool shouldTerminate() const
 		{
-			AbstractSubsystem::State state = _service.state();
-			return state != AbstractSubsystem::StartingState && state != AbstractSubsystem::RunningState;
+			return _service.shouldTerminate();
 		}
 	private:
 		AbstractSenderTask();
@@ -237,57 +252,48 @@ protected:
 		AbstractSenderTask& operator=(const AbstractSenderTask&);					// No copy
 
 		AbstractAsyncTcpService& _service;
-		SharedSocket * _sharedSocket;
+		Connection * _connection;
 	};
 
+	//! Creating connection factory method
+	/*!
+	  \param socket TCP-socket for collaborative usage
+	  \return std::auto_ptr with new connection
+	*/
+	virtual std::auto_ptr<Connection> createConnection(TcpSocket * socket)
+	{
+		return std::auto_ptr<Connection>(new Connection(socket));
+	}
 	//! Creating listener factory method
 	/*!
 	  \param addrInfo TCP-address info to bind to
 	  \param listenTimeout Timeout to wait for incoming connections
 	  \param backLog Listen backlog
-	  \return New listener
+	  \return New listener's auto_ptr
 	*/
-	virtual AbstractListener * createListener(const TcpAddrInfo& addrInfo, const Timeout& listenTimeout, unsigned int backLog)
+	virtual std::auto_ptr<AbstractListenerThread> createListener(const TcpAddrInfo& addrInfo, const Timeout& listenTimeout, unsigned int backLog)
 	{
-		return new Listener(*this, addrInfo, listenTimeout, backLog);
+		return std::auto_ptr<AbstractListenerThread>(new ListenerThread(*this, addrInfo, listenTimeout, backLog));
 	}
 	//! Creating receiver task factory method to override
 	/*!
 	  \param socket TCP-socket for I/O
+	  \return std::auto_ptr with pointer to the new receiver task
 	*/
-	virtual AbstractReceiverTask * createReceiverTask(SharedSocket * sharedSocketPtr) = 0;
+	virtual std::auto_ptr<AbstractReceiverTask> createReceiverTask(ListenerThread& listener, Connection * connectionPtr) = 0;
 	//! Creating sender task factory method to override
 	/*!
 	  \param socket TCP-socket for I/O
+	  \return std::auto_ptr with pointer to the new sender task
 	*/
-	virtual AbstractSenderTask * createSenderTask(SharedSocket * sharedSocketPtr) = 0;
+	virtual std::auto_ptr<AbstractSenderTask> createSenderTask(ListenerThread& listener, Connection * connectionPtr) = 0;
 private:
 	AbstractAsyncTcpService();
 	AbstractAsyncTcpService(const AbstractAsyncTcpService&);						// No copy
 
 	AbstractAsyncTcpService& operator=(const AbstractAsyncTcpService&);					// No copy
-
-	virtual void beforeStart()
-	{
-		Core::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, L"Starting asynchronous TCP-service"));
-		AbstractTcpService::beforeStart();
-	}
-	virtual void afterStart()
-	{
-		Core::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, L"Asynchronous TCP-service has been started"));
-	}
-	virtual void beforeStop()
-	{
-		Core::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, L"Stopping asynchronous TCP-service"));
-	}
-	virtual void afterStop()
-	{
-		AbstractTcpService::afterStop();
-		Core::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, L"Asynchronous TCP-service has been stopped"));
-	}
 };
 
 } // namespace isl
 
 #endif
-

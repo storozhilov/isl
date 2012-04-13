@@ -1,0 +1,28 @@
+import os
+
+env = Environment(
+CCFLAGS = ['-g', '-Wall'],
+CPPPATH = '../include',
+LIBS = 'dl'
+)
+env.Append(ENV = {'PATH' : os.environ['PATH']})
+if os.environ.get('ISL_CORE_DEBUGGING', '').upper() == 'YES' or os.environ.get('ISL_CORE_DEBUGGING', '').upper() == 'ON':
+	env.Append(CCFLAGS = '-DISL_CORE_DEBUGGING')
+if os.environ.get('ISL_LOG_DEBUGGING', '').upper() == 'YES' or os.environ.get('ISL_LOG_DEBUGGING', '').upper() == 'ON':
+	env.Append(CCFLAGS = '-DISL_LOG_DEBUGGING')
+
+# Build section
+staticLibraryBuilder = env.StaticLibrary('../lib/isl', Glob('*.cxx'))
+sharedLibraryBuilder = env.SharedLibrary('../lib/isl', Glob('*.cxx'))
+Default([staticLibraryBuilder, sharedLibraryBuilder])
+
+# Install section
+prefix = '/usr/local'
+if 'PREFIX' in os.environ:
+	prefix = os.environ['PREFIX']
+libraryInstaller = env.Install(os.path.join(prefix, 'lib'), [staticLibraryBuilder, sharedLibraryBuilder])
+headersInstaller = env.Install(os.path.join(prefix, 'include/isl'), Glob('../include/isl/*.hxx'))
+env.Alias('install', [libraryInstaller, headersInstaller])
+
+# Uninstall section
+env.Command('uninstall', None, Delete(FindInstalledFiles()))

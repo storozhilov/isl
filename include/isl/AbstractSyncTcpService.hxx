@@ -35,8 +35,8 @@ public:
 		setWorkersAmount(newValue);
 	}
 protected:
-	//! Synchronous TCP-service listener thread
-	class Listener : public AbstractListener
+	//! Synchronous TCP-service listener thread. Feel free to subclass.
+	class ListenerThread : public AbstractListenerThread
 	{
 	public:
 		//! Constructor
@@ -46,20 +46,20 @@ protected:
 		  \param listenTimeout Timeout to wait for incoming connections
 		  \param backLog Listen backlog
 		*/
-		Listener(AbstractSyncTcpService& service, const TcpAddrInfo& addrInfo, const Timeout& listenTimeout, unsigned int backLog) :
-			AbstractListener(service, addrInfo, listenTimeout, backLog),
+		ListenerThread(AbstractSyncTcpService& service, const TcpAddrInfo& addrInfo, const Timeout& listenTimeout, unsigned int backLog) :
+			AbstractListenerThread(service, addrInfo, listenTimeout, backLog),
 			_service(service)
 		{}
 	private:
-		Listener();
-		Listener(const Listener&);								// No copy
+		ListenerThread();
+		ListenerThread(const ListenerThread&);								// No copy
 
-		Listener& operator=(const Listener&);							// No copy
+		ListenerThread& operator=(const ListenerThread&);							// No copy
 
 		virtual void run()
 		{
 			onStart();
-			Core::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, L"Listener has been started"));
+			Core::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, L"Listener thread has been started"));
 			try {
 				TcpSocket serverSocket;
 				Core::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, L"Server socket has been created"));
@@ -87,7 +87,7 @@ protected:
 					msg << L"TCP-connection has been received from " << String::utf8Decode(socketAutoPtr.get()->remoteAddr().firstEndpoint().host) << L':' <<
 						socketAutoPtr.get()->remoteAddr().firstEndpoint().port << std::endl;
 					Core::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, msg.str()));
-					std::auto_ptr<AbstractTask> taskAutoPtr(_service.createTask(socketAutoPtr.get()));
+					std::auto_ptr<AbstractTaskType> taskAutoPtr(_service.createTask(socketAutoPtr.get(), *this));
 					socketAutoPtr.release();
 					if (taskDispatcher().perform(taskAutoPtr.get())) {
 						taskAutoPtr.release();
@@ -107,7 +107,7 @@ protected:
 	};
 
 	//! Base class for synchronous TCP-service task
-	class AbstractTask : public TaskDispatcher::AbstractTask
+	class AbstractTask : public AbstractTaskType
 	{
 	public:
 		//! Constructor
@@ -115,7 +115,7 @@ protected:
 		  \param socket Socket to use for I/O
 		*/
 		AbstractTask(AbstractSyncTcpService& service, TcpSocket * socket) :
-			TaskDispatcher::AbstractTask(),
+			AbstractTaskType(),
 			_service(service),
 			_socket(socket)
 		{}
@@ -138,9 +138,9 @@ protected:
 		}
 	private:
 		AbstractTask();
-		AbstractTask(const AbstractTask&);							// No copy
+		AbstractTask(const AbstractTask&);								// No copy
 
-		AbstractTask& operator=(const AbstractTask&);						// No copy
+		AbstractTask& operator=(const AbstractTask&);							// No copy
 
 		AbstractSyncTcpService& _service;
 		std::auto_ptr<TcpSocket> _socket;
@@ -151,17 +151,18 @@ protected:
 	  \param addrInfo TCP-address info to bind to
 	  \param listenTimeout Timeout to wait for incoming connections
 	  \param backLog Listen backlog
-	  \return New listener
+	  \return New listener's auto_ptr
 	*/
-	virtual AbstractListener * createListener(const TcpAddrInfo& addrInfo, const Timeout& listenTimeout, unsigned int backLog)
+	virtual std::auto_ptr<AbstractListenerThread> createListener(const TcpAddrInfo& addrInfo, const Timeout& listenTimeout, unsigned int backLog)
 	{
-		return new Listener(*this, addrInfo, listenTimeout, backLog);
+		return std::auto_ptr<AbstractListenerThread>(new ListenerThread(*this, addrInfo, listenTimeout, backLog));
 	}
 	//! Creating task factory method to override
 	/*!
 	  \param socket TCP-socket for I/O
+	  \return auto_ptr to new task
 	*/
-	virtual AbstractTask * createTask(TcpSocket * socket) = 0;
+	virtual std::auto_ptr<AbstractTask> createTask(TcpSocket * socket, ListenerThread& listener) = 0;
 private:
 	AbstractSyncTcpService();
 	AbstractSyncTcpService(const AbstractSyncTcpService&);						// No copy

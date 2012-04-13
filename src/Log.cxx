@@ -10,6 +10,11 @@ namespace isl
 
 LogDispatcher Log::dispatcher;							// Static member initialization
 
+Log::Log() :
+	_prefix(),
+	_logRWLock()
+{}
+
 Log::Log(const std::wstring& prefix) :
 	_prefix(prefix),
 	_logRWLock()

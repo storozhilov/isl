@@ -19,8 +19,9 @@ class AbstractLogTarget;
 class Log
 {
 public:
-	Log(const std::wstring& prefix = std::wstring());
-	~Log();
+	Log();
+	Log(const std::wstring& prefix);
+	virtual ~Log();
 
 	//! Connects target to log
 	void connectTarget(const AbstractLogTarget& target);

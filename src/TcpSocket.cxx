@@ -27,10 +27,6 @@ namespace isl
 TcpSocket::TcpSocket() :
 	AbstractIODevice(),
 	_descriptor(-1),
-	_localAddress(),
-	_localPort(),
-	_remoteAddress(),
-	_remotePort(),
 	_localAddr(),
 	_remoteAddr(),
 	_connected(false),
@@ -40,10 +36,6 @@ TcpSocket::TcpSocket() :
 TcpSocket::TcpSocket(int descriptor) :
 	AbstractIODevice(),
 	_descriptor(descriptor),
-	_localAddress(),
-	_localPort(),
-	_remoteAddress(),
-	_remotePort(),
 	_localAddr(),
 	_remoteAddr(),
 	_connected(false),
@@ -178,7 +170,7 @@ void TcpSocket::fetchPeersData()
 		if (!inet_ntop(AF_INET6, &(addrPtr->sin6_addr), buf, INET6_ADDRSTRLEN)) {
 			throw Exception(SystemCallError(SOURCE_LOCATION_ARGS, SystemCallError::InetNToP, errno));
 		}
-		_remoteAddr.reset(new TcpAddrInfo(TcpAddrInfo::IpV6, buf, ntohs(addrPtr->sin6_port)));
+		_localAddr.reset(new TcpAddrInfo(TcpAddrInfo::IpV6, buf, ntohs(addrPtr->sin6_port)));
 	} else {
 		struct sockaddr_in * addrPtr = reinterpret_cast<struct sockaddr_in *>(&la);
 		char buf[INET_ADDRSTRLEN];

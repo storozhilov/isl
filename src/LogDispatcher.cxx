@@ -5,9 +5,7 @@
 #include <algorithm>
 #include <stdexcept>									// TODO Remove it
 
-#define LOG_DISPATCHER_DEBUG_MESSAGES_ON 1
-
-#ifdef LOG_DISPATCHER_DEBUG_MESSAGES_ON
+#ifdef ISL_LOG_DEBUGGING
 #include <iostream>
 #endif
 
@@ -43,8 +41,8 @@ void LogDispatcher::connectLogToDevice(Log *log, const AbstractLogTarget *target
 	if (devicePos == _devices.end()) {
 		std::pair<Devices::iterator, bool> pos = _devices.insert(target->createDevice());
 		devicePos = pos.first;
-#ifdef LOG_DISPATCHER_DEBUG_MESSAGES_ON
-		std::cout << "LogDispatcher::connectLogToDevice(): New log device has been created" << std::endl;
+#ifdef ISL_LOG_DEBUGGING
+		std::wclog << L"LogDispatcher::connectLogToDevice(): New log device has been created" << std::endl;
 #endif
 	} else {
 		std::pair<Connections::iterator, Connections::iterator> connectedDevices = _connections.equal_range(log);
@@ -56,8 +54,8 @@ void LogDispatcher::connectLogToDevice(Log *log, const AbstractLogTarget *target
 		}
 	}
 	_connections.insert(Connections::value_type(log, devicePos));
-#ifdef LOG_DISPATCHER_DEBUG_MESSAGES_ON
-	std::cout << "LogDispatcher::connectLogToDevice(): Log has been connected to the log device" << std::endl;
+#ifdef ISL_LOG_DEBUGGING
+	std::wclog << L"LogDispatcher::connectLogToDevice(): Log has been connected to the log device" << std::endl;
 #endif
 }
 
@@ -78,8 +76,8 @@ void LogDispatcher::disconnectLogFromDevice(Log *log, const AbstractLogTarget *t
 	for (Connections::iterator i = connectedDevices.first; i != connectedDevices.second; ++i) {
 		if ((*i).second == devicePos) {
 			_connections.erase(i);
-#ifdef LOG_DISPATCHER_DEBUG_MESSAGES_ON
-			std::cout << "LogDispatcher::disconnectLogFromDevice(): Log has been disconnected from the log device" << std::endl;
+#ifdef ISL_LOG_DEBUGGING
+			std::wclog << L"LogDispatcher::disconnectLogFromDevice(): Log has been disconnected from the log device" << std::endl;
 #endif
 			sweepDevices();
 			return;
@@ -94,11 +92,11 @@ void LogDispatcher::disconnectLogFromDevices(Log *log)
 	WriteLocker locker(_connectionsRWLock);
 	std::pair<Connections::iterator, Connections::iterator> connectedDevices = _connections.equal_range(log);
 	_connections.erase(connectedDevices.first, connectedDevices.second);
-#ifdef LOG_DISPATCHER_DEBUG_MESSAGES_ON
+#ifdef ISL_LOG_DEBUGGING
 	if (connectedDevices.first != _connections.end()) {
-		std::cout << "LogDispatcher::disconnectLogFromDevices(): Log has been disconnected from the log devices" << std::endl;
+		std::wclog << L"LogDispatcher::disconnectLogFromDevices(): Log has been disconnected from the log devices" << std::endl;
 	} else {
-		std::cout << "LogDispatcher::disconnectLogFromDevices(): Log is already disconnected from the log devices" << std::endl;
+		std::wclog << L"LogDispatcher::disconnectLogFromDevices(): Log is already disconnected from the log devices" << std::endl;
 	}
 #endif
 	sweepDevices();
@@ -127,8 +125,8 @@ void LogDispatcher::sweepDevices()
 		if (usedDevices.find(*devPos) == usedDevices.end()) {
 			delete (*devPos);
 			_devices.erase(*(devPos++));
-#ifdef LOG_DISPATCHER_DEBUG_MESSAGES_ON
-			std::cout << "Log device destroyed" << std::endl;
+#ifdef ISL_LOG_DEBUGGING
+			std::wclog << L"Log device destroyed" << std::endl;
 #endif
 		} else {
 			++devPos;

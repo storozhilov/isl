@@ -13,7 +13,27 @@ namespace isl
 
 Log Core::errorLog;
 Log Core::warningLog;
-Log Core::debugLog;
+Core::DebugLog Core::debugLog;
+
+
+void Core::DebugLog::log(const AbstractLogMessage& msg)
+{
+#ifdef ISL_CORE_DEBUGGING
+	Log::log(msg);
+#endif
+}
+void Core::DebugLog::log(const std::string& msg)
+{
+#ifdef ISL_CORE_DEBUGGING
+	Log::log(msg);
+#endif
+}
+void Core::DebugLog::log(const std::wstring& msg)
+{
+#ifdef ISL_CORE_DEBUGGING
+	Log::log(msg);
+#endif
+}
 
 void Core::daemonize()
 {

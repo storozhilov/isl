@@ -77,10 +77,6 @@ private:
 	virtual size_t writeImplementation(const char * buffer, size_t bufferSize, const Timeout& timeout);
 
 	int _descriptor;
-	std::wstring _localAddress;
-	unsigned int _localPort;
-	std::wstring _remoteAddress;
-	unsigned int _remotePort;
 	std::auto_ptr<TcpAddrInfo> _localAddr;
 	std::auto_ptr<TcpAddrInfo> _remoteAddr;
 	bool _connected;

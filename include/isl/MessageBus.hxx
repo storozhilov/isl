@@ -36,6 +36,30 @@ public:
 		MessageQueue<Msg, Cloner>& _queue;
 	};
 
+	class SubscriberListReleaser
+	{
+	public:
+		SubscriberListReleaser() :
+			_subscribers()
+		{}
+		~SubscriberListReleaser()
+		{
+			for (typename SuscriberList::iterator i = _subscribers.begin(); i != _subscribers.end(); ++i) {
+				delete (*i);
+			}
+		}
+
+		void addSubscriber(Subscriber * subscriber)
+		{
+			_subscribers.push_back(subscriber);
+		}
+	private:
+		typedef std::list<Subscriber *> SuscriberList;
+		
+		SuscriberList _subscribers;
+	};
+
+
 	enum Constants {
 		DefaultMaxSubscriptionsAmount = 1024
 	};
@@ -44,6 +68,8 @@ public:
 		_maxSubscriptionsAmount(maxSubscriptionsAmount),
 		_subscriptions(),
 		_subscriptionsRwLock()
+	{}
+	virtual ~MessageBus()
 	{}
 
 	void subscribe(MessageQueue<Msg, Cloner>& queue)
@@ -75,6 +101,9 @@ public:
 
 	size_t push(const Msg& msg)
 	{
+		if (!isAccepting(msg)) {
+			return 0;
+		}
 		size_t recipientsCount = 0;
 		ReadLocker locker(_subscriptionsRwLock);
 		for (typename Subscriptions::iterator i = _subscriptions.begin(); i != _subscriptions.end(); ++i) {
@@ -83,6 +112,11 @@ public:
 			}
 		}
 		return recipientsCount;
+	}
+protected:
+	virtual bool isAccepting(const Msg& /*msg*/)
+	{
+		return true;
 	}
 private:
 	MessageBus(const MessageBus&);					// No copy
