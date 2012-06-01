@@ -52,7 +52,8 @@ size_t HttpMessageStreamReader::read(char * buffer, size_t bufferSize, const Tim
 {
 	// Checking parser to be in a valid state
 	if (isBad()) {
-		throw Exception(Error(SOURCE_LOCATION_ARGS, L"Bad HTTP-message detected"));
+		//throw Exception(Error(SOURCE_LOCATION_ARGS, L"Bad HTTP-message detected"));
+		throw Exception(Error(SOURCE_LOCATION_ARGS, _parsingError));
 	}
 	// Resetting reader/parser if previous message has been completed
 	if (isCompleted()) {

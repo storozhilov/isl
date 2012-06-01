@@ -36,6 +36,8 @@ public:
 		setWorkersAmount(newValue * 2);
 	}
 protected:
+	class AbstractReceiverTask;
+	class AbstractSenderTask;
 	//! Connection, which is to be thread-safely erased during sender's and receiver's destructor invocations. Feel free to subclass.
 	class Connection
 	{
@@ -43,23 +45,55 @@ protected:
 		Connection(TcpSocket * socketPtr) :
 			_socket(socketPtr),
 			_refsCount(0),
-			_refsCountMutex()
+			_refsCountMutex(),
+			_shouldTerminate(false),
+			_shouldTerminateRwLock(),
+			_receiverTask(),
+			_senderTask()
 		{}
 		virtual ~Connection()
 		{}
-		int incRef()
+//		inline int incRef()
+//		{
+//			MutexLocker locker(_refsCountMutex);
+//			return ++_refsCount;
+//		}
+//		inline int decRef()
+//		{
+//			MutexLocker locker(_refsCountMutex);
+//			return --_refsCount;
+//		}
+//		inline void setReceiverTask(AbstractReceiverTask& receiverTask)
+//		{
+//			_receiverTask = &receiverTask;
+//		}
+		inline AbstractReceiverTask& receiverTask()
 		{
-			MutexLocker locker(_refsCountMutex);
-			return ++_refsCount;
+			return *_receiverTask;
 		}
-		int decRef()
+//		inline void setSenderTask(AbstractSenderTask& senderTask)
+//		{
+//			_senderTask = &senderTask;
+//		}
+		inline AbstractSenderTask& senderTask()
 		{
-			MutexLocker locker(_refsCountMutex);
-			return --_refsCount;
+			return *_senderTask;
 		}
-		TcpSocket& socket()
+		inline TcpSocket& socket()
 		{
 			return *_socket.get();
+		}
+		inline bool shouldTerminate() const
+		{
+			ReadLocker locker(_shouldTerminateRwLock);
+			return _shouldTerminate;
+		}
+		inline bool setShouldTerminate(bool newValue)
+		{
+			WriteLocker locker(_shouldTerminateRwLock);
+			bool oldValue = _shouldTerminate;
+			_shouldTerminate = newValue;
+			return oldValue;
 		}
 	private:
 		Connection();
@@ -67,9 +101,27 @@ protected:
 
 		Connection& operator=(const Connection&);					// No copy
 
+		inline int incRef()
+		{
+			MutexLocker locker(_refsCountMutex);
+			return ++_refsCount;
+		}
+		inline int decRef()
+		{
+			MutexLocker locker(_refsCountMutex);
+			return --_refsCount;
+		}
+
 		std::auto_ptr<TcpSocket> _socket;
 		int _refsCount;
 		Mutex _refsCountMutex;
+		bool _shouldTerminate;
+		mutable ReadWriteLock _shouldTerminateRwLock;
+		AbstractReceiverTask * _receiverTask;
+		AbstractSenderTask * _senderTask;
+
+		friend class AbstractReceiverTask;
+		friend class AbstractSenderTask;
 	};
 
 	//! Asynchronous TCP-service listener thread. Feel free to subclass.
@@ -163,6 +215,7 @@ protected:
 			_service(service),
 			_connection(connection)
 		{
+			_connection->_receiverTask = this;
 			_connection->incRef();
 		}
 		virtual ~AbstractReceiverTask()
@@ -191,7 +244,7 @@ protected:
 		// Returns true if task should be terminated
 		inline bool shouldTerminate() const
 		{
-			return _service.shouldTerminate();
+			return _service.shouldTerminate() || _connection->shouldTerminate();
 		}
 	private:
 		AbstractReceiverTask();
@@ -215,6 +268,7 @@ protected:
 			_service(service),
 			_connection(connection)
 		{
+			_connection->_senderTask = this;
 			_connection->incRef();
 		}
 		virtual ~AbstractSenderTask()
@@ -243,7 +297,7 @@ protected:
 		// Returns true if task should be terminated
 		inline bool shouldTerminate() const
 		{
-			return _service.shouldTerminate();
+			return _service.shouldTerminate() || _connection->shouldTerminate();
 		}
 	private:
 		AbstractSenderTask();

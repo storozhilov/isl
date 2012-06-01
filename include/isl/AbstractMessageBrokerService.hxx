@@ -271,7 +271,7 @@ protected:
 		virtual void execute(TaskDispatcherType::WorkerThread& worker)
 		{
 			isl::Core::debugLog.log(isl::DebugLogMessage(SOURCE_LOCATION_ARGS, L"Sender task execution has been started"));
-			std::auto_ptr<asd::Message> currentMessageAutoPtr;
+			std::auto_ptr<Msg> currentMessageAutoPtr;
 			bool sendingMessage = false;
 			typename MessageBusType::SubscriberListReleaser subscriberListReleaser;
 			for (typename MessageBusList::iterator i = _service._inputMessageBuses.begin(); i != _service._inputMessageBuses.end(); ++i) {

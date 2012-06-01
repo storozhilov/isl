@@ -12,50 +12,30 @@ namespace isl
 class AbstractLogMessage
 {
 public:
-	AbstractLogMessage() :
-		_message(),
-		_messageComposed(false)
-	{}
-	virtual ~AbstractLogMessage()
-	{}
+	AbstractLogMessage();
+	virtual ~AbstractLogMessage();
 
 	//! Returns log message
-	inline const wchar_t * message() const
-	{
-		if (!_messageComposed) {
-			_message = composeMessage();
-			_messageComposed = true;
-		}
-		return _message.c_str();
-	}
-
+	const wchar_t * message() const;
+protected:
 	//! Composes & returns log message
-	virtual std::wstring composeMessage() const = 0;
+	virtual std::wstring compose() const = 0;
 private:
 	mutable std::wstring _message;
-	mutable bool _messageComposed;
+	mutable bool _isComposed;
 };
 
-//! Basic log message (just "for love of the game")
+//! Basic log message
 class LogMessage : public AbstractLogMessage
 {
 public:
-	LogMessage(const std::string& info) :
-		AbstractLogMessage(),
-		_info(String::utf8Decode(info))
-	{}
-	LogMessage(const std::wstring& info) :
-		AbstractLogMessage(),
-		_info(info)
-	{}
-	
-	//! Composes and returns notification log message
-	virtual std::wstring composeMessage() const
-	{
-		return _info;
-	}
+	LogMessage(const std::string& info);
+	LogMessage(const std::wstring& info);
 private:
 	LogMessage();
+	
+	//! Composes and returns notification log message
+	virtual std::wstring compose() const;
 
 	const std::wstring _info;
 };
@@ -64,12 +44,7 @@ private:
 class AbstractDebugLogMessage : public AbstractLogMessage
 {
 public:
-	AbstractDebugLogMessage(SOURCE_LOCATION_ARGS_DECLARATION) :
-		AbstractLogMessage(),
-		_file(SOURCE_LOCATION_ARGS_FILE),
-		_line(SOURCE_LOCATION_ARGS_LINE),
-		_function(SOURCE_LOCATION_ARGS_FUNCTION)
-	{}
+	AbstractDebugLogMessage(SOURCE_LOCATION_ARGS_DECLARATION);
 
 	//! Returns source code filename where the message was created
 	inline const char * file() const throw()
@@ -88,12 +63,7 @@ public:
 	}
 protected:
 	//! Composing string with source code filename, line number and function name help function
-	std::wstring composeSourceLocation() const
-	{
-		std::wostringstream sstr;
-		sstr << String::utf8Decode(_file) << L'(' << _line << L"), " << String::utf8Decode(_function) << L": ";
-		return sstr.str();
-	}
+	std::wstring composeSourceLocation() const;
 private:
 	AbstractDebugLogMessage();
 
@@ -106,24 +76,13 @@ private:
 class DebugLogMessage : public AbstractDebugLogMessage
 {
 public:
-	DebugLogMessage(SOURCE_LOCATION_ARGS_DECLARATION, const std::string& info) :
-		AbstractDebugLogMessage(SOURCE_LOCATION_ARGS_PASSTHRU),
-		_info(String::utf8Decode(info))
-	{}
-	DebugLogMessage(SOURCE_LOCATION_ARGS_DECLARATION, const std::wstring& info) :
-		AbstractDebugLogMessage(SOURCE_LOCATION_ARGS_PASSTHRU),
-		_info(info)
-	{}
-
-	//! Composes and returns debug log message
-	virtual std::wstring composeMessage() const
-	{
-		std::wstring result(composeSourceLocation());
-		result += _info;
-		return result;
-	}
+	DebugLogMessage(SOURCE_LOCATION_ARGS_DECLARATION, const std::string& info);
+	DebugLogMessage(SOURCE_LOCATION_ARGS_DECLARATION, const std::wstring& info);
 private:
 	DebugLogMessage();
+
+	//! Composes and returns debug log message
+	virtual std::wstring compose() const;
 
 	const std::wstring _info;
 };
@@ -132,39 +91,14 @@ private:
 class ExceptionLogMessage : public AbstractDebugLogMessage
 {
 public:
-	ExceptionLogMessage(SOURCE_LOCATION_ARGS_DECLARATION, const std::exception& expt) :
-		AbstractDebugLogMessage(SOURCE_LOCATION_ARGS_PASSTHRU),
-		_expt(expt),
-		_info()
-	{}
-	ExceptionLogMessage(SOURCE_LOCATION_ARGS_DECLARATION, const std::exception& expt, const std::string& info) :
-		AbstractDebugLogMessage(SOURCE_LOCATION_ARGS_PASSTHRU),
-		_expt(expt),
-		_info(String::utf8Decode(info))
-	{}
-	ExceptionLogMessage(SOURCE_LOCATION_ARGS_DECLARATION, const std::exception& expt, const std::wstring& info) :
-		AbstractDebugLogMessage(SOURCE_LOCATION_ARGS_PASSTHRU),
-		_expt(expt),
-		_info(info)
-	{}
-
-	//! Composes and returns exception log message (TODO More informative composition?)
-	virtual std::wstring composeMessage() const
-	{
-		std::wstring result(composeSourceLocation());
-		if (!_info.empty()) {
-			result += _info;
-		} else if (dynamic_cast<const Exception *>(&_expt)) {
-			result += L"isl::Exception instance has been thrown with following errors";
-		} else {
-			result += L"std::exception instance has been thrown with following errors";
-		}
-		result += L":\n";
-		result += String::utf8Decode(_expt.what());
-		return result;
-	}
+	ExceptionLogMessage(SOURCE_LOCATION_ARGS_DECLARATION, const std::exception& expt);
+	ExceptionLogMessage(SOURCE_LOCATION_ARGS_DECLARATION, const std::exception& expt, const std::string& info);
+	ExceptionLogMessage(SOURCE_LOCATION_ARGS_DECLARATION, const std::exception& expt, const std::wstring& info);
 private:
 	ExceptionLogMessage();
+
+	//! Composes and returns exception log message
+	virtual std::wstring compose() const;
 
 	const std::exception& _expt;
 	const std::wstring _info;
