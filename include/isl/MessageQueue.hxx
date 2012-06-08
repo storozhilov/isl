@@ -9,31 +9,44 @@
 namespace isl
 {
 
+//! Clones message using copying constructor
 template <typename Msg> class CopyMessageCloner
 {
 public:
+	//! Cloning message method
+	/*!
+	  \param msg Message to clone
+	  \return Pointer to the cloned message
+	*/
 	static Msg * clone(const Msg& msg)
 	{
 		return new Msg(msg);
 	}
 };
 
+//! Clones message using clone() method call
 template <typename Msg> class CloneMessageCloner
 {
 public:
+	//! Cloning message method
+	/*!
+	  \param msg Message to clone
+	  \return Pointer to the cloned message
+	*/
 	static Msg * clone(const Msg& msg)
 	{
 		return msg.clone();
 	}
 };
 
+//! Thread-safe message queue template class
 template <typename Msg, typename Cloner = CopyMessageCloner<Msg> > class MessageQueue
 {
 public:
 	enum Constants {
-		DefaultMaxSize = 1024
+		DefaultMaxSize = 1024			//!< Default message queue maximum size
 	};
-
+	//! List with messages
 	typedef std::list<Msg> MessageList;
 
 	MessageQueue() :
@@ -87,7 +100,7 @@ public:
 		return true;
 	}
 
-	size_t push(MessageList& msgs, bool allAcceptedOrNothing = false)
+	size_t push(MessageList& msgs, bool acceptAllOrNothing = false)
 	{
 		MutexLocker locker(_queueCond.mutex());
 		if (_queue.size() >= _maxSize) {
@@ -103,7 +116,8 @@ public:
 		if (acceptingMsgs.empty()) {
 			return 0;
 		}
-		if (allAcceptedOrNothing && (_queue.size() + acceptingMsgs.size() >= _maxSize)) {
+		if (acceptAllOrNothing && (_queue.size() + acceptingMsgs.size() >= _maxSize)) {
+			Core::errorLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, L"Maximum size of queue has been exceeded"));
 			return 0;
 		}
 		size_t acceptedAmount = 0;

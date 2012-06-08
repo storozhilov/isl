@@ -14,7 +14,7 @@ namespace isl
   Starting & stopping server could not be done directly by start() & stop() methods cause it should be done in main thread.
   You should use doStart(), doStop(), doExit() methods which are sends command to the main thread to make an appropriate action.
 
-  TODO Use MessageBus<Command> for commands queue!
+  TODO Use MessageQueue<Command> for commands queue!
 */
 class AbstractServer : public AbstractSubsystem
 {

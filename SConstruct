@@ -21,3 +21,8 @@ if os.environ.get('ISL_BUILD_EXAPMLES', '').upper() == 'YES' or os.environ.get('
 	SConscript(['src/SConscript', 'examples/Test/SConscript', 'examples/HttpServer/SConscript', 'examples/HttpCopy/SConscript'])
 else:
 	SConscript(['src/SConscript'])
+
+# Uninstall section
+env = Environment()
+uninstaller = env.Command('uninstall', None, Delete(env.FindInstalledFiles()))
+env.Alias('uninstall', uninstaller)
