@@ -147,6 +147,9 @@ public:
 			}
 			return msg;
 		}
+		if (timeout.isZero()) {
+			return std::auto_ptr<Msg>();
+		}
 		_queueCond.wait(timeout);
 		if (_queue.empty()) {
 			return std::auto_ptr<Msg>();

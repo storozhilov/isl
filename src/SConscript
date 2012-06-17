@@ -6,9 +6,9 @@ CPPPATH = '../include',
 LIBS = 'dl'
 )
 env.Append(ENV = {'PATH' : os.environ['PATH']})
-if os.environ.get('ISL_CORE_DEBUGGING', '').upper() == 'YES' or os.environ.get('ISL_CORE_DEBUGGING', '').upper() == 'ON':
+if GetOption('core-debugging') or os.environ.get('ISL_CORE_DEBUGGING', '').upper() == 'YES':
 	env.Append(CCFLAGS = '-DISL_CORE_DEBUGGING')
-if os.environ.get('ISL_LOG_DEBUGGING', '').upper() == 'YES' or os.environ.get('ISL_LOG_DEBUGGING', '').upper() == 'ON':
+if GetOption('log-debugging') or os.environ.get('ISL_LOG_DEBUGGING', '').upper() == 'YES':
 	env.Append(CCFLAGS = '-DISL_LOG_DEBUGGING')
 
 # Build section

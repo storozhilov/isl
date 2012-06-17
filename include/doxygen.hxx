@@ -23,9 +23,15 @@
 namespace isl
 {
 
-/*! \mainpage ISL - Internet Server Library, server development toolkit
+/*! \mainpage ISL - Internet Server Library, C++ server development toolkit
 
   \section intro_section Introduction
+
+  Every server application should run daemonized 24x7 in memory leak free multithread environment, have it's own UNIX signals
+  handler, thread-safe logging subsystem, thread-safe message queues/buses for inter-thread exchange, etc. In general terms
+  the architecture of any server application is composed from common design elements which are based on particular design
+  patterns. Server application developers facing the same challenges which solutions along with versatile tools must be
+  provided by easy to use toolkit. This toolkit is aimed to be an ISL project.
 
   TODO
 
