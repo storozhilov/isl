@@ -1,5 +1,4 @@
 #include <isl/AbstractMessageBroker.hxx>
-#include <isl/Core.hxx>
 #include <memory>
 #include <list>
 

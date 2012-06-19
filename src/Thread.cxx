@@ -1,10 +1,12 @@
+#include <isl/common.hxx>
 #include <isl/Thread.hxx>
 #include <isl/WaitCondition.hxx>
 #include <isl/Exception.hxx>
+#include <isl/Error.hxx>
 #include <isl/SystemCallError.hxx>
-#include <isl/Core.hxx>
+#include <isl/LogMessage.hxx>
+#include <isl/ExceptionLogMessage.hxx>
 #include <errno.h>
-#include <stdexcept>
 
 namespace isl
 {
@@ -90,17 +92,16 @@ void Thread::execute()
 	{
 		WriteLocker locker(_isRunningRWLock);
 		if (_isRunning) {
-			//throw Exception(new ThreadError(ThreadError::ThreadIsAlreadyRunning, this));
-			throw std::runtime_error("Thread is already running");
+			throw Exception(Error(SOURCE_LOCATION_ARGS, "Thread is already running"));
 		}
 		_isRunning = true;
 	}
 	try {
 		run();
 	} catch (std::exception& e) {
-		Core::errorLog.log(ExceptionLogMessage(SOURCE_LOCATION_ARGS, e, L"Thread execution error"));
+		errorLog().log(ExceptionLogMessage(SOURCE_LOCATION_ARGS, e, "Thread execution error"));
 	} catch (...) {
-		Core::errorLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, L"Thread execution unknown error"));
+		errorLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Thread execution unknown error"));
 	}
 	WriteLocker locker(_isRunningRWLock);
 	_isRunning = false;

@@ -53,7 +53,7 @@ public:
 	{
 		return _isBad;
 	}
-	inline std::wstring parsingError() const
+	inline std::string parsingError() const
 	{
 		return _parsingError;
 	}
@@ -111,7 +111,7 @@ public:
 	//! Resets reader
 	virtual void reset();
 protected:
-	inline void setIsBad(const std::wstring& parsingError)
+	inline void setIsBad(const std::string& parsingError)
 	{
 		_isBad = true;
 		_parsingError = parsingError;
@@ -148,7 +148,7 @@ private:
 	AbstractIODevice& _device;
 	ParserState _parserState;
 	bool _isBad;
-	std::wstring _parsingError;
+	std::string _parsingError;
 	size_t _pos;
 	size_t _line;
 	size_t _col;

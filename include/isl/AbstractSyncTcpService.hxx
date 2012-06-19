@@ -1,7 +1,10 @@
 #ifndef ISL__ABSTRACT_SYNC_TCP_SERVICE__HXX
 #define ISL__ABSTRACT_SYNC_TCP_SERVICE__HXX
 
+#include <isl/common.hxx>
 #include <isl/AbstractTcpService.hxx>
+#include <isl/LogMessage.hxx>
+#include <isl/ExceptionLogMessage.hxx>
 
 namespace isl
 {
@@ -59,46 +62,46 @@ protected:
 		virtual void run()
 		{
 			onStart();
-			Core::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, L"Listener thread has been started"));
+			debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Listener thread has been started"));
 			try {
 				TcpSocket serverSocket;
-				Core::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, L"Server socket has been created"));
+				debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Server socket has been created"));
 				serverSocket.open();
-				Core::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, L"Server socket has been opened"));
+				debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Server socket has been opened"));
 				serverSocket.bind(addrInfo());
-				Core::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, L"Server socket has been binded"));
+				debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Server socket has been binded"));
 				serverSocket.listen(backLog());
-				Core::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, L"Server socket has been switched to the listening state"));
+				debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Server socket has been switched to the listening state"));
 				while (true) {
 					if (shouldTerminate()) {
-						Core::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, L"TCP-service termination state detected before accepting TCP-connection -> exiting from listener thread"));
+						debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "TCP-service termination state detected before accepting TCP-connection -> exiting from listener thread"));
 						break;
 					}
 					std::auto_ptr<TcpSocket> socketAutoPtr(serverSocket.accept(listenTimeout()));
 					if (shouldTerminate()) {
-						Core::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, L"TCP-service termination state detected after accepting TCP-connection -> exiting from listener thread"));
+						debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "TCP-service termination state detected after accepting TCP-connection -> exiting from listener thread"));
 						break;
 					}
 					if (!socketAutoPtr.get()) {
 						// Accepting TCP-connection timeout expired
 						continue;
 					}
-					std::wostringstream msg;
-					msg << L"TCP-connection has been received from " << String::utf8Decode(socketAutoPtr.get()->remoteAddr().firstEndpoint().host) << L':' <<
-						socketAutoPtr.get()->remoteAddr().firstEndpoint().port << std::endl;
-					Core::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, msg.str()));
+					std::ostringstream msg;
+					msg << "TCP-connection has been received from " << socketAutoPtr.get()->remoteAddr().firstEndpoint().host << ':' <<
+						socketAutoPtr.get()->remoteAddr().firstEndpoint().port;
+					debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, msg.str()));
 					std::auto_ptr<AbstractTaskType> taskAutoPtr(_service.createTask(socketAutoPtr.get(), *this));
 					socketAutoPtr.release();
 					if (taskDispatcher().perform(taskAutoPtr.get())) {
 						taskAutoPtr.release();
 					} else {
-						Core::warningLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, L"Too many TCP-connection requests"));
+						warningLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Too many TCP-connection requests"));
 					}
 				}
 			} catch (std::exception& e) {
-				Core::errorLog.log(ExceptionLogMessage(SOURCE_LOCATION_ARGS, e, L"Synchronous TCP-service listener execution error -> exiting from listener thread"));
+				errorLog().log(ExceptionLogMessage(SOURCE_LOCATION_ARGS, e, "Synchronous TCP-service listener execution error -> exiting from listener thread"));
 			} catch (...) {
-				Core::errorLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, L"Synchronous TCP-service listener unknown execution error -> exiting from listener thread"));
+				errorLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Synchronous TCP-service listener unknown execution error -> exiting from listener thread"));
 			}
 			onStop();
 		}
@@ -171,21 +174,21 @@ private:
 
 	virtual void beforeStart()
 	{
-		Core::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, L"Starting synchronous TCP-service"));
+		debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Starting synchronous TCP-service"));
 		AbstractTcpService::beforeStart();
 	}
 	virtual void afterStart()
 	{
-		Core::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, L"Synchronous TCP-service has been started"));
+		debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Synchronous TCP-service has been started"));
 	}
 	virtual void beforeStop()
 	{
-		Core::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, L"Stopping synchronous TCP-service"));
+		debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Stopping synchronous TCP-service"));
 	}
 	virtual void afterStop()
 	{
 		AbstractTcpService::afterStop();
-		Core::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, L"Synchronous TCP-service has been stopped"));
+		debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Synchronous TCP-service has been stopped"));
 	}
 };
 

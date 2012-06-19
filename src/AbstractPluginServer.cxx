@@ -1,8 +1,9 @@
+#include <isl/common.hxx>
 #include <isl/AbstractPluginServer.hxx>
+#include <isl/LogMessage.hxx>
 #include <isl/NameListReleaser.hxx>
 #include <isl/Exception.hxx>
 #include <isl/SystemCallError.hxx>
-#include <isl/Core.hxx>
 #include <fcntl.h>
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -11,8 +12,6 @@
 #include <dlfcn.h>
 #include <link.h>
 #include <sstream>
-
-#include <stdexcept>					// TODO Remove it
 
 namespace isl
 {
@@ -53,8 +52,7 @@ void AbstractPluginServer::setPluginsPath(const std::string& newValue)
 void AbstractPluginServer::loadPlugins()
 {
 	if (_pluginsLoaded) {
-		// TODO
-		throw std::runtime_error("Plugins already loaded");
+		throw Exception(Error(SOURCE_LOCATION_ARGS, "Plugins have been already loaded"));
 	}
 	//if (_pluginsPath.empty()) {
 	//	// TODO
@@ -65,8 +63,7 @@ void AbstractPluginServer::loadPlugins()
 		throw Exception(SystemCallError(SOURCE_LOCATION_ARGS, SystemCallError::Stat, errno));
 	}
 	if (!S_ISDIR(fileInfo.st_mode)) {
-		// TODO
-		throw std::runtime_error("Path to pluging should be directory");
+		throw Exception(Error(SOURCE_LOCATION_ARGS, "Path to pluging should be directory"));
 	}
 	struct ::dirent **nameList;
 	int pluginsAmount = scandir(_pluginsPath.c_str(), &nameList, AbstractPluginServer_filterDirEntry, alphasort);
@@ -84,25 +81,23 @@ void AbstractPluginServer::loadPlugins()
 		newPlugin.fileName += newPlugin.name;
 		newPlugin.handle = dlopen(newPlugin.fileName.c_str(), RTLD_LAZY);
 		if (!newPlugin.handle) {
-			Core::errorLog.log(L"Error load plugin library '" + String::utf8Decode(newPlugin.fileName) +
-					L"\': " + String::utf8Decode(dlerror()));
+			errorLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Error load plugin library '" + newPlugin.fileName + "\': " + dlerror()));
 			continue;
 		}
-		Core::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS,
-				L"Plugin library '" + String::utf8Decode(newPlugin.fileName) + L"' loaded successfully"));
+		debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Plugin library '" + newPlugin.fileName + "' loaded successfully"));
 		newPlugin.createFunc = reinterpret_cast<CreatePluginSubsystemFunction>(dlsym(newPlugin.handle, CreatePluginSubsystemFunctionName));
 		if (!newPlugin.createFunc) {
-			Core::errorLog.log(L"Error create plugin subsystem function lookup '" +
-					String::utf8Decode(CreatePluginSubsystemFunctionName) + L"\' in plugin library '" +
-					String::utf8Decode(newPlugin.fileName) + L"': " + String::utf8Decode(dlerror()));
+			errorLog().log(LogMessage(
+				SOURCE_LOCATION_ARGS,
+				std::string("Error create plugin subsystem function lookup '") + CreatePluginSubsystemFunctionName + "\' in plugin library '" + newPlugin.fileName +
+					"': " + dlerror()
+			));
 			continue;
 		}
-		Core::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, L"Create subsystem function '" +
-				String::utf8Decode(CreatePluginSubsystemFunctionName) + L"\' found in '" +
-				String::utf8Decode(newPlugin.fileName) + L'\''));
+		debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, std::string("Create subsystem function '") + CreatePluginSubsystemFunctionName + "\' found in '" + newPlugin.fileName + '\''));
 		newPlugin.subsystem = (*newPlugin.createFunc)(*this);
 		_plugins.push_back(newPlugin);
-		Core::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, L"Plugin '" + String::utf8Decode(newPlugin.fileName) + L"' loaded successfully"));
+		debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Plugin '" + newPlugin.fileName + "' loaded successfully"));
 	}
 	_pluginsLoaded = true;
 }
@@ -110,17 +105,14 @@ void AbstractPluginServer::loadPlugins()
 void AbstractPluginServer::unloadPlugins()
 {
 	if (!_pluginsLoaded) {
-		// TODO
-		throw std::runtime_error("Plugins already unloaded");
+		throw Exception(Error(SOURCE_LOCATION_ARGS, "Plugins already unloaded"));
 	}
 	for (Plugins::iterator i = _plugins.begin(); i != _plugins.end(); ++i) {
 		delete (*i).subsystem;
 		if (dlclose((*i).handle)) {
-			Core::errorLog.log(L"Error unload plugin '" + String::utf8Decode((*i).name) + L"' library: " +
-					String::utf8Decode(dlerror()));
+			errorLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Error unload plugin '" + (*i).name + "' library: " + dlerror()));
 		}
-		Core::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS,
-				L"Plugin '" + String::utf8Decode((*i).name) + L"' unloaded successfully"));
+		debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Plugin '" + (*i).name + "' unloaded successfully"));
 	}
 	_plugins.clear();
 	_pluginsLoaded = false;

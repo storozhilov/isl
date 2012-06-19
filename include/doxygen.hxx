@@ -29,9 +29,10 @@ namespace isl
 
   Every server application should run daemonized 24x7 in memory leak free multithread environment, have it's own UNIX signals
   handler, thread-safe logging subsystem, thread-safe message queues/buses for inter-thread exchange, etc. In general terms
-  the architecture of any server application is composed from common design elements which are based on particular design
-  patterns. Server application developers facing the same challenges which solutions along with versatile tools must be
-  provided by easy to use toolkit. This toolkit is aimed to be an ISL project.
+  the architecture of any server application is usually composed from common design elements which are based on
+  particular <a href="http://en.wikipedia.org/wiki/Software_design_pattern">design patterns</a>. Server application developers
+  facing the similar challenges where design solutions along with versatile tools must be provided by easy to use toolkit. This
+  toolkit is aimed to be an ISL project.
 
   TODO
 

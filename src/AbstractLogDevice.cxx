@@ -1,4 +1,5 @@
 #include <isl/AbstractLogDevice.hxx>
+#include <isl/AbstractLogMessage.hxx>
 
 namespace isl
 {
@@ -11,20 +12,13 @@ AbstractLogDevice::AbstractLogDevice() :
 	_writeMutex()
 {}
 
-//AbstractLogDevice::AbstractLogDevice() :
-//	_writeMutex()
-//{
-//	_writeMutex.setForkable(true);
-//}
-
 AbstractLogDevice::~AbstractLogDevice()
 {}
 
-void AbstractLogDevice::logMessage(const std::wstring& prefix, const std::wstring &msg)
+void AbstractLogDevice::logMessage(const Log& log, const AbstractLogMessage& msg)
 {
 	MutexLocker locker(_writeMutex);
-	writeMessage(prefix, msg);
+	writeMessage(log, msg);
 }
 
 } // namespace isl
-

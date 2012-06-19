@@ -10,6 +10,7 @@ namespace isl
 
 //! Time representation class
 /*!
+    TODO Nanosecond support
     TODO Timezone names/abbreviations support
 */
 class Time

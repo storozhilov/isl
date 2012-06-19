@@ -24,7 +24,7 @@ private:
 
 	FileLogDevice& operator=(const FileLogDevice&);
 
-	void writeMessage(const std::wstring& prefix, const std::wstring& msg);
+	virtual void writeMessage(const Log& log, const AbstractLogMessage& msg);
 
 	std::string _fileName;
 	int _fileDescriptor;

@@ -1,10 +1,10 @@
+#include <isl/common.hxx>
 #include <isl/AbstractIODevice.hxx>
-#include <isl/Core.hxx>
+#include <isl/LogMessage.hxx>
 #include <isl/Exception.hxx>
+#include <isl/Error.hxx>
 #include <isl/IOError.hxx>
 #include <cstring>
-
-#include <stdexcept>		// TODO Remove it
 
 namespace isl
 {
@@ -29,7 +29,7 @@ AbstractIODevice::~AbstractIODevice()
 void AbstractIODevice::open()
 {
 	if (_isOpen) {
-		Core::warningLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, L"I/O-device is already opened -> reopening the device"));
+		warningLog().log(LogMessage(SOURCE_LOCATION_ARGS, "I/O-device is already opened -> reopening the device"));
 		close();
 	}
 	openImplementation();
@@ -39,7 +39,7 @@ void AbstractIODevice::open()
 void AbstractIODevice::close()
 {
 	if (!_isOpen) {
-		Core::warningLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, L"I/O-device is already closed"));
+		warningLog().log(LogMessage(SOURCE_LOCATION_ARGS, "I/O-device is already closed"));
 		return;
 	}
 	closeImplementation();
@@ -79,8 +79,7 @@ void AbstractIODevice::ungetChar(char ch)
 	if (_readBufferPos > 0) {
 		--_readBufferPos;
 	} else if (_ungetBuffer.size() >= UngetBufferSize) {
-		// TODO Use 'isl::Exception' class instead
-		throw std::runtime_error("I/O-device unget buffer overflow");
+		throw Exception(Error(SOURCE_LOCATION_ARGS, "I/O-device unget buffer overflow"));
 	} else {
 		_ungetBuffer.push_back(ch);
 	}

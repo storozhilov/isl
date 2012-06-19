@@ -293,11 +293,11 @@ Date Date::fromSecondsFromEpoch(time_t nsecs, bool isLocalTime)
 	tm bdts;
 	if (isLocalTime) {
 		if (localtime_r(&nsecs, &bdts) == NULL) {
-			throw Exception(SystemCallError(SOURCE_LOCATION_ARGS, SystemCallError::LocalTimeR, errno, L"Error converting time_t to local time"));
+			throw Exception(SystemCallError(SOURCE_LOCATION_ARGS, SystemCallError::LocalTimeR, errno, "Error converting time_t to local time"));
 		}
 	} else {
 		if (gmtime_r(&nsecs, &bdts) == NULL) {
-			throw Exception(SystemCallError(SOURCE_LOCATION_ARGS, SystemCallError::LocalTimeR, errno, L"Error converting time_t to GMT"));
+			throw Exception(SystemCallError(SOURCE_LOCATION_ARGS, SystemCallError::LocalTimeR, errno, "Error converting time_t to GMT"));
 		}
 	}
 	return Date(bdts.tm_year + 1900, bdts.tm_mon + 1, bdts.tm_mday);
@@ -308,11 +308,11 @@ Date Date::now()
 	struct timeval tv;
 	struct timezone tz;
 	if (gettimeofday(&tv, &tz) != 0) {
-		throw Exception(SystemCallError(SOURCE_LOCATION_ARGS, SystemCallError::GetTimeOfDay, errno, L"Fetching time of day error"));
+		throw Exception(SystemCallError(SOURCE_LOCATION_ARGS, SystemCallError::GetTimeOfDay, errno, "Fetching time of day error"));
 	}
 	tm bdts;
 	if (localtime_r(&(tv.tv_sec), &bdts) == NULL) {
-		throw Exception(SystemCallError(SOURCE_LOCATION_ARGS, SystemCallError::LocalTimeR, errno, L"Error converting time_t to local time"));
+		throw Exception(SystemCallError(SOURCE_LOCATION_ARGS, SystemCallError::LocalTimeR, errno, "Error converting time_t to local time"));
 	}
 	return Date(bdts.tm_year + 1900, bdts.tm_mon + 1, bdts.tm_mday);
 }

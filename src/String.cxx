@@ -330,7 +330,7 @@ unsigned int String::toUnsignedInt(const std::string& str, bool * errorOccured, 
 				} else if (strToParse[curPos] >= 'A' && strToParse[curPos] <= 'F') {
 					newResult = result * 16 + strToParse[curPos] - 'A' + 10;
 				} else {
-					throw Exception(Error(SOURCE_LOCATION_ARGS, L"Invalid hex value"));
+					throw Exception(Error(SOURCE_LOCATION_ARGS, "Invalid hex value"));
 				}
 				if (newResult < result) {
 					// Integer overflow has been detected
@@ -343,7 +343,7 @@ unsigned int String::toUnsignedInt(const std::string& str, bool * errorOccured, 
 			}
 			break;
 		default:
-			throw Exception(Error(SOURCE_LOCATION_ARGS, L"Invalid base"));
+			throw Exception(Error(SOURCE_LOCATION_ARGS, "Invalid base"));
 	}
 	return result;
 }

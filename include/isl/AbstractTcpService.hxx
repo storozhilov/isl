@@ -1,11 +1,13 @@
 #ifndef ISL__ABSTRACT_TCP_SERVICE__HXX
 #define ISL__ABSTRACT_TCP_SERVICE__HXX
 
+#include <isl/common.hxx>
 #include <isl/AbstractSubsystem.hxx>
 #include <isl/Timeout.hxx>
 #include <isl/TaskDispatcher.hxx>
 #include <isl/TcpAddrInfo.hxx>
 #include <isl/TcpSocket.hxx>
+#include <isl/LogMessage.hxx>
 #include <map>
 #include <list>
 #include <memory>
@@ -68,9 +70,9 @@ public:
 		WriteLocker locker(_listenerConfigsRwLock);
 		ListenerConfigs::iterator pos = _listenerConfigs.find(id);
 		if (pos == _listenerConfigs.end()) {
-			std::wostringstream oss;
-			oss << L"Listener (id = " << id << L") not found";
-			Core::warningLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, oss.str()));
+			std::ostringstream oss;
+			oss << "Listener (id = " << id << ") not found";
+			warningLog().log(LogMessage(SOURCE_LOCATION_ARGS, oss.str()));
 			return;
 		}
 		pos->second.addrInfo = addrInfo;
@@ -87,9 +89,9 @@ public:
 		WriteLocker locker(_listenerConfigsRwLock);
 		ListenerConfigs::iterator pos = _listenerConfigs.find(id);
 		if (pos == _listenerConfigs.end()) {
-			std::wostringstream oss;
-			oss << L"Listener (id = " << id << L") not found";
-			Core::warningLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, oss.str()));
+			std::ostringstream oss;
+			oss << "Listener (id = " << id << ") not found";
+			warningLog().log(LogMessage(SOURCE_LOCATION_ARGS, oss.str()));
 			return;
 		}
 		_listenerConfigs.erase(pos);
@@ -201,7 +203,7 @@ protected:
 	//! Creates listeners
 	virtual void beforeStart()
 	{
-		Core::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, L"Creating listeners"));
+		debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Creating listeners"));
 		{
 			ReadLocker locker(_listenerConfigsRwLock);
 			for (ListenerConfigs::const_iterator i = _listenerConfigs.begin(); i != _listenerConfigs.end(); ++i) {
@@ -210,14 +212,14 @@ protected:
 				newListenerAutoPtr.release();
 			}
 		}
-		Core::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, L"Listeners have been created"));
+		debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Listeners have been created"));
 	}
 	//! Destroys listeners
 	virtual void afterStop()
 	{
-		Core::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, L"Destroying listeners"));
+		debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Destroying listeners"));
 		resetListenerThreads();
-		Core::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, L"Listeners have been destroyed"));
+		debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Listeners have been destroyed"));
 	}
 	//! Creating listener factory method
 	/*!

@@ -1,5 +1,6 @@
 #define LIBISL__DEBUGGING_ON 1
 
+#include <isl/common.hxx>
 #include <isl/LogMessage.hxx>
 #include <isl/TcpAddrInfo.hxx>
 #include <isl/TcpSocket.hxx>
@@ -7,7 +8,6 @@
 #include <isl/SystemCallError.hxx>
 #include <isl/Http.hxx>
 #include <isl/FileLogTarget.hxx>
-#include <isl/Core.hxx>
 #include <isl/DateTime.hxx>
 #include <isl/Time.hxx>
 #include <isl/Date.hxx>
@@ -15,7 +15,6 @@
 #include <isl/HttpRequestStreamReader.hxx>
 //#include <isl/Timeout.hxx>
 //#include <isl/FileLogTarget.hxx>
-//#include <isl/Core.hxx>
 //#include <isl/AbstractHTTPTask.hxx>
 //#include "SourceBrowserServer.hxx"
 
@@ -190,7 +189,7 @@ int main(int argc, char *argv[])
 {
 	std::cout << "Test executable has been started" << std::endl;
 
-	isl::Core::debugLog.connectTarget(isl::FileLogTarget("test.log"));
+	isl::debugLog().connectTarget(isl::FileLogTarget("test.log"));
 
 	//testDateTime();
 	testTcpEndpoint();

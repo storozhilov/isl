@@ -22,7 +22,7 @@ ReadWriteLock::ReadWriteLock()
 ReadWriteLock::~ReadWriteLock()
 {
 	if (int errorCode = pthread_rwlock_destroy(&_lock)) {
-		std::wcerr << SystemCallError(SOURCE_LOCATION_ARGS, SystemCallError::PThreadRWLockDestroy, errorCode).message() << std::endl;
+		std::cerr << SystemCallError(SOURCE_LOCATION_ARGS, SystemCallError::PThreadRWLockDestroy, errorCode).message() << std::endl;
 	}
 }
 

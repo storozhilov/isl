@@ -21,7 +21,7 @@ Mutex::Mutex()
 Mutex::~Mutex()
 {
 	if (int errorCode = pthread_mutex_destroy(&_mutex)) {
-		std::wcerr << SystemCallError(SOURCE_LOCATION_ARGS, SystemCallError::PThreadMutexDestroy, errorCode).message() << std::endl;
+		std::cerr << SystemCallError(SOURCE_LOCATION_ARGS, SystemCallError::PThreadMutexDestroy, errorCode).message() << std::endl;
 	}
 }
 

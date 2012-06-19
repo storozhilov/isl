@@ -1,7 +1,7 @@
 #ifndef ISL__ABSTRACT_MESSAGE_BROKER_CONNECTION__HXX
 #define ISL__ABSTRACT_MESSAGE_BROKER_CONNECTION__HXX
 
-#include <isl/Core.hxx>
+#include <isl/common.hxx>
 #include <isl/TcpSocket.hxx>
 #include <isl/TcpAddrInfo.hxx>
 #include <isl/AbstractSubsystem.hxx>
@@ -10,6 +10,8 @@
 #include <isl/MessageQueue.hxx>
 #include <isl/MessageBus.hxx>
 #include <isl/Error.hxx>
+#include <isl/LogMessage.hxx>
+#include <isl/ExceptionLogMessage.hxx>
 #include <memory>
 
 namespace isl
@@ -52,7 +54,7 @@ public:
 	{
 		MutexLocker locker(startStopMutex());
 		if (state() != IdlingState) {
-			throw Exception(Error(SOURCE_LOCATION_ARGS, L"Input message bus could be added while subsystem idling only"));
+			throw Exception(Error(SOURCE_LOCATION_ARGS, "Input message bus could be added while subsystem idling only"));
 		}
 		_inputMessageBuses.push_back(&bus);
 	}
@@ -60,11 +62,11 @@ public:
 	{
 		MutexLocker locker(startStopMutex());
 		if (state() != IdlingState) {
-			throw Exception(Error(SOURCE_LOCATION_ARGS, L"Input message bus could be removed while subsystem idling only"));
+			throw Exception(Error(SOURCE_LOCATION_ARGS, "Input message bus could be removed while subsystem idling only"));
 		}
 		typename MessageBusList::iterator pos = std::find(_inputMessageBuses.begin(), _inputMessageBuses.end(), &bus);
 		if (pos == _inputMessageBuses.end()) {
-			Core::errorLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, L"Input message bus not found in connection"));
+			errorLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Input message bus not found in connection"));
 			return;
 		}
 		_inputMessageBuses.erase(pos);
@@ -73,7 +75,7 @@ public:
 	{
 		MutexLocker locker(startStopMutex());
 		if (state() != IdlingState) {
-			throw Exception(Error(SOURCE_LOCATION_ARGS, L"Input message buses could be reset while subsystem idling only"));
+			throw Exception(Error(SOURCE_LOCATION_ARGS, "Input message buses could be reset while subsystem idling only"));
 		}
 		_inputMessageBuses.clear();
 	}
@@ -81,7 +83,7 @@ public:
 	{
 		MutexLocker locker(startStopMutex());
 		if (state() != IdlingState) {
-			throw Exception(Error(SOURCE_LOCATION_ARGS, L"Output message queue could be added while subsystem idling only"));
+			throw Exception(Error(SOURCE_LOCATION_ARGS, "Output message queue could be added while subsystem idling only"));
 		}
 		_outputMessageQueues.push_back(&queue);
 	}
@@ -89,11 +91,11 @@ public:
 	{
 		MutexLocker locker(startStopMutex());
 		if (state() != IdlingState) {
-			throw Exception(Error(SOURCE_LOCATION_ARGS, L"Output message queue could be removed while subsystem idling only"));
+			throw Exception(Error(SOURCE_LOCATION_ARGS, "Output message queue could be removed while subsystem idling only"));
 		}
 		typename MessageQueueList::iterator pos = std::find(_outputMessageQueues.begin(), _outputMessageQueues.end(), &queue);
 		if (pos == _outputMessageQueues.end()) {
-			Core::errorLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, L"Output message queue not found in connection"));
+			errorLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Output message queue not found in connection"));
 			return;
 		}
 		_outputMessageQueues.erase(pos);
@@ -102,7 +104,7 @@ public:
 	{
 		MutexLocker locker(startStopMutex());
 		if (state() != IdlingState) {
-			throw Exception(Error(SOURCE_LOCATION_ARGS, L"Output message queues could be reset while subsystem idling only"));
+			throw Exception(Error(SOURCE_LOCATION_ARGS, "Output message queues could be reset while subsystem idling only"));
 		}
 		_outputMessageQueues.clear();
 	}
@@ -110,7 +112,7 @@ public:
 	{
 		MutexLocker locker(startStopMutex());
 		if (state() != IdlingState) {
-			throw Exception(Error(SOURCE_LOCATION_ARGS, L"Output message bus could be added while subsystem idling only"));
+			throw Exception(Error(SOURCE_LOCATION_ARGS, "Output message bus could be added while subsystem idling only"));
 		}
 		_outputMessageBuses.push_back(&bus);
 	}
@@ -118,11 +120,11 @@ public:
 	{
 		MutexLocker locker(startStopMutex());
 		if (state() != IdlingState) {
-			throw Exception(Error(SOURCE_LOCATION_ARGS, L"Output message bus could be removed while subsystem idling only"));
+			throw Exception(Error(SOURCE_LOCATION_ARGS, "Output message bus could be removed while subsystem idling only"));
 		}
 		typename MessageBusList::iterator pos = std::find(_outputMessageBuses.begin(), _outputMessageBuses.end(), &bus);
 		if (pos == _outputMessageBuses.end()) {
-			Core::errorLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, L"Output message bus not found in connection"));
+			errorLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Output message bus not found in connection"));
 			return;
 		}
 		_outputMessageBuses.erase(pos);
@@ -131,7 +133,7 @@ public:
 	{
 		MutexLocker locker(startStopMutex());
 		if (state() != IdlingState) {
-			throw Exception(Error(SOURCE_LOCATION_ARGS, L"Output message buses could be reset while subsystem idling only"));
+			throw Exception(Error(SOURCE_LOCATION_ARGS, "Output message buses could be reset while subsystem idling only"));
 		}
 		_outputMessageBuses.clear();
 	}
@@ -139,7 +141,7 @@ public:
 	{
 		MutexLocker locker(startStopMutex());
 		if (state() != IdlingState) {
-			throw Exception(Error(SOURCE_LOCATION_ARGS, L"Server address info could be set while subsystem idling only"));
+			throw Exception(Error(SOURCE_LOCATION_ARGS, "Server address info could be set while subsystem idling only"));
 		}
 		_serverAddrInfo = newValue;
 	}
@@ -160,17 +162,17 @@ protected:
 	protected:
 		virtual void onConnected()
 		{
-			std::wostringstream msg;
-			msg << L"TCP-connection to " << String::utf8Decode(_connection._serverAddrInfo.firstEndpoint().host) << L':' <<
-				_connection._serverAddrInfo.firstEndpoint().port << L" has been successfully established";
-			Core::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, msg.str()));
+			std::ostringstream msg;
+			msg << "TCP-connection to " << _connection._serverAddrInfo.firstEndpoint().host << ':' <<
+				_connection._serverAddrInfo.firstEndpoint().port << " has been successfully established";
+			debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, msg.str()));
 		}
 		virtual void onDisconnected(bool isConnectionAborted)
 		{
-			std::wostringstream msg;
-			msg << L"TCP-connection to " << String::utf8Decode(_connection._serverAddrInfo.firstEndpoint().host) << L':' <<
-				_connection._serverAddrInfo.firstEndpoint().port << L" server " << (isConnectionAborted ? L"has been aborted" : L"has been closed");
-			Core::errorLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, msg.str()));
+			std::ostringstream msg;
+			msg << "TCP-connection to " << _connection._serverAddrInfo.firstEndpoint().host << ':' <<
+				_connection._serverAddrInfo.firstEndpoint().port << " server " << (isConnectionAborted ? "has been aborted" : "has been closed");
+			errorLog().log(LogMessage(SOURCE_LOCATION_ARGS, msg.str()));
 		}
 		virtual bool onReceiveMessage(const Msg& /*msg*/)
 		{
@@ -182,28 +184,28 @@ protected:
 		{}
 		virtual void onConnectException(std::exception * e = 0)
 		{
-			std::wostringstream msg;
-			msg << L"Connecting to " << String::utf8Decode(_connection._serverAddrInfo.firstEndpoint().host) << L':' <<
-				_connection._serverAddrInfo.firstEndpoint().port << L" server ";
+			std::ostringstream msg;
+			msg << "Connecting to " << _connection._serverAddrInfo.firstEndpoint().host << ':' <<
+				_connection._serverAddrInfo.firstEndpoint().port << " server ";
 			if (e) {
-				msg << L"error";
-				Core::errorLog.log(ExceptionLogMessage(SOURCE_LOCATION_ARGS, *e, msg.str()));
+				msg << "error";
+				errorLog().log(ExceptionLogMessage(SOURCE_LOCATION_ARGS, *e, msg.str()));
 			} else {
-				msg << L"unknown error";
-				Core::errorLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, msg.str()));
+				msg << "unknown error";
+				errorLog().log(LogMessage(SOURCE_LOCATION_ARGS, msg.str()));
 			}
 		}
 		virtual void onReceiveDataException(std::exception * e = 0)
 		{
-			std::wostringstream msg;
-			msg << L"Receiving data from " << String::utf8Decode(_connection._serverAddrInfo.firstEndpoint().host) << L':' <<
-				_connection._serverAddrInfo.firstEndpoint().port << L" server ";
+			std::ostringstream msg;
+			msg << "Receiving data from " << _connection._serverAddrInfo.firstEndpoint().host << ':' <<
+				_connection._serverAddrInfo.firstEndpoint().port << " server ";
 			if (e) {
-				msg << L"error -> reestablishing connection";
-				Core::errorLog.log(ExceptionLogMessage(SOURCE_LOCATION_ARGS, *e, msg.str()));
+				msg << "error -> reestablishing connection";
+				errorLog().log(ExceptionLogMessage(SOURCE_LOCATION_ARGS, *e, msg.str()));
 			} else {
-				msg << L"unknown error -> reestablishing connection";
-				Core::errorLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, msg.str()));
+				msg << "unknown error -> reestablishing connection";
+				errorLog().log(LogMessage(SOURCE_LOCATION_ARGS, msg.str()));
 			}
 		}
 
@@ -211,12 +213,12 @@ protected:
 	private:
 		virtual void run()
 		{
-			Core::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, L"Receiver thread has been started"));
+			debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Receiver thread has been started"));
 			_connection._socket.open();
-			Core::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, L"Socket has been opened"));
+			debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Socket has been opened"));
 			while (true) {
 				if (shouldTerminate()) {
-					Core::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, L"Message broker connection termination has been detected -> exiting from receiver thread"));
+					debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Message broker connection termination has been detected -> exiting from receiver thread"));
 					break;
 				}
 				if (_connection._socket.connected()) {
@@ -236,13 +238,13 @@ protected:
 						_connection._socket.open();
 					}
 					if (msgAutoPtr.get()) {
-						std::wostringstream oss;
-						oss << L"Message from " << String::utf8Decode(_connection._serverAddrInfo.firstEndpoint().host) << L':' <<
-							_connection._serverAddrInfo.firstEndpoint().port << L" server has been received";
-						Core::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, oss.str()));
+						std::ostringstream oss;
+						oss << "Message from " << _connection._serverAddrInfo.firstEndpoint().host << ':' <<
+							_connection._serverAddrInfo.firstEndpoint().port << " server has been received";
+						debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, oss.str()));
 						// Calling on receive message event callback
 						if (!onReceiveMessage(*msgAutoPtr.get())) {
-							Core::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, L"Message has been rejected by the on receive event handler"));
+							debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Message has been rejected by the on receive event handler"));
 							continue;
 						}
 						// Sending message to all output message queues
@@ -275,7 +277,7 @@ protected:
 			}
 			if (_connection._socket.connected()) {
 				_connection._socket.close();
-				Core::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, L"Socket has been closed"));
+				debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Socket has been closed"));
 				onDisconnected(false);
 			}
 		}
@@ -306,15 +308,15 @@ protected:
 		{}
 		virtual void onSendDataException(std::exception * e = 0)
 		{
-			std::wostringstream msg;
-			msg << L"Sending data to " << String::utf8Decode(_connection._serverAddrInfo.firstEndpoint().host) << L':' <<
-				_connection._serverAddrInfo.firstEndpoint().port << L" server ";
+			std::ostringstream msg;
+			msg << "Sending data to " << _connection._serverAddrInfo.firstEndpoint().host << ':' <<
+				_connection._serverAddrInfo.firstEndpoint().port << " server ";
 			if (e) {
-				msg << L"error";
-				Core::errorLog.log(ExceptionLogMessage(SOURCE_LOCATION_ARGS, *e, msg.str()));
+				msg << "error";
+				errorLog().log(ExceptionLogMessage(SOURCE_LOCATION_ARGS, *e, msg.str()));
 			} else {
-				msg << L"unknown error";
-				Core::errorLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, msg.str()));
+				msg << "unknown error";
+				errorLog().log(LogMessage(SOURCE_LOCATION_ARGS, msg.str()));
 			}
 		}
 
@@ -322,7 +324,7 @@ protected:
 	private:
 		virtual void run()
 		{
-			Core::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, L"Sender thread has been started"));
+			debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Sender thread has been started"));
 			std::auto_ptr<Msg> currentMessageAutoPtr;
 			bool sendingMessage = false;
 			typename MessageBusType::SubscriberListReleaser subscriberListReleaser;
@@ -330,11 +332,11 @@ protected:
 				std::auto_ptr<typename MessageBusType::Subscriber> subscriberAutoPtr(new typename MessageBusType::Subscriber(**i, _connection._inputQueue));
 				subscriberListReleaser.addSubscriber(subscriberAutoPtr.get());
 				subscriberAutoPtr.release();
-				Core::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, L"Sender thread's input queue  has been subscribed to the input message bus"));
+				debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Sender thread's input queue  has been subscribed to the input message bus"));
 			}
 			while (true) {
 				if (shouldTerminate()) {
-					Core::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, L"Message broker connection termination has been detected -> exiting from sender thread"));
+					debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Message broker connection termination has been detected -> exiting from sender thread"));
 					return;
 				}
 				if (sendingMessage) {
@@ -356,10 +358,10 @@ protected:
 						}
 						if (messageSent) {
 							sendingMessage = false;
-							std::wostringstream oss;
-							oss << L"Message to " << String::utf8Decode(_connection._serverAddrInfo.firstEndpoint().host) << L':'
-								<< _connection._serverAddrInfo.firstEndpoint().port << L" server has been sent";
-							Core::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, oss.str()));
+							std::ostringstream oss;
+							oss << "Message to " << _connection._serverAddrInfo.firstEndpoint().host << ':'
+								<< _connection._serverAddrInfo.firstEndpoint().port << " server has been sent";
+							debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, oss.str()));
 							onSendMessage(*currentMessageAutoPtr.get());
 						}
 					} else {
@@ -371,11 +373,11 @@ protected:
 					// Fetching message from the bus
 					currentMessageAutoPtr = _connection._inputQueue.pop(_connection._listeningInputQueueTimeout);
 					if (currentMessageAutoPtr.get()) {
-						Core::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, L"Message has been fetched from the input queue"));
+						debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Message has been fetched from the input queue"));
 						if (onReceiveMessage(*currentMessageAutoPtr.get())) {
 							sendingMessage = true;
 						} else {
-							Core::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, L"Message has been rejected by the on receive event handler"));
+							debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Message has been rejected by the on receive event handler"));
 						}
 					}
 				}
@@ -388,28 +390,28 @@ protected:
 
 	virtual void beforeStart()
 	{
-		Core::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, L"Opening a socket"));
+		debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Opening a socket"));
 		if (!_receiverThreadAutoPtr.get()) {
 			_receiverThreadAutoPtr = createReceiverThread();
-			Core::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, L"Receiver thread has been created"));
+			debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Receiver thread has been created"));
 		}
 		if (!_senderThreadAutoPtr.get()) {
 			_senderThreadAutoPtr = createSenderThread();
-			Core::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, L"Sender thread has been created"));
+			debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Sender thread has been created"));
 		}
-		Core::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, L"Starting message broker connection"));
+		debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Starting message broker connection"));
 	}
 	virtual void afterStart()
 	{
-		Core::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, L"Message broker connection has been started"));
+		debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Message broker connection has been started"));
 	}
 	virtual void beforeStop()
 	{
-		Core::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, L"Stopping message broker connection"));
+		debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Stopping message broker connection"));
 	}
 	virtual void afterStop()
 	{
-		Core::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, L"Message broker connection has been stopped"));
+		debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Message broker connection has been stopped"));
 	}
 
 	virtual std::auto_ptr<AbstractReceiverThread> createReceiverThread() = 0;

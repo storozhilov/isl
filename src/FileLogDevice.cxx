@@ -2,6 +2,8 @@
 #include <isl/FileLogTarget.hxx>
 #include <isl/Exception.hxx>
 #include <isl/SystemCallError.hxx>
+#include <isl/Log.hxx>
+#include <isl/AbstractLogMessage.hxx>
 #include <iostream>
 #include <iomanip>
 #include <sstream>
@@ -60,37 +62,30 @@ bool FileLogDevice::serving(const AbstractLogTarget * target) const
 
 }
 
-void FileLogDevice::writeMessage(const std::wstring& prefix, const std::wstring& msg)
+void FileLogDevice::writeMessage(const Log& log, const AbstractLogMessage& msg)
 {
-	DateTime now = DateTime::now();
 	bool isFirstLine = true;
 	size_t curPos = 0;
 	do {
-		size_t crlfPos = msg.find(L"\r\n", curPos);
-		size_t crPos = msg.find(L"\n", curPos);
+		size_t crlfPos = msg.message().find("\r\n", curPos);
+		size_t crPos = msg.message().find("\n", curPos);
 		size_t endlPos = (crlfPos < crPos) ? crlfPos : crPos;
-		std::wstring currentLine = msg.substr(curPos, endlPos - curPos);
-		curPos = (endlPos == std::wstring::npos) ? std::wstring::npos : ((crlfPos < crPos) ? endlPos + 2 : endlPos + 1);
-		std::string stringToWrite = now.toString("%Y-%m-%d %H:%M:%S.%f");
-		if (isFirstLine) {
-			stringToWrite += ": ";
-		} else {
-			stringToWrite += "> ";
+		std::string currentLine = msg.message().substr(curPos, endlPos - curPos);
+		curPos = (endlPos == std::string::npos) ? std::string::npos : ((crlfPos < crPos) ? endlPos + 2 : endlPos + 1);
+		std::ostringstream stringToWrite;
+		stringToWrite << msg.timestamp().toString("%Y-%m-%d %H:%M:%S.%f") << (isFirstLine ? ": " : "> ");
+		if (!log.prefix().empty()) {
+			stringToWrite << '[' << log.prefix() << "] ";
 		}
-		if (!prefix.empty()) {
-			stringToWrite += '[';
-			stringToWrite += String::utf8Encode(prefix);
-			stringToWrite += "] ";
+		if (log.composeSourceLocation()) {
+			stringToWrite << composeSourceLocation(msg.file(), msg.line(), msg.function()) << ": ";
 		}
-		stringToWrite += String::utf8Encode(currentLine);
-		stringToWrite += '\n';
-		if (write(_fileDescriptor, stringToWrite.data(), stringToWrite.size()) < 0) {
+		stringToWrite << currentLine << std::endl;
+		if (write(_fileDescriptor, stringToWrite.str().data(), stringToWrite.str().size()) < 0) {
 			throw Exception(SystemCallError(SOURCE_LOCATION_ARGS, SystemCallError::Write, errno));
 		}
 		isFirstLine = false;
-	} while (curPos != std::wstring::npos);
+	} while (curPos != std::string::npos);
 }
 
-
 } // namespace isl
-

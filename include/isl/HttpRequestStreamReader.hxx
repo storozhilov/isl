@@ -80,7 +80,7 @@ private:
 	virtual void appendToFirstToken(char ch)
 	{
 		if (_method.length() >= _maxMethodLength) {
-			setIsBad(L"Request method is too long");
+			setIsBad("Request method is too long");
 			return;
 		}
 		_method.append(1, ch);
@@ -92,7 +92,7 @@ private:
 	virtual void appendToSecondToken(char ch)
 	{
 		if (_uri.length() >= _maxUriLength) {
-			setIsBad(L"Request URI is too long");
+			setIsBad("Request URI is too long");
 			return;
 		}
 		_uri.append(1, ch);
@@ -104,7 +104,7 @@ private:
 	virtual void appendToThirdToken(char ch)
 	{
 		if (_version.length() >= _maxVersionLength) {
-			setIsBad(L"Request version is too long");
+			setIsBad("Request version is too long");
 			return;
 		}
 		_version.append(1, ch);

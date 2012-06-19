@@ -1,6 +1,5 @@
 #include <isl/Time.hxx>
 #include <isl/DateTime.hxx>
-#include <isl/Core.hxx>
 #include <isl/Exception.hxx>
 #include <isl/SystemCallError.hxx>
 #include <iomanip>
@@ -133,11 +132,11 @@ Time Time::fromSecondsFromEpoch(time_t nsecs, bool isLocalTime)
 	tm bdts;
 	if (isLocalTime) {
 		if (localtime_r(&nsecs, &bdts) == NULL) {
-			throw Exception(SystemCallError(SOURCE_LOCATION_ARGS, SystemCallError::LocalTimeR, errno, L"Error converting time_t to local time"));
+			throw Exception(SystemCallError(SOURCE_LOCATION_ARGS, SystemCallError::LocalTimeR, errno, "Error converting time_t to local time"));
 		}
 	} else {
 		if (gmtime_r(&nsecs, &bdts) == NULL) {
-			throw Exception(SystemCallError(SOURCE_LOCATION_ARGS, SystemCallError::LocalTimeR, errno, L"Error converting time_t to GMT"));
+			throw Exception(SystemCallError(SOURCE_LOCATION_ARGS, SystemCallError::LocalTimeR, errno, "Error converting time_t to GMT"));
 		}
 	}
 	return Time(bdts.tm_hour, bdts.tm_min, bdts.tm_sec, bdts.tm_gmtoff);
@@ -148,11 +147,11 @@ Time Time::now()
 	struct timeval tv;
 	struct timezone tz;
 	if (gettimeofday(&tv, &tz) != 0) {
-		throw Exception(SystemCallError(SOURCE_LOCATION_ARGS, SystemCallError::GetTimeOfDay, errno, L"Fetching time of day error"));
+		throw Exception(SystemCallError(SOURCE_LOCATION_ARGS, SystemCallError::GetTimeOfDay, errno, "Fetching time of day error"));
 	}
 	tm bdts;
 	if (localtime_r(&(tv.tv_sec), &bdts) == NULL) {
-		throw Exception(SystemCallError(SOURCE_LOCATION_ARGS, SystemCallError::LocalTimeR, errno, L"Error converting time_t to local time"));
+		throw Exception(SystemCallError(SOURCE_LOCATION_ARGS, SystemCallError::LocalTimeR, errno, "Error converting time_t to local time"));
 	}
 	return Time(bdts.tm_hour, bdts.tm_min, bdts.tm_sec, tv.tv_usec / 1000, bdts.tm_gmtoff);
 }

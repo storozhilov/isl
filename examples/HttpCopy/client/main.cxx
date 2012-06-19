@@ -26,11 +26,11 @@ int main(int argc, char *argv[])
 	//try {
 		char cwd[FILENAME_MAX];
 		if (!getcwd(cwd, FILENAME_MAX)) {
-			throw isl::Exception(isl::Error(SOURCE_LOCATION_ARGS, L"Error fetching current working directory"));
+			throw isl::Exception(isl::Error(SOURCE_LOCATION_ARGS, "Error fetching current working directory"));
 		}
 		std::ifstream f(argv[1], std::ios_base::in | std::ios::binary);
 		if (f.fail()) {
-			throw isl::Exception(isl::Error(SOURCE_LOCATION_ARGS, L"Error opening file to copy"));
+			throw isl::Exception(isl::Error(SOURCE_LOCATION_ARGS, "Error opening file to copy"));
 		}
 		isl::TcpSocket s;
 		s.open();
@@ -42,11 +42,11 @@ int main(int argc, char *argv[])
 		unsigned int bytesRead;
 		while ((bytesRead = f.readsome(buf, BUFFER_SIZE)) > 0) {
 			if (!w.writeChunk(buf, bytesRead, isl::Timeout(TRANSMISSION_SECONDS_TIMEOUT))) {
-				throw isl::Exception(isl::Error(SOURCE_LOCATION_ARGS, L"Sending data timeout expired"));
+				throw isl::Exception(isl::Error(SOURCE_LOCATION_ARGS, "Sending data timeout expired"));
 			}
 		}
 		if (!w.finalize(isl::Timeout(TRANSMISSION_SECONDS_TIMEOUT))) {
-			throw isl::Exception(isl::Error(SOURCE_LOCATION_ARGS, L"Sending data timeout expired"));
+			throw isl::Exception(isl::Error(SOURCE_LOCATION_ARGS, "Sending data timeout expired"));
 		}
 		isl::HttpResponseStreamReader r(s);
 		try {
@@ -55,7 +55,7 @@ int main(int argc, char *argv[])
 				bool timeoutExpired;
 				unsigned int bytesRead = r.read(buf, BUFFER_SIZE, isl::Timeout(TRANSMISSION_SECONDS_TIMEOUT), &timeoutExpired);
 				if (timeoutExpired) {
-					throw isl::Exception(isl::Error(SOURCE_LOCATION_ARGS, L"Receiving data timeout expired"));
+					throw isl::Exception(isl::Error(SOURCE_LOCATION_ARGS, "Receiving data timeout expired"));
 				}
 				if (bytesRead > 0) {
 					std::cout.write(buf, bytesRead);
@@ -64,7 +64,7 @@ int main(int argc, char *argv[])
 				totalBytesRead += bytesRead;
 			}
 		} catch (isl::Exception& e) {
-			std::wcerr << e.debug() << std::endl;
+			std::wcerr << e.what() << std::endl;
 			std::wcerr << "Parser state is " << r.parserState() << ", HTTP-version is '" << isl::String::utf8Decode(r.version()) <<
 				"', status code is '" << isl::String::utf8Decode(r.statusCode()) <<
 				"', reason phrase is '" << isl::String::utf8Decode(r.reasonPhrase()) << '\'' << std::endl;
@@ -74,7 +74,7 @@ int main(int argc, char *argv[])
 			std::wcerr << "Parser state is " << r.parserState() << std::endl;
 			return 1;
 		} catch (...) {
-			std::wcerr << L"Unknown copy error" << std::endl;
+			std::wcerr << "Unknown copy error" << std::endl;
 			std::wcerr << "Parser state is " << r.parserState() << std::endl;
 			return 1;
 		}
@@ -85,7 +85,7 @@ int main(int argc, char *argv[])
 		std::wcerr << e.what() << std::endl;
 		return 1;
 	} catch (...) {
-		std::wcerr << L"Unknown copy error" << std::endl;
+		std::wcerr << "Unknown copy error" << std::endl;
 		return 1;
 	}*/
 	return 0;

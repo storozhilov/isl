@@ -1,4 +1,5 @@
 #include <isl/HttpRequestReader.hxx>
+#include <isl/Exception.hxx>
 #include <isl/Error.hxx>
 
 namespace isl
@@ -76,7 +77,7 @@ void HttpRequestReader::receive(Timeout timeout, size_t maxBodySize)
 		size_t bytesRead = _streamReader.read(_buf, BufferSize, timeout, &timeoutExpired);
 		if (timeoutExpired) {
 			// TODO Use special error class
-			throw isl::Exception(isl::Error(SOURCE_LOCATION_ARGS, L"Timeout expired"));
+			throw isl::Exception(isl::Error(SOURCE_LOCATION_ARGS, "Timeout expired"));
 		}
 		if (_streamReader.isBad()) {
 			// TODO Use special error class
@@ -84,7 +85,7 @@ void HttpRequestReader::receive(Timeout timeout, size_t maxBodySize)
 		}
 		if ((_body.size() + bytesRead) > maxBodySize) {
 			// TODO Use special error class
-			throw isl::Exception(isl::Error(SOURCE_LOCATION_ARGS, L"Request entity is too long"));
+			throw isl::Exception(isl::Error(SOURCE_LOCATION_ARGS, "Request entity is too long"));
 		}
 		_body.append(_buf, bytesRead);
 	}

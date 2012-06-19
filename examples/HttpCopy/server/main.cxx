@@ -1,5 +1,6 @@
 #define LIBISL__DEBUGGING_ON 1
 
+#include <isl/common.hxx>
 #include <isl/TcpSocket.hxx>
 #include <isl/Exception.hxx>
 #include <isl/Http.hxx>
@@ -18,7 +19,7 @@
 
 int main(int argc, char *argv[])
 {
-	isl::Core::debugLog.connectTarget(isl::FileLogTarget("server.log"));;
+	isl::debugLog().connectTarget(isl::FileLogTarget("server.log"));;
 	isl::TcpSocket s;
 	s.open();
 	s.bind(isl::TcpAddrInfo(isl::TcpAddrInfo::IpV4, isl::TcpAddrInfo::WildcardAddress, LISTEN_PORT));
@@ -37,7 +38,7 @@ int main(int argc, char *argv[])
 				bool timeoutExpired;
 				unsigned int bytesRead = r.read(buf, BUFFER_SIZE, isl::Timeout(TRANSMISSION_SECONDS_TIMEOUT), &timeoutExpired);
 				if (timeoutExpired) {
-					throw isl::Exception(isl::Error(SOURCE_LOCATION_ARGS, L"Receiving data timeout expired"));
+					throw isl::Exception(isl::Error(SOURCE_LOCATION_ARGS, "Receiving data timeout expired"));
 				}
 				if (bytesRead > 0) {
 					std::cout.write(buf, bytesRead);
@@ -55,7 +56,7 @@ int main(int argc, char *argv[])
 			}*/
 			w.writeBodyless();
 		} catch (isl::Exception& e) {
-			std::cerr << isl::String::utf8Encode(e.debug()) << std::endl;
+			std::cerr << e.what() << std::endl;
 			std::cerr << "HTTP-request parser state is " << r.parserState() << std::endl;
 			return 1;
 		} catch (std::exception& e) {

@@ -1,23 +1,23 @@
 #include <isl/Log.hxx>
-#include <iostream>
 
 namespace isl
 {
-
-/*------------------------------------------------------------------------------
- * Log
- *----------------------------------------------------------------------------*/
 
 LogDispatcher Log::dispatcher;							// Static member initialization
 
 Log::Log() :
 	_prefix(),
-	_logRWLock()
+	_copmposeSourceLocation(false)
 {}
 
-Log::Log(const std::wstring& prefix) :
+Log::Log(const std::string& prefix) :
 	_prefix(prefix),
-	_logRWLock()
+	_copmposeSourceLocation(false)
+{}
+
+Log::Log(const std::string& prefix, bool composeSourceLocation) :
+	_prefix(prefix),
+	_copmposeSourceLocation(composeSourceLocation)
 {}
 
 Log::~Log()
@@ -40,38 +40,7 @@ void Log::disconnectTargets()
 
 void Log::log(const AbstractLogMessage& msg)
 {
-	dispatcher.logMessage(this, msg.message());
-}
-
-void Log::log(const std::string& msg)
-{
-	dispatcher.logMessage(this, String::utf8Decode(msg));
-}
-
-void Log::log(const std::wstring& msg)
-{
 	dispatcher.logMessage(this, msg);
 }
 
-void Log::setPrefix(const std::wstring& newPrefix)
-{
-	WriteLocker locker(_logRWLock);
-	_prefix = newPrefix;
-}
-
-std::wstring Log::prefix() const
-{
-	ReadLocker locker(_logRWLock);
-	return _prefix;
-}
-
-std::wstring Log::composeSourceLocation(SOURCE_LOCATION_ARGS_DECLARATION)
-{
-	std::wostringstream sstr;
-	sstr << String::utf8Decode(SOURCE_LOCATION_ARGS_FILE) << L'(' << SOURCE_LOCATION_ARGS_LINE << L"), " <<
-		String::utf8Decode(SOURCE_LOCATION_ARGS_FUNCTION) << L": ";
-	return sstr.str();
-}
-
 } // namespace isl
-

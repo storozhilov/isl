@@ -1,9 +1,10 @@
+#include <isl/common.hxx>
 #include <isl/TcpSocket.hxx>
-#include <isl/Core.hxx>
 #include <isl/Exception.hxx>
 #include <isl/Error.hxx>
 #include <isl/SystemCallError.hxx>
 #include <isl/IOError.hxx>
+#include <isl/LogMessage.hxx>
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <arpa/inet.h>
@@ -56,7 +57,7 @@ TcpSocket::~TcpSocket()
 const TcpAddrInfo& TcpSocket::localAddr() const
 {
 	if (!_localAddr.get()) {
-		throw Exception(Error(SOURCE_LOCATION_ARGS, L"Local address info have not been initialized"));
+		throw Exception(Error(SOURCE_LOCATION_ARGS, "Local address info have not been initialized"));
 	}
 	return *_localAddr.get();
 }
@@ -64,7 +65,7 @@ const TcpAddrInfo& TcpSocket::localAddr() const
 const TcpAddrInfo& TcpSocket::remoteAddr() const
 {
 	if (!_remoteAddr.get()) {
-		throw Exception(Error(SOURCE_LOCATION_ARGS, L"Remote address info have not been initialized"));
+		throw Exception(Error(SOURCE_LOCATION_ARGS, "Remote address info have not been initialized"));
 	}
 	return *_remoteAddr.get();
 }
@@ -150,7 +151,7 @@ void TcpSocket::connect(const TcpAddrInfo& addrInfo)
 void TcpSocket::closeSocket()
 {
 	if (::close(_descriptor)) {
-		Core::errorLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, SystemCallError(SOURCE_LOCATION_ARGS, SystemCallError::Close, errno).message()));
+		errorLog().log(LogMessage(SOURCE_LOCATION_ARGS, SystemCallError(SOURCE_LOCATION_ARGS, SystemCallError::Close, errno).message()));
 	}
 	_descriptor = -1;
 	setIsConnected(false);

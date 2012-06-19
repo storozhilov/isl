@@ -1,10 +1,10 @@
 #ifndef ISL__MESSAGE_BUS__HXX
 #define ISL__MESSAGE_BUS__HXX
 
-#include <isl/Core.hxx>
 #include <isl/ReadWriteLock.hxx>
 #include <isl/MessageQueue.hxx>
 #include <isl/Error.hxx>
+#include <isl/LogMessage.hxx>
 #include <set>
 
 namespace isl
@@ -76,15 +76,15 @@ public:
 	{
 		WriteLocker locker(_subscriptionsRwLock);
 		if (_subscriptions.find(&queue) != _subscriptions.end()) {
-			Core::errorLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, L"Queue has been already subscribed to message bus"));
+			errorLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Queue has been already subscribed to message bus"));
 			return;
 		}
 		if (_subscriptions.size() >= _maxSubscriptionsAmount) {
-			Core::errorLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, L"Maximum subscriptions amount has been exceeded"));
-			throw Exception(Error(SOURCE_LOCATION_ARGS, L"Maximum subscriptions amount has been exceeded"));
+			errorLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Maximum subscriptions amount has been exceeded"));
+			throw Exception(Error(SOURCE_LOCATION_ARGS, "Maximum subscriptions amount has been exceeded"));
 		}
 		_subscriptions.insert(&queue);
-		Core::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, L"Queue has been subscribed to the message bus"));
+		debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Queue has been subscribed to the message bus"));
 	}
 
 	void unsubscribe(MessageQueue<Msg, Cloner>& queue)
@@ -92,11 +92,11 @@ public:
 		WriteLocker locker(_subscriptionsRwLock);
 		typename Subscriptions::iterator pos = _subscriptions.find(&queue);
 		if (pos == _subscriptions.end()) {
-			Core::errorLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, L"Queue have not been subscribed to message bus"));
+			errorLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Queue have not been subscribed to message bus"));
 			return;
 		}
 		_subscriptions.erase(pos);
-		Core::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, L"Queue has been unsubscribed from the message bus"));
+		debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Queue has been unsubscribed from the message bus"));
 	}
 
 	size_t push(const Msg& msg)

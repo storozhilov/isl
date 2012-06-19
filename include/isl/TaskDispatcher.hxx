@@ -1,9 +1,12 @@
 #ifndef ISL__TASK_DISPATCHER__HXX
 #define ISL__TASK_DISPATCHER__HXX
 
+#include <isl/common.hxx>
 #include <isl/AbstractSubsystem.hxx>
 #include <isl/WaitCondition.hxx>
 #include <isl/Thread.hxx>
+#include <isl/LogMessage.hxx>
+#include <isl/ExceptionLogMessage.hxx>
 #include <deque>
 #include <list>
 #include <exception>
@@ -55,10 +58,10 @@ public:
 		virtual void run()
 		{
 			onStart();
-			Core::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, L"WorkerThread has been started"));
+			debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "WorkerThread has been started"));
 			while (true) {
 				if (shouldTerminate()) {
-					Core::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, L"Task dispatcher termination has been detected before task pick up -> exiting from the worker thread"));
+					debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Task dispatcher termination has been detected before task pick up -> exiting from the worker thread"));
 					break;
 				}
 				std::auto_ptr<Task> task;
@@ -81,19 +84,19 @@ public:
 					}
 				}
 				if (shouldTerminate()) {
-					Core::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, L"Task dispatcher termination has been detected after task pick up -> exiting from the worker thread"));
+					debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Task dispatcher termination has been detected after task pick up -> exiting from the worker thread"));
 					break;
 				}
 				if (task.get()) {
 					try {
 						task->execute(*this);
 					} catch (std::exception& e) {
-						Core::errorLog.log(ExceptionLogMessage(SOURCE_LOCATION_ARGS, e, L"Task execution error"));
+						errorLog().log(ExceptionLogMessage(SOURCE_LOCATION_ARGS, e, "Task execution error"));
 					} catch (...) {
-						Core::errorLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, L"Task execution unknown error"));
+						errorLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Task execution unknown error"));
 					}
 				} else {
-					Core::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, L"No task for worker"));
+					debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "No task for worker"));
 				}
 			}
 			onStop();
@@ -180,22 +183,22 @@ public:
 				taskPerformed = true;
 			}
 		}
-		std::wostringstream oss;
-		oss << L"Total workers: " << _workers.size() << ", workers awaiting: " << awaitingWorkersCount << L", tasks in pool: " << (taskQueueSize + 1) <<
-			L", max task overflow: "  << currentMaxTaskQueueOverflowSize << L", detected tasks overflow: " <<
+		std::ostringstream oss;
+		oss << "Total workers: " << _workers.size() << ", workers awaiting: " << awaitingWorkersCount << ", tasks in pool: " << (taskQueueSize + 1) <<
+			", max task overflow: "  << currentMaxTaskQueueOverflowSize << ", detected tasks overflow: " <<
 			((awaitingWorkersCount >= (taskQueueSize + 1)) ? 0 : taskQueueSize + 1 - awaitingWorkersCount);
 		if (taskPerformed) {
-			Core::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, oss.str()));
+			debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, oss.str()));
 		} else {
-			Core::warningLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, oss.str()));
+			warningLog().log(LogMessage(SOURCE_LOCATION_ARGS, oss.str()));
 		}
 		// TODO The following is thrown "Variant type is not supported..." exception
-		/*VariantWFormatter fmt(L"Workers awaiting: $0, tasks in pool: $1, available overflow: $2, tasks overflow: $3");
+		/*VariantWFormatter fmt("Workers awaiting: $0, tasks in pool: $1, available overflow: $2, tasks overflow: $3");
 		fmt.arg(awaitingWorkersCount).arg(taskQueueSize + 1).arg(currentMaxTaskQueueOverflowSize).arg((awaitingWorkersCount >= (taskQueueSize + 1)) ? 0 : taskQueueSize + 1 - awaitingWorkersCount);
 		if (taskPerformed) {
-			Core::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, fmt.compose()));
+			debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, fmt.compose()));
 		} else {
-			Core::warningLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, fmt.compose()));
+			warningLog().log(LogMessage(SOURCE_LOCATION_ARGS, fmt.compose()));
 		}*/
 		return taskPerformed;
 	}
@@ -225,14 +228,14 @@ public:
 				tasksPerformed = true;
 			}
 		}
-		std::wostringstream oss;
-		oss << L"Total workers: " << _workers.size() << ", workers awaiting: " << awaitingWorkersCount << L", tasks to execute: " << tasksCount <<
-			L" tasks in pool: " << (taskQueueSize + tasksCount) << L", max task overflow: "  << currentMaxTaskQueueOverflowSize << L", detected tasks overflow: " <<
+		std::ostringstream oss;
+		oss << "Total workers: " << _workers.size() << ", workers awaiting: " << awaitingWorkersCount << ", tasks to execute: " << tasksCount <<
+			" tasks in pool: " << (taskQueueSize + tasksCount) << ", max task overflow: "  << currentMaxTaskQueueOverflowSize << ", detected tasks overflow: " <<
 			((awaitingWorkersCount >= (taskQueueSize + tasksCount)) ? 0 : taskQueueSize + 1 - awaitingWorkersCount);
 		if (tasksPerformed) {
-			Core::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, oss.str()));
+			debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, oss.str()));
 		} else {
-			Core::warningLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, oss.str()));
+			warningLog().log(LogMessage(SOURCE_LOCATION_ARGS, oss.str()));
 		}
 		return tasksPerformed;
 	}
@@ -248,7 +251,7 @@ protected:
 	}
 private:
 	BasicTaskDispatcher();
-	BasicTaskDispatcher(const BasicTaskDispatcher&);							// No copy
+	BasicTaskDispatcher(const BasicTaskDispatcher&);						// No copy
 
 	BasicTaskDispatcher& operator=(const BasicTaskDispatcher&);					// No copy
 
@@ -265,23 +268,23 @@ private:
 
 	virtual void beforeStart()
 	{
-		Core::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, L"Starting task dispatcher"));
-		Core::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, L"Creating workers"));
+		debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Starting task dispatcher"));
+		debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Creating workers"));
 		for (size_t i = 0; i < workersAmount(); ++i) {
 			std::auto_ptr<WorkerThread> newWorkerAutoPtr(createWorker(i));
 			_workers.push_back(newWorkerAutoPtr.get());
 			newWorkerAutoPtr.release();
 		}
-		Core::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, L"Workers have been created"));
+		debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Workers have been created"));
 	}
 	virtual void afterStart()
 	{
-		Core::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, L"Task dispatcher has been started"));
+		debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Task dispatcher has been started"));
 	}
 	virtual void beforeStop()
 	{
-		Core::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, L"Stopping task dispatcher"));
-		Core::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, L"Waking up workers"));
+		debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Stopping task dispatcher"));
+		debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Waking up workers"));
 		{
 			MutexLocker locker(_taskCond.mutex());
 			_taskCond.wakeAll();
@@ -289,10 +292,10 @@ private:
 	}
 	virtual void afterStop()
 	{
-		Core::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, L"Deleting workers"));
+		debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Deleting workers"));
 		resetWorkers();
-		Core::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, L"Workers have been deleted"));
-		Core::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, L"Task dispatcher has been stopped"));
+		debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Workers have been deleted"));
+		debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Task dispatcher has been stopped"));
 	}
 
 	size_t _workersAmount;

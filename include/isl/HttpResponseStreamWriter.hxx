@@ -136,7 +136,7 @@ private:
 		} else if (statusCode == "505") {
 			return "HTTP Version not supported";
 		} else {
-			throw Exception(Error(SOURCE_LOCATION_ARGS, L"Unknown status code"));
+			throw Exception(Error(SOURCE_LOCATION_ARGS, "Unknown status code"));
 		}
 	}
 

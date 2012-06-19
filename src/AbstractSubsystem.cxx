@@ -1,14 +1,12 @@
 #include <isl/AbstractSubsystem.hxx>
-#include <isl/SubsystemError.hxx>
-#include <isl/Core.hxx>
 
 namespace isl
 {
 
-const wchar_t AbstractSubsystem::NotDefinedStateName[] = L"<Not defined>";
-const wchar_t AbstractSubsystem::IdlingStateName[] = L"Idling";
-const wchar_t AbstractSubsystem::StartingStateName[] = L"Starting";
-const wchar_t AbstractSubsystem::RunningStateName[] = L"Running";
-const wchar_t AbstractSubsystem::StoppingStateName[] = L"Stopping";
+const char AbstractSubsystem::NotDefinedStateName[] = "<Not defined>";
+const char AbstractSubsystem::IdlingStateName[] = "Idling";
+const char AbstractSubsystem::StartingStateName[] = "Starting";
+const char AbstractSubsystem::RunningStateName[] = "Running";
+const char AbstractSubsystem::StoppingStateName[] = "Stopping";
 
 } // namespace isl

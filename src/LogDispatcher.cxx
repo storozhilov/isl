@@ -2,8 +2,10 @@
 #include <isl/AbstractLogTarget.hxx>
 #include <isl/AbstractLogDevice.hxx>
 #include <isl/Log.hxx>
+#include <isl/AbstractLogMessage.hxx>
+#include <isl/Exception.hxx>
+#include <isl/Error.hxx>
 #include <algorithm>
-#include <stdexcept>									// TODO Remove it
 
 #ifdef ISL_LOG_DEBUGGING
 #include <iostream>
@@ -42,20 +44,19 @@ void LogDispatcher::connectLogToDevice(Log *log, const AbstractLogTarget *target
 		std::pair<Devices::iterator, bool> pos = _devices.insert(target->createDevice());
 		devicePos = pos.first;
 #ifdef ISL_LOG_DEBUGGING
-		std::wclog << L"LogDispatcher::connectLogToDevice(): New log device has been created" << std::endl;
+		std::clog << "LogDispatcher::connectLogToDevice(): New log device has been created" << std::endl;
 #endif
 	} else {
 		std::pair<Connections::iterator, Connections::iterator> connectedDevices = _connections.equal_range(log);
 		for (Connections::iterator i = connectedDevices.first; i != connectedDevices.second; ++i) {
 			if ((*i).second == devicePos) {
-				//throw Exception(new LogDispatcherError(LogDispatcherError::LogAlreadyConnectedToDevice, this));
-				throw std::runtime_error("Log is already connected to the log device");		// TODO
+				throw Exception(Error(SOURCE_LOCATION_ARGS, "Log is already connected to the log device"));
 			}
 		}
 	}
 	_connections.insert(Connections::value_type(log, devicePos));
 #ifdef ISL_LOG_DEBUGGING
-	std::wclog << L"LogDispatcher::connectLogToDevice(): Log has been connected to the log device" << std::endl;
+	std::clog << "LogDispatcher::connectLogToDevice(): Log has been connected to the log device" << std::endl;
 #endif
 }
 
@@ -69,22 +70,20 @@ void LogDispatcher::disconnectLogFromDevice(Log *log, const AbstractLogTarget *t
 		}
 	}
 	if (devicePos == _devices.end()) {
-		//throw Exception(new LogDispatcherError(LogDispatcherError::LogDeviceNotFound, this));
-		throw std::runtime_error("Log device is not found");				// TODO
+		throw Exception(Error(SOURCE_LOCATION_ARGS, "Log device is not found"));
 	}
 	std::pair<Connections::iterator, Connections::iterator> connectedDevices = _connections.equal_range(log);
 	for (Connections::iterator i = connectedDevices.first; i != connectedDevices.second; ++i) {
 		if ((*i).second == devicePos) {
 			_connections.erase(i);
 #ifdef ISL_LOG_DEBUGGING
-			std::wclog << L"LogDispatcher::disconnectLogFromDevice(): Log has been disconnected from the log device" << std::endl;
+			std::clog << "LogDispatcher::disconnectLogFromDevice(): Log has been disconnected from the log device" << std::endl;
 #endif
 			sweepDevices();
 			return;
 		}
 	}
-	//throw Exception(new LogDispatcherError(LogDispatcherError::LogAlreadyDisconnectedFromDevice, this));
-	throw std::runtime_error("Log is already disconnected from the log device");	// TODO
+	throw Exception(Error(SOURCE_LOCATION_ARGS, "Log is already disconnected from the log device"));
 }
 
 void LogDispatcher::disconnectLogFromDevices(Log *log)
@@ -94,20 +93,20 @@ void LogDispatcher::disconnectLogFromDevices(Log *log)
 	_connections.erase(connectedDevices.first, connectedDevices.second);
 #ifdef ISL_LOG_DEBUGGING
 	if (connectedDevices.first != _connections.end()) {
-		std::wclog << L"LogDispatcher::disconnectLogFromDevices(): Log has been disconnected from the log devices" << std::endl;
+		std::clog << "LogDispatcher::disconnectLogFromDevices(): Log has been disconnected from the log devices" << std::endl;
 	} else {
-		std::wclog << L"LogDispatcher::disconnectLogFromDevices(): Log is already disconnected from the log devices" << std::endl;
+		std::clog << "LogDispatcher::disconnectLogFromDevices(): Log is already disconnected from the log devices" << std::endl;
 	}
 #endif
 	sweepDevices();
 }
 
-void LogDispatcher::logMessage(Log *log, const std::wstring &msg)
+void LogDispatcher::logMessage(Log * log, const AbstractLogMessage& msg)
 {
 	ReadLocker locker(_connectionsRWLock);
 	std::pair<Connections::iterator, Connections::iterator> connectedDevices = _connections.equal_range(log);
 	for (Connections::iterator i = connectedDevices.first; i != connectedDevices.second; ++i) {
-		(*(*i).second)->logMessage(log->prefix(), msg);
+		(*(*i).second)->logMessage(*log, msg);
 	}
 }
 
@@ -126,7 +125,7 @@ void LogDispatcher::sweepDevices()
 			delete (*devPos);
 			_devices.erase(*(devPos++));
 #ifdef ISL_LOG_DEBUGGING
-			std::wclog << L"Log device destroyed" << std::endl;
+			std::clog << "Log device destroyed" << std::endl;
 #endif
 		} else {
 			++devPos;

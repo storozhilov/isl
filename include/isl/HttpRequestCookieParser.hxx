@@ -3,7 +3,6 @@
 
 #include <isl/Http.hxx>
 #include <isl/Error.hxx>
-#include <isl/Core.hxx>
 #include <string>
 #include <sstream>
 
@@ -76,7 +75,7 @@ public:
 		return _isBad;
 	}
 	//! Returns parser error
-	inline std::wstring error() const
+	inline std::string error() const
 	{
 		return _error;
 	}
@@ -85,7 +84,7 @@ public:
 	//! Parses cookie header value for qookies
 	Http::RequestCookies parse(const std::string& headerValue);
 private:
-	inline void setIsBad(const std::wstring& errorMsg)
+	inline void setIsBad(const std::string& errorMsg)
 	{
 		_isBad = true;
 		_error = errorMsg;
@@ -98,7 +97,7 @@ private:
 	size_t _pos;
 	char _curChar;
 	bool _isBad;
-	std::wstring _error;
+	std::string _error;
 	std::string _cookieName;
 	std::string _cookieValue;
 	std::string _cookieVersion;

@@ -4,7 +4,6 @@
 #include <isl/Exception.hxx>
 #include <isl/Error.hxx>
 #include <isl/SystemCallError.hxx>
-#include <isl/Core.hxx>
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netdb.h>
@@ -252,7 +251,7 @@ private:
 		}
 		int status = getaddrinfo((_host == LoopbackAddress) || (_host == WildcardAddress) ? 0 : _host.c_str(), serviceStr.empty() ? 0 : serviceStr.c_str(), &hints, &_addrinfo);
 		if (status != 0) {
-			throw Exception(Error(SOURCE_LOCATION_ARGS, String::utf8Decode(gai_strerror(status))));
+			throw Exception(Error(SOURCE_LOCATION_ARGS, gai_strerror(status)));
 		}
 		struct addrinfo * curAddrInfo = _addrinfo;
 		while (curAddrInfo) {
@@ -269,7 +268,7 @@ private:
 				}
 				_endpoints.push_back(Endpoint(addr, ntohs(reinterpret_cast<sockaddr_in6 *>(curAddrInfo->ai_addr)->sin6_port)));
 			} else {
-				throw Exception(Error(SOURCE_LOCATION_ARGS, L"Invalid address family"));
+				throw Exception(Error(SOURCE_LOCATION_ARGS, "Invalid address family"));
 			}
 			curAddrInfo = curAddrInfo->ai_next;
 		}

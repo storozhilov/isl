@@ -1,7 +1,8 @@
+#include <isl/common.hxx>
 #include <isl/DateTime.hxx>
-#include <isl/Core.hxx>
 #include <isl/Exception.hxx>
 #include <isl/SystemCallError.hxx>
+#include <isl/LogMessage.hxx>
 #include <sys/time.h>
 #include <errno.h>
 #include <iomanip>
@@ -210,11 +211,11 @@ DateTime DateTime::fromSecondsFromEpoch(time_t nsecs, bool isLocalTime)
 	tm bdts;
 	if (isLocalTime) {
 		if (localtime_r(&nsecs, &bdts) == NULL) {
-			throw Exception(SystemCallError(SOURCE_LOCATION_ARGS, SystemCallError::LocalTimeR, errno, L"Error converting time_t to local time"));
+			throw Exception(SystemCallError(SOURCE_LOCATION_ARGS, SystemCallError::LocalTimeR, errno, "Error converting time_t to local time"));
 		}
 	} else {
 		if (gmtime_r(&nsecs, &bdts) == NULL) {
-			throw Exception(SystemCallError(SOURCE_LOCATION_ARGS, SystemCallError::LocalTimeR, errno, L"Error converting time_t to GMT"));
+			throw Exception(SystemCallError(SOURCE_LOCATION_ARGS, SystemCallError::LocalTimeR, errno, "Error converting time_t to GMT"));
 		}
 	}
 	return DateTime(Date(bdts.tm_year + 1900, bdts.tm_mon + 1, bdts.tm_mday), Time(bdts.tm_hour, bdts.tm_min, bdts.tm_sec, bdts.tm_gmtoff));
@@ -242,23 +243,23 @@ bool DateTime::str2bdts(const std::string& str, const std::string& fmt, struct t
 		std::string fmtPart = fmt.substr(fmtStartPos, millisecondFmtPos == std::string::npos ? std::string::npos : millisecondFmtPos - fmtStartPos);
 		strPtr = strptime(strPtr, fmtPart.c_str(), &bdts);
 		if (!strPtr) {
-			std::wostringstream msg;
-			msg << L"Error parsing \"" << String::utf8Decode(str) << L"\" string using \"" << String::utf8Decode(fmt) << L"\" format with strptime(3) system call";
-			Core::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, msg.str()));
+			std::ostringstream msg;
+			msg << "Error parsing \"" << str << "\" string using \"" << fmt << "\" format with strptime(3) system call";
+			debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, msg.str()));
 			return false;
 		}
 		if (millisecondFmtPos != std::string::npos) {
 			for (unsigned int i = 0; i < 3; ++i) {
 				if (*strPtr == '\0') {
-					std::wostringstream msg;
-					msg << L"Error parsing \"" << String::utf8Decode(str) << L"\" string using \"" << String::utf8Decode(fmt) << L"\" format: premature end of milliseconds value";
-					Core::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, msg.str()));
+					std::ostringstream msg;
+					msg << "Error parsing \"" << str << "\" string using \"" << fmt << "\" format: premature end of milliseconds value";
+					debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, msg.str()));
 					return false;
 				}
 				if (*strPtr < '0' || *strPtr > '9') {
-					std::wostringstream msg;
-					msg << L"Error parsing \"" << String::utf8Decode(str) << L"\" string using \"" << String::utf8Decode(fmt) << L"\" format: invalid milliseconds value";
-					Core::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, msg.str()));
+					std::ostringstream msg;
+					msg << "Error parsing \"" << str << "\" string using \"" << fmt << "\" format: invalid milliseconds value";
+					debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, msg.str()));
 					return false;
 				}
 				msec = msec * 10 + *strPtr - '0';
@@ -276,9 +277,9 @@ bool DateTime::bdts2str(const struct tm& bdts, unsigned int msec, const std::str
 	char buf[FormatBufferSize];
 	size_t len = strftime(buf, FormatBufferSize, fmt.c_str(), &bdts);
 	if (len <= 0) {
-		std::wostringstream msg;
-		msg << L"Error formatting datetime value string using \"" << String::utf8Decode(fmt) << L"\" format with strftime(3) system call";
-		Core::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, msg.str()));
+		std::ostringstream msg;
+		msg << "Error formatting datetime value string using \"" << fmt << "\" format with strftime(3) system call";
+		debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, msg.str()));
 		return false;
 	}
 	str.assign(buf, len);

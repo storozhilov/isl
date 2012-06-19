@@ -79,7 +79,7 @@ private:
 	virtual void appendToFirstToken(char ch)
 	{
 		if (_version.length() >= _maxVersionLength) {
-			setIsBad(L"Response HTTP-version is too long");
+			setIsBad("Response HTTP-version is too long");
 			return;
 		}
 		_version.append(1, ch);
@@ -91,7 +91,7 @@ private:
 	virtual void appendToSecondToken(char ch)
 	{
 		if (_statusCode.length() >= _maxStatusCodeLength) {
-			setIsBad(L"Response status code is too long");
+			setIsBad("Response status code is too long");
 			return;
 		}
 		_statusCode.append(1, ch);
@@ -103,7 +103,7 @@ private:
 	virtual void appendToThirdToken(char ch)
 	{
 		if (_reasonPhrase.length() >= _maxReasonPhraseLength) {
-			setIsBad(L"Response reason phrase is too long");
+			setIsBad("Response reason phrase is too long");
 			return;
 		}
 		_reasonPhrase.append(1, ch);

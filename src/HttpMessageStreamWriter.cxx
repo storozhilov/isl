@@ -35,7 +35,7 @@ void HttpMessageStreamWriter::setHeaderField(const std::string &fieldName, const
 		std::pair<Header::iterator, Header::iterator> range = _header.equal_range(fieldName);
 		for (Header::iterator i = range.first; i != range.second; ++i) {
 			if (i->second.second) {
-				throw Exception(Error(SOURCE_LOCATION_ARGS, L"Header field to replace has been already composed for sending"));
+				throw Exception(Error(SOURCE_LOCATION_ARGS, "Header field to replace has been already composed for sending"));
 			}
 			_header.erase(i);
 		}
@@ -78,7 +78,7 @@ void HttpMessageStreamWriter::removeHeaderField(const std::string &fieldName)
 	std::pair<Header::iterator, Header::iterator> range = _header.equal_range(fieldName);
 	for (Header::iterator i = range.first; i != range.second; ++i) {
 		if (i->second.second) {
-			throw Exception(Error(SOURCE_LOCATION_ARGS, L"Header field to remove has been already composed for sending"));
+			throw Exception(Error(SOURCE_LOCATION_ARGS, "Header field to remove has been already composed for sending"));
 		}
 	}
 	_header.erase(range.first, range.second);
@@ -86,7 +86,7 @@ void HttpMessageStreamWriter::removeHeaderField(const std::string &fieldName)
 bool HttpMessageStreamWriter::writeChunk(const char * buffer, size_t bufferSize, const Timeout& timeout)
 {
 	if (needFlush()) {
-		throw Exception(Error(SOURCE_LOCATION_ARGS, L"Could not send data - flush needed"));
+		throw Exception(Error(SOURCE_LOCATION_ARGS, "Could not send data - flush needed"));
 	}
 	if (bufferSize <= 0) {
 		return true;
@@ -126,10 +126,10 @@ bool HttpMessageStreamWriter::writeChunk(const char * buffer, size_t bufferSize,
 bool HttpMessageStreamWriter::writeOnce(const char * buffer, size_t bufferSize, const Timeout& timeout)
 {
 	if (_chunkedHeaderComposed) {
-		throw Exception(Error(SOURCE_LOCATION_ARGS, L"Could not send unencoded data while chunked encoding"));
+		throw Exception(Error(SOURCE_LOCATION_ARGS, "Could not send unencoded data while chunked encoding"));
 	}
 	if (needFlush()) {
-		throw Exception(Error(SOURCE_LOCATION_ARGS, L"Could not send data cause flush is needed"));
+		throw Exception(Error(SOURCE_LOCATION_ARGS, "Could not send data cause flush is needed"));
 	}
 	removeHeaderField("Transfer-Encoding");
 	if (bufferSize > 0) {
@@ -165,7 +165,7 @@ bool HttpMessageStreamWriter::writeOnce(const char * buffer, size_t bufferSize, 
 bool HttpMessageStreamWriter::finalize(const Timeout& timeout)
 {
 	if (needFlush()) {
-		throw Exception(Error(SOURCE_LOCATION_ARGS, L"Could not finalize HTTP-request - flush needed"));
+		throw Exception(Error(SOURCE_LOCATION_ARGS, "Could not finalize HTTP-request - flush needed"));
 	}
 	// Composing data to send
 	if (_chunkedHeaderComposed) {

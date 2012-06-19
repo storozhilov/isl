@@ -7,6 +7,8 @@
 namespace isl
 {
 
+class Log;
+class AbstractLogMessage;
 class AbstractLogTarget;
 
 class AbstractLogDevice
@@ -15,11 +17,11 @@ public:
 	AbstractLogDevice();
 	virtual ~AbstractLogDevice();
 
-	void logMessage(const std::wstring& prefix, const std::wstring &msg);
+	void logMessage(const Log& log, const AbstractLogMessage& msg);
 
 	virtual bool serving(const AbstractLogTarget* target) const = 0;
 protected:
-	virtual void writeMessage(const std::wstring& prefix, const std::wstring& msg) = 0;
+	virtual void writeMessage(const Log& log, const AbstractLogMessage& msg) = 0;
 private:
 	Mutex _writeMutex;
 };

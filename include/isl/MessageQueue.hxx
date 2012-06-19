@@ -1,8 +1,10 @@
 #ifndef ISL__MESSAGE_QUEUE__HXX
 #define ISL__MESSAGE_QUEUE__HXX
 
-#include <isl/Core.hxx>
+#include <isl/common.hxx>
 #include <isl/WaitCondition.hxx>
+#include <isl/LogMessage.hxx>
+#include <list>
 #include <deque>
 #include <memory>
 
@@ -72,11 +74,11 @@ public:
 	{
 		MutexLocker locker(_queueCond.mutex());
 		if (_queue.size() >= _maxSize) {
-			Core::errorLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, L"Maximum size of queue has been exceeded"));
+			errorLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Maximum size of queue has been exceeded"));
 			return false;
 		}
 		if (!isAccepting(msg, _queue.size())) {
-			Core::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, L"Message has been rejected by queue's filter"));
+			debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Message has been rejected by queue's filter"));
 			return false;
 		}
 		_queue.push_front(Cloner::clone(msg));
@@ -88,11 +90,11 @@ public:
 	{
 		MutexLocker locker(_queueCond.mutex());
 		if (_queue.size() >= _maxSize) {
-			Core::errorLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, L"Maximum size of queue has been exceeded"));
+			errorLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Maximum size of queue has been exceeded"));
 			return false;
 		}
 		if (!isAccepting(msg, _queue.size())) {
-			Core::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, L"Message has been rejected by queue's filter"));
+			debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Message has been rejected by queue's filter"));
 			return false;
 		}
 		_queue.push_front(msg);
@@ -104,7 +106,7 @@ public:
 	{
 		MutexLocker locker(_queueCond.mutex());
 		if (_queue.size() >= _maxSize) {
-			Core::errorLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, L"Maximum size of queue has been exceeded"));
+			errorLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Maximum size of queue has been exceeded"));
 			return 0;
 		}
 		std::list<typename MessageList::iterator> acceptingMsgs;
@@ -117,7 +119,7 @@ public:
 			return 0;
 		}
 		if (acceptAllOrNothing && (_queue.size() + acceptingMsgs.size() >= _maxSize)) {
-			Core::errorLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, L"Maximum size of queue has been exceeded"));
+			errorLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Maximum size of queue has been exceeded"));
 			return 0;
 		}
 		size_t acceptedAmount = 0;

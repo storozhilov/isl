@@ -2,10 +2,8 @@
 #define ISL__LOG__HXX
 
 #include <isl/LogDispatcher.hxx>
-#include <isl/LogMessage.hxx>
-#include <isl/ReadWriteLock.hxx>
+#include <isl/AbstractLogMessage.hxx>
 #include <isl/Exception.hxx>
-#include <stdexcept>
 #include <string>
 #include <sstream>
 #include <ostream>
@@ -20,7 +18,8 @@ class Log
 {
 public:
 	Log();
-	Log(const std::wstring& prefix);
+	Log(const std::string& prefix);
+	Log(const std::string& prefix, bool composeSourceLocation);
 	virtual ~Log();
 
 	//! Connects target to log
@@ -31,23 +30,23 @@ public:
 	void disconnectTargets();
 	//! Logs message
 	void log(const AbstractLogMessage& msg);
-	//! Logs message
-	void log(const std::string& msg);
-	//! Logs message
-	void log(const std::wstring& msg);
-	//! Sets log prefix
-	void setPrefix(const std::wstring& newPrefix);
 	//! Returns log prefix
-	std::wstring prefix() const;
+	inline const std::string& prefix() const
+	{
+		return _prefix;
+	}
+	//! Returns compose source location flag
+	inline bool composeSourceLocation() const
+	{
+		return _copmposeSourceLocation;
+	}
 private:
 	Log(const Log&);							// No copy
 
 	Log& operator=(const Log&);						// No copy
 	
-	std::wstring _prefix;
-	mutable ReadWriteLock _logRWLock;
-
-	static std::wstring composeSourceLocation(SOURCE_LOCATION_ARGS_DECLARATION);
+	const std::string _prefix;
+	const bool _copmposeSourceLocation;
 
 	static LogDispatcher dispatcher;
 };

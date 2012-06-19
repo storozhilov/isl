@@ -1,7 +1,10 @@
 #ifndef ISL__ABSTRACT_MESSAGE_BROKER_SERVICE__HXX
 #define ISL__ABSTRACT_MESSAGE_BROKER_SERVICE__HXX
 
+#include <isl/common.hxx>
 #include <isl/AbstractAsyncTcpService.hxx>
+#include <isl/LogMessage.hxx>
+#include <isl/ExceptionLogMessage.hxx>
 
 namespace isl
 {
@@ -29,7 +32,7 @@ public:
 	{
 		MutexLocker locker(startStopMutex());
 		if (state() != IdlingState) {
-			throw Exception(Error(SOURCE_LOCATION_ARGS, L"Input message bus could be added while subsystem idling only"));
+			throw Exception(Error(SOURCE_LOCATION_ARGS, "Input message bus could be added while subsystem idling only"));
 		}
 		_inputMessageBuses.push_back(&bus);
 	}
@@ -37,11 +40,11 @@ public:
 	{
 		MutexLocker locker(startStopMutex());
 		if (state() != IdlingState) {
-			throw Exception(Error(SOURCE_LOCATION_ARGS, L"Input message bus could be removed while subsystem idling only"));
+			throw Exception(Error(SOURCE_LOCATION_ARGS, "Input message bus could be removed while subsystem idling only"));
 		}
 		typename MessageBusList::iterator pos = std::find(_inputMessageBuses.begin(), _inputMessageBuses.end(), &bus);
 		if (pos == _inputMessageBuses.end()) {
-			Core::errorLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, L"Input message bus not found in connection"));
+			errorLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Input message bus not found in connection"));
 			return;
 		}
 		_inputMessageBuses.erase(pos);
@@ -50,7 +53,7 @@ public:
 	{
 		MutexLocker locker(startStopMutex());
 		if (state() != IdlingState) {
-			throw Exception(Error(SOURCE_LOCATION_ARGS, L"Input message buses could be reset while subsystem idling only"));
+			throw Exception(Error(SOURCE_LOCATION_ARGS, "Input message buses could be reset while subsystem idling only"));
 		}
 		_inputMessageBuses.clear();
 	}
@@ -58,7 +61,7 @@ public:
 	{
 		MutexLocker locker(startStopMutex());
 		if (state() != IdlingState) {
-			throw Exception(Error(SOURCE_LOCATION_ARGS, L"Output message queue could be added while subsystem idling only"));
+			throw Exception(Error(SOURCE_LOCATION_ARGS, "Output message queue could be added while subsystem idling only"));
 		}
 		_outputMessageQueues.push_back(&queue);
 	}
@@ -66,11 +69,11 @@ public:
 	{
 		MutexLocker locker(startStopMutex());
 		if (state() != IdlingState) {
-			throw Exception(Error(SOURCE_LOCATION_ARGS, L"Output message queue could be removed while subsystem idling only"));
+			throw Exception(Error(SOURCE_LOCATION_ARGS, "Output message queue could be removed while subsystem idling only"));
 		}
 		typename MessageQueueList::iterator pos = std::find(_outputMessageQueues.begin(), _outputMessageQueues.end(), &queue);
 		if (pos == _outputMessageQueues.end()) {
-			Core::errorLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, L"Output message queue not found in connection"));
+			errorLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Output message queue not found in connection"));
 			return;
 		}
 		_outputMessageQueues.erase(pos);
@@ -79,7 +82,7 @@ public:
 	{
 		MutexLocker locker(startStopMutex());
 		if (state() != IdlingState) {
-			throw Exception(Error(SOURCE_LOCATION_ARGS, L"Output message queues could be reset while subsystem idling only"));
+			throw Exception(Error(SOURCE_LOCATION_ARGS, "Output message queues could be reset while subsystem idling only"));
 		}
 		_outputMessageQueues.clear();
 	}
@@ -87,7 +90,7 @@ public:
 	{
 		MutexLocker locker(startStopMutex());
 		if (state() != IdlingState) {
-			throw Exception(Error(SOURCE_LOCATION_ARGS, L"Output message bus could be added while subsystem idling only"));
+			throw Exception(Error(SOURCE_LOCATION_ARGS, "Output message bus could be added while subsystem idling only"));
 		}
 		_outputMessageBuses.push_back(&bus);
 	}
@@ -95,11 +98,11 @@ public:
 	{
 		MutexLocker locker(startStopMutex());
 		if (state() != IdlingState) {
-			throw Exception(Error(SOURCE_LOCATION_ARGS, L"Output message bus could be removed while subsystem idling only"));
+			throw Exception(Error(SOURCE_LOCATION_ARGS, "Output message bus could be removed while subsystem idling only"));
 		}
 		typename MessageBusList::iterator pos = std::find(_outputMessageBuses.begin(), _outputMessageBuses.end(), &bus);
 		if (pos == _outputMessageBuses.end()) {
-			Core::errorLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, L"Output message bus not found in connection"));
+			errorLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Output message bus not found in connection"));
 			return;
 		}
 		_outputMessageBuses.erase(pos);
@@ -108,7 +111,7 @@ public:
 	{
 		MutexLocker locker(startStopMutex());
 		if (state() != IdlingState) {
-			throw Exception(Error(SOURCE_LOCATION_ARGS, L"Output message buses could be reset while subsystem idling only"));
+			throw Exception(Error(SOURCE_LOCATION_ARGS, "Output message buses could be reset while subsystem idling only"));
 		}
 		_outputMessageBuses.clear();
 	}
@@ -161,15 +164,15 @@ protected:
 		{}
 		virtual void onReceiveDataException(std::exception * e = 0)
 		{
-			std::wostringstream msg;
-			msg << L"Receiving data from " << String::utf8Decode(socket().remoteAddr().firstEndpoint().host) << L':' <<
-				socket().remoteAddr().firstEndpoint().port << L" client ";
+			std::ostringstream msg;
+			msg << "Receiving data from " << socket().remoteAddr().firstEndpoint().host << ':' <<
+				socket().remoteAddr().firstEndpoint().port << " client ";
 			if (e) {
-				msg << L"error -> exiting from task execution";
-				Core::errorLog.log(ExceptionLogMessage(SOURCE_LOCATION_ARGS, *e, msg.str()));
+				msg << "error -> exiting from task execution";
+				errorLog().log(ExceptionLogMessage(SOURCE_LOCATION_ARGS, *e, msg.str()));
 			} else {
-				msg << L"unknown error -> exiting from task execution";
-				Core::errorLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, msg.str()));
+				msg << "unknown error -> exiting from task execution";
+				errorLog().log(LogMessage(SOURCE_LOCATION_ARGS, msg.str()));
 			}
 		}
 
@@ -177,25 +180,25 @@ protected:
 	private:
 		virtual void execute(TaskDispatcherType::WorkerThread& worker)
 		{
-			isl::Core::debugLog.log(isl::DebugLogMessage(SOURCE_LOCATION_ARGS, L"Receiver task execution has been started"));
+			isl::debugLog().log(isl::LogMessage(SOURCE_LOCATION_ARGS, "Receiver task execution has been started"));
 			while (true) {
 				if (shouldTerminate()) {
-					isl::Core::debugLog.log(isl::DebugLogMessage(SOURCE_LOCATION_ARGS, L"Client service termination has been detected -> exiting from receiver task execution"));
+					isl::debugLog().log(isl::LogMessage(SOURCE_LOCATION_ARGS, "Client service termination has been detected -> exiting from receiver task execution"));
 					return;
 				}
 				if (!socket().connected()) {
-					isl::Core::debugLog.log(isl::DebugLogMessage(SOURCE_LOCATION_ARGS, L"Client connection socket is not connected -> exiting from receiver task execution"));
+					isl::debugLog().log(isl::LogMessage(SOURCE_LOCATION_ARGS, "Client connection socket is not connected -> exiting from receiver task execution"));
 					return;
 				}
 				try {
 					std::auto_ptr<Msg> msgAutoPtr = receiveMessage();
 					if (msgAutoPtr.get()) {
-						std::wostringstream oss;
-						oss << L"Message from " << String::utf8Decode(socket().remoteAddr().firstEndpoint().host) << L':' << socket().remoteAddr().firstEndpoint().port << L" client has been received";
-						Core::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, oss.str()));
+						std::ostringstream oss;
+						oss << "Message from " << socket().remoteAddr().firstEndpoint().host << ':' << socket().remoteAddr().firstEndpoint().port << " client has been received";
+						debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, oss.str()));
 						// Calling on receive message event callback
 						if (!onReceiveMessage(*msgAutoPtr.get())) {
-							Core::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, L"Message has been rejected by the on receive event handler"));
+							debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Message has been rejected by the on receive event handler"));
 							continue;
 						}
 						// Sending message to all output message queues
@@ -254,15 +257,15 @@ protected:
 		{}
 		virtual void onSendDataException(std::exception * e = 0)
 		{
-			std::wostringstream msg;
-			msg << L"Sending data to " << String::utf8Decode(socket().remoteAddr().firstEndpoint().host) << L':' <<
-				socket().remoteAddr().firstEndpoint().port << L" server ";
+			std::ostringstream msg;
+			msg << "Sending data to " << socket().remoteAddr().firstEndpoint().host << ':' <<
+				socket().remoteAddr().firstEndpoint().port << " server ";
 			if (e) {
-				msg << L"error -> exiting from task execution";
-				Core::errorLog.log(ExceptionLogMessage(SOURCE_LOCATION_ARGS, *e, msg.str()));
+				msg << "error -> exiting from task execution";
+				errorLog().log(ExceptionLogMessage(SOURCE_LOCATION_ARGS, *e, msg.str()));
 			} else {
-				msg << L"unknown error -> exiting from task execution";
-				Core::errorLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, msg.str()));
+				msg << "unknown error -> exiting from task execution";
+				errorLog().log(LogMessage(SOURCE_LOCATION_ARGS, msg.str()));
 			}
 		}
 
@@ -270,7 +273,7 @@ protected:
 	private:
 		virtual void execute(TaskDispatcherType::WorkerThread& worker)
 		{
-			isl::Core::debugLog.log(isl::DebugLogMessage(SOURCE_LOCATION_ARGS, L"Sender task execution has been started"));
+			isl::debugLog().log(isl::LogMessage(SOURCE_LOCATION_ARGS, "Sender task execution has been started"));
 			std::auto_ptr<Msg> currentMessageAutoPtr;
 			bool sendingMessage = false;
 			typename MessageBusType::SubscriberListReleaser subscriberListReleaser;
@@ -278,15 +281,15 @@ protected:
 				std::auto_ptr<typename MessageBusType::Subscriber> subscriberAutoPtr(new typename MessageBusType::Subscriber(**i, inputMessageQueue()));
 				subscriberListReleaser.addSubscriber(subscriberAutoPtr.get());
 				subscriberAutoPtr.release();
-				Core::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, L"Sender task's input queue has been subscribed to the input message bus"));
+				debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Sender task's input queue has been subscribed to the input message bus"));
 			}
 			while (true) {
 				if (shouldTerminate()) {
-					isl::Core::debugLog.log(isl::DebugLogMessage(SOURCE_LOCATION_ARGS, L"Client service termination has been detected -> exiting from sender task execution"));
+					isl::debugLog().log(isl::LogMessage(SOURCE_LOCATION_ARGS, "Client service termination has been detected -> exiting from sender task execution"));
 					return;
 				}
 				if (!socket().connected()) {
-					isl::Core::debugLog.log(isl::DebugLogMessage(SOURCE_LOCATION_ARGS, L"Client connection socket is not connected -> exiting from sender task execution"));
+					isl::debugLog().log(isl::LogMessage(SOURCE_LOCATION_ARGS, "Client connection socket is not connected -> exiting from sender task execution"));
 					return;
 				}
 				if (sendingMessage) {
@@ -303,20 +306,20 @@ protected:
 					}
 					if (messageSent) {
 						sendingMessage = false;
-						std::wostringstream oss;
-						oss << L"Message to " << String::utf8Decode(socket().remoteAddr().firstEndpoint().host) << L':' << socket().remoteAddr().firstEndpoint().port << L" client has been sent";
-						Core::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, oss.str()));
+						std::ostringstream oss;
+						oss << "Message to " << socket().remoteAddr().firstEndpoint().host << ':' << socket().remoteAddr().firstEndpoint().port << " client has been sent";
+						debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, oss.str()));
 						onSendMessage(*currentMessageAutoPtr.get());
 					}
 				} else {
 					// Fetching message from the bus
 					currentMessageAutoPtr = inputMessageQueue().pop(_service._listeningInputQueueTimeout);
 					if (currentMessageAutoPtr.get()) {
-						Core::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, L"Message has been fetched from the input queue"));
+						debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Message has been fetched from the input queue"));
 						if (onReceiveMessage(*currentMessageAutoPtr.get())) {
 							sendingMessage = true;
 						} else {
-							Core::debugLog.log(DebugLogMessage(SOURCE_LOCATION_ARGS, L"Message has been rejected by the on receive event handler"));
+							debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Message has been rejected by the on receive event handler"));
 						}
 					}
 				}

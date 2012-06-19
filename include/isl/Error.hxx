@@ -10,7 +10,7 @@ namespace isl
 class Error : public AbstractError
 {
 public:
-	Error(SOURCE_LOCATION_ARGS_DECLARATION, const std::wstring& msg) :
+	Error(SOURCE_LOCATION_ARGS_DECLARATION, const std::string& msg) :
 		AbstractError(SOURCE_LOCATION_ARGS_PASSTHRU),
 		_msg(msg)
 	{}
@@ -19,15 +19,15 @@ public:
 	{
 		return new Error(*this);
 	}
-protected:
-	virtual std::wstring composeMessage() const
-	{
-		return _msg;
-	}
 private:
 	Error();
 
-	std::wstring _msg;
+	virtual std::string composeMessage() const
+	{
+		return _msg;
+	}
+
+	std::string _msg;
 };
 
 } // namespace isl

@@ -24,7 +24,7 @@ WaitCondition::WaitCondition() :
 WaitCondition::~WaitCondition()
 {
 	if (int errorCode = pthread_cond_destroy(&_cond)) {
-		std::wcerr << SystemCallError(SOURCE_LOCATION_ARGS, SystemCallError::PThreadCondDestroy, errorCode).message() << std::endl;
+		std::cerr << SystemCallError(SOURCE_LOCATION_ARGS, SystemCallError::PThreadCondDestroy, errorCode).message() << std::endl;
 	}
 }
 

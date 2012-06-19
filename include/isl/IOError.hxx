@@ -6,7 +6,7 @@
 namespace isl
 {
 
-class IOError : public AbstractInfoError
+class IOError : public AbstractError
 {
 public:
 	enum Type {
@@ -15,55 +15,52 @@ public:
 		DeviceIsNotOpen
 	};
 
-	IOError(SOURCE_LOCATION_ARGS_DECLARATION, Type type, const std::wstring& info = std::wstring()) :
-		AbstractInfoError(SOURCE_LOCATION_ARGS_PASSTHRU, info),
-		_type(type)
+	IOError(SOURCE_LOCATION_ARGS_DECLARATION, Type type, const std::string& info = std::string()) :
+		AbstractError(SOURCE_LOCATION_ARGS_PASSTHRU),
+		_type(type),
+		_info(info)
 	{}
 
 	inline Type type() const
 	{
 		return _type;
 	}
+	inline const std::string& info() const
+	{
+		return _info;
+	}
 
 	virtual AbstractError * clone() const
 	{
 		return new IOError(*this);
 	}
-
-	static bool isInException(const Exception& e, Type type)
-	{
-		for (Exception::ErrorList::const_iterator i = e.errors().begin(); i != e.errors().end(); ++i) {
-			IOError * err = dynamic_cast<IOError *>(*i);
-			if (err && (err->_type == type)) {
-				return true;
-			}
-		}
-		return false;
-	}
-protected:
-	virtual std::wstring composeMessage() const
-	{
-		std::wstring result;
-		switch (_type) {
-			case TimeoutExpired:
-				result = L"Timeout expired on I/O-device";
-				break;
-			case ConnectionAborted:
-				result = L"Connection aborted on I/O-device";
-				break;
-			case DeviceIsNotOpen:
-				result = L"I/O-device is not open";
-				break;
-			default:
-				result = L"Unknown I/O-error";
-		}
-		appendInfo(result);
-		return result;
-	}
 private:
 	IOError();
 
+	virtual std::string composeMessage() const
+	{
+		std::ostringstream oss;
+		switch (_type) {
+			case TimeoutExpired:
+				oss << "Timeout expired on I/O-device";
+				break;
+			case ConnectionAborted:
+				oss << "Connection aborted on I/O-device";
+				break;
+			case DeviceIsNotOpen:
+				oss << "I/O-device is not open";
+				break;
+			default:
+				oss << "Unknown I/O-error";
+		}
+		if (!_info.empty()) {
+			oss << ": " << _info;
+		}
+		return oss.str();
+	}
+
 	Type _type;
+	const std::string _info;
 };
 
 } // namespace isl

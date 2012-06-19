@@ -1,6 +1,6 @@
 #define LIBISL__DEBUGGING_ON 1
 
-#include <isl/Core.hxx>
+#include <isl/common.hxx>
 #include <isl/AbstractServer.hxx>
 #include <isl/SignalHandler.hxx>
 //#include <isl/AbstractTcpService.hxx>
@@ -11,6 +11,7 @@
 #include <isl/HttpRequestReader.hxx>
 #include <isl/HttpResponseStreamWriter.hxx>
 #include <isl/FileLogTarget.hxx>
+#include <isl/LogMessage.hxx>
 #include <iostream>
 #include <sstream>
 #include <memory>
@@ -130,10 +131,10 @@ private:
 			try {
 				_requestReader.receive(isl::Timeout(TRANSMISSION_SECONDS_TIMEOUT));
 			} catch (isl::Exception& e) {
-				std::cerr << isl::String::utf8Encode(e.debug()) << std::endl;
+				std::cerr << e.what() << std::endl;
 				isl::HttpResponseStreamWriter responseWriter(socket(), "500");
 				responseWriter.setHeaderField("Content-Type", "text/html; charset=utf-8");
-				responseWriter.writeOnce(isl::String::utf8Encode(e.debug()));
+				responseWriter.writeOnce(e.what());
 				return;
 			} catch (std::exception& e) {
 				std::cerr << e.what() << std::endl;
@@ -212,19 +213,19 @@ private:
 
 	void beforeStart()
 	{
-		isl::Core::debugLog.log(isl::DebugLogMessage(SOURCE_LOCATION_ARGS, L"Starting server"));
+		isl::debugLog().log(isl::LogMessage(SOURCE_LOCATION_ARGS, "Starting server"));
 	}
 	void afterStart()
 	{
-		isl::Core::debugLog.log(isl::DebugLogMessage(SOURCE_LOCATION_ARGS, L"Server has been started"));
+		isl::debugLog().log(isl::LogMessage(SOURCE_LOCATION_ARGS, "Server has been started"));
 	}
 	void beforeStop()
 	{
-		isl::Core::debugLog.log(isl::DebugLogMessage(SOURCE_LOCATION_ARGS, L"Stopping server"));
+		isl::debugLog().log(isl::LogMessage(SOURCE_LOCATION_ARGS, "Stopping server"));
 	}
 	void afterStop()
 	{
-		isl::Core::debugLog.log(isl::DebugLogMessage(SOURCE_LOCATION_ARGS, L"Server has been stopped"));
+		isl::debugLog().log(isl::LogMessage(SOURCE_LOCATION_ARGS, "Server has been stopped"));
 	}
 
 	//isl::Mutex _startStopMutex;
@@ -241,13 +242,10 @@ int main(int argc, char *argv[])
 	//return 0;
 
 	//isl::Core::daemonize();
-	isl::Core::writePid("hsd.pid");
-	isl::Core::debugLog.setPrefix(L"DEBUG");
-	isl::Core::debugLog.connectTarget(isl::FileLogTarget("hsd.log"));
-	isl::Core::warningLog.setPrefix(L"WARNING");
-	isl::Core::warningLog.connectTarget(isl::FileLogTarget("hsd.log"));
-	isl::Core::errorLog.setPrefix(L"ERROR");
-	isl::Core::errorLog.connectTarget(isl::FileLogTarget("hsd.log"));
+	isl::writePid("hsd.pid");
+	isl::debugLog().connectTarget(isl::FileLogTarget("hsd.log"));
+	isl::warningLog().connectTarget(isl::FileLogTarget("hsd.log"));
+	isl::errorLog().connectTarget(isl::FileLogTarget("hsd.log"));
 	HttpServer server(argc, argv);
 	server.run();
 	/*isl::TcpSocket s;
@@ -316,7 +314,7 @@ int main(int argc, char *argv[])
 		responseWriter.setHeaderField("Content-Type", "text/html; charset=utf-8");
 		responseWriter.writeOnce(oss.str());
 	}*/
-	isl::Core::debugLog.disconnectTargets();
-	isl::Core::warningLog.disconnectTargets();
-	isl::Core::errorLog.disconnectTargets();
+	isl::debugLog().disconnectTargets();
+	isl::warningLog().disconnectTargets();
+	isl::errorLog().disconnectTargets();
 }

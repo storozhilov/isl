@@ -4,16 +4,14 @@
 #include <isl/ReadWriteLock.hxx>
 #include <isl/Mutex.hxx>
 #include <isl/WaitCondition.hxx>
-#include <isl/Core.hxx>
 #include <isl/Debug.hxx>
+#include <isl/Exception.hxx>
 #include <isl/Error.hxx>
 #include <isl/SubsystemThread.hxx>
 #include <string>
 #include <set>
 
 #include <algorithm>
-
-#include <stdexcept>
 
 namespace isl
 {
@@ -178,7 +176,7 @@ public:
 		afterStop();
 	}
 	//! Returns state name by state value
-	static const wchar_t * stateName(State state)
+	static const char * stateName(State state)
 	{
 		switch (state) {
 			case IdlingState:
@@ -222,8 +220,7 @@ protected:
 	{
 		MutexLocker locker(_stateCond.mutex());
 		if (_state != oldState) {
-			// TODO Use isl::Exception class
-			throw new std::runtime_error("Invalid subsystem state to switch from");
+			throw Exception(Error(SOURCE_LOCATION_ARGS, "Invalid subsystem state to switch from"));
 		}
 		_state = newState;
 		_stateCond.wakeAll();
@@ -280,7 +277,7 @@ private:
 	void registerChild(AbstractSubsystem * child)
 	{
 		if (std::find(_children.begin(), _children.end(), child) != _children.end()) {
-			throw Exception(Error(SOURCE_LOCATION_ARGS, L"Child subsystem has been already registered in subsystem"));
+			throw Exception(Error(SOURCE_LOCATION_ARGS, "Child subsystem has been already registered in subsystem"));
 		}
 		_children.push_back(child);
 	}
@@ -288,14 +285,14 @@ private:
 	{
 		Children::iterator childPos = std::find(_children.begin(), _children.end(), child);
 		if (childPos == _children.end()) {
-			throw Exception(Error(SOURCE_LOCATION_ARGS, L"Child subsystem have not been registered in subsystem"));
+			throw Exception(Error(SOURCE_LOCATION_ARGS, "Child subsystem have not been registered in subsystem"));
 		}
 		_children.erase(childPos);
 	}
 	void registerThread(SubsystemThread * thread)
 	{
 		if (std::find(_threads.begin(), _threads.end(), thread) != _threads.end()) {
-			throw Exception(Error(SOURCE_LOCATION_ARGS, L"Thread has been already registered in subsystem"));
+			throw Exception(Error(SOURCE_LOCATION_ARGS, "Thread has been already registered in subsystem"));
 		}
 		_threads.push_back(thread);
 	}
@@ -303,7 +300,7 @@ private:
 	{
 		Threads::iterator threadPos = std::find(_threads.begin(), _threads.end(), thread);
 		if (threadPos == _threads.end()) {
-			throw Exception(Error(SOURCE_LOCATION_ARGS, L"Child subsystem have not been registered in subsystem"));
+			throw Exception(Error(SOURCE_LOCATION_ARGS, "Child subsystem have not been registered in subsystem"));
 		}
 		_threads.erase(threadPos);
 	}
@@ -315,12 +312,12 @@ private:
 	mutable WaitCondition _stateCond;
 	Mutex _startStopMutex;
 
-	static const wchar_t NotDefinedStateName[];
-	static const wchar_t IdlingStateName[];
-	static const wchar_t StartingStateName[];
-	static const wchar_t RunningStateName[];
-	static const wchar_t RestartingStateName[];
-	static const wchar_t StoppingStateName[];
+	static const char NotDefinedStateName[];
+	static const char IdlingStateName[];
+	static const char StartingStateName[];
+	static const char RunningStateName[];
+	static const char RestartingStateName[];
+	static const char StoppingStateName[];
 
 	friend class SubsystemThread;
 };

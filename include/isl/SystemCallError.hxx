@@ -8,7 +8,7 @@
 namespace isl
 {
 
-class SystemCallError : public AbstractInfoError
+class SystemCallError : public AbstractError
 {
 public:
 	// TODO Make them Token's or Enum's children
@@ -83,168 +83,172 @@ public:
 		SetSid
 	};
 
-	SystemCallError(SOURCE_LOCATION_ARGS_DECLARATION, Function function, int errnum, const std::wstring& info = std::wstring()) :
-		AbstractInfoError(SOURCE_LOCATION_ARGS_PASSTHRU, info),
+	SystemCallError(SOURCE_LOCATION_ARGS_DECLARATION, Function function, int errnum, const std::string& info = std::string()) :
+		AbstractError(SOURCE_LOCATION_ARGS_PASSTHRU),
 		_function(function),
-		_errnum(errnum)
+		_errnum(errnum),
+		_info(info)
 	{}
 	
 	virtual AbstractError * clone() const
 	{
 		return new SystemCallError(*this);
 	}
-	virtual std::wstring composeMessage() const
-	{
-		std::wostringstream msg;
-		msg << functionName(_function) << L" system call error: (" << _errnum << L") " << strerror(_errnum);
-		std::wstring result(msg.str());
-		appendInfo(result);
-		return result;
-	}
 
-	static std::wstring functionName(Function function)
+	static std::string functionName(Function function)
 	{
 		switch (function) {
 			// pthread functions
 			case PThreadCreate:
-				return L"pthread_create(3)";
+				return "pthread_create(3)";
 			case PThreadJoin:
-				return L"pthread_join(3)";
+				return "pthread_join(3)";
 			case PThreadTimedJoinNp:
-				return L"pthread_timedjoin_np(3)";
+				return "pthread_timedjoin_np(3)";
 			case PThreadMutexInit:
-				return L"pthread_mutex_init(3)";
+				return "pthread_mutex_init(3)";
 			case PThreadMutexLock:
-				return L"pthread_mutex_lock(3)";
+				return "pthread_mutex_lock(3)";
 			case PThreadMutexTryLock:
-				return L"pthread_mutex_trylock(3)";
+				return "pthread_mutex_trylock(3)";
 			case PThreadMutexTimedLock:
-				return L"pthread_mutex_timedlock(3)";
+				return "pthread_mutex_timedlock(3)";
 			case PThreadMutexUnlock:
-				return L"pthread_mutex_unlock(3)";
+				return "pthread_mutex_unlock(3)";
 			case PThreadMutexDestroy:
-				return L"pthread_mutex_destroy(3)";
+				return "pthread_mutex_destroy(3)";
 			case PThreadCondInit:
-				return L"pthread_cond_init(3)";
+				return "pthread_cond_init(3)";
 			case PThreadCondSignal:
-				return L"pthread_cond_signal(3)";
+				return "pthread_cond_signal(3)";
 			case PThreadCondBroadcast:
-				return L"pthread_cond_broadcast(3)";
+				return "pthread_cond_broadcast(3)";
 			case PThreadCondWait:
-				return L"pthread_cond_wait(3)";
+				return "pthread_cond_wait(3)";
 			case PThreadCondTimedWait:
-				return L"pthread_cond_timedwait(3)";
+				return "pthread_cond_timedwait(3)";
 			case PThreadCondDestroy:
-				return L"pthread_cond_destroy(3)";
+				return "pthread_cond_destroy(3)";
 			case PThreadRWLockInit:
-				return L"pthread_rwlock_init(3)";
+				return "pthread_rwlock_init(3)";
 			case PThreadRWLockDestroy:
-				return L"pthread_rwlock_destroy(3)";
+				return "pthread_rwlock_destroy(3)";
 			case PThreadRWLockRdLock:
-				return L"pthread_rwlock_rdlock(3)";
+				return "pthread_rwlock_rdlock(3)";
 			case PThreadRWLockWrLock:
-				return L"pthread_rwlock_wrlock(3)";
+				return "pthread_rwlock_wrlock(3)";
 			case PThreadRWLockTryRdLock:
-				return L"pthread_rwlock_tryrdlock(3)";
+				return "pthread_rwlock_tryrdlock(3)";
 			case PThreadRWLockTryWrLock:
-				return L"pthread_rwlock_trywrlock(3)";
+				return "pthread_rwlock_trywrlock(3)";
 			case PThreadRWLockUnlock:
-				return L"pthread_rwlock_unlock(3)";
+				return "pthread_rwlock_unlock(3)";
 			case PThreadRWLockTimedRdLock:
-				return L"pthread_rwlock_timedrdlock(3)";
+				return "pthread_rwlock_timedrdlock(3)";
 			case PThreadRWLockTimedWrLock:
-				return L"pthread_rwlock_timedwrlock(3)";
+				return "pthread_rwlock_timedwrlock(3)";
 			case PThreadSelf:
-				return L"pthread_rwlock_unlock(3)";
+				return "pthread_rwlock_unlock(3)";
 			case PThreadSigMask:
-				return L"pthread_sigmask(3)";
+				return "pthread_sigmask(3)";
 			case PThreadAtFork:
-				return L"pthread_atfork(3)";
+				return "pthread_atfork(3)";
 			// Signal functions
 			case SigEmptySet:
-				return L"sigemptyset(3)";
+				return "sigemptyset(3)";
 			case SigAddSet:
-				return L"sigaddset(3)";
+				return "sigaddset(3)";
 			case SigDelSet:
-				return L"sigdelset(3)";
+				return "sigdelset(3)";
 			case SigPending:
-				return L"sigpending(2)";
+				return "sigpending(2)";
 			case SigWait:
-				return L"sigwait(2)";
+				return "sigwait(2)";
 			// I/O functions
 			case Socket:
-				return L"socket(2)";
+				return "socket(2)";
 			case Fcntl:
-				return L"fcntl(2)";
+				return "fcntl(2)";
 			case Bind:
-				return L"bind(2)";
+				return "bind(2)";
 			case Listen:
-				return L"listen(2)";
+				return "listen(2)";
 			case PSelect:
-				return L"pselect(2)";
+				return "pselect(2)";
 			case Accept:
-				return L"accept(2)";
+				return "accept(2)";
 			case InetNToP:
-				return L"inet_ntop(3)";
+				return "inet_ntop(3)";
 			case RecvFrom:
-				return L"recvfrom(2)";
+				return "recvfrom(2)";
 			case Recv:
-				return L"recv(2)";
+				return "recv(2)";
 			case Send:
-				return L"send(2)";
+				return "send(2)";
 			case Open:
-				return L"open(2)";
+				return "open(2)";
 			case Close:
-				return L"close(2)";
+				return "close(2)";
 			case Read:
-				return L"read(2)";
+				return "read(2)";
 			case Write:
-				return L"write(2)";
+				return "write(2)";
 			case Stat:
-				return L"stat(2)";
+				return "stat(2)";
 			case FStat:
-				return L"stat(2)";
+				return "stat(2)";
 			case GetSockName:
-				return L"getsockname(2)";
+				return "getsockname(2)";
 			case GetPeerName:
-				return L"getpeername(2)";
+				return "getpeername(2)";
 			case GetSockOpt:
-				return L"getsockopt(2)";
+				return "getsockopt(2)";
 			case SetSockOpt:
-				return L"setsockopt(2)";
+				return "setsockopt(2)";
 			case Connect:
-				return L"connect(2)";
+				return "connect(2)";
 			case ScanDir:
-				return L"scandir(3)";
+				return "scandir(3)";
 			// Date & time functions
 			case Time:
-				return L"time(3)";
+				return "time(3)";
 			case GMTimeR:
-				return L"gmtime(3)";
+				return "gmtime(3)";
 			case LocalTimeR:
-				return L"localtime_r(3)";
+				return "localtime_r(3)";
 			case StrFTime:
-				return L"strftime(3)";
+				return "strftime(3)";
 			case StrPTime:
-				return L"strptime(3)";
+				return "strptime(3)";
 			case GetTimeOfDay:
-				return L"gettimeofday(2)";
+				return "gettimeofday(2)";
 			// System calls
 			case Fork:
-				return L"fork(2)";
+				return "fork(2)";
 			case GetPid:
-				return L"getpid(2)";
+				return "getpid(2)";
 			case SetSid:
-				return L"setsid(2)";
+				return "setsid(2)";
 			default:
-				return L"[UNKNOWN FUNCTION]";
+				return "[UNKNOWN FUNCTION]";
 		}
 	}
 private:
 	SystemCallError();
 
+	virtual std::string composeMessage() const
+	{
+		std::ostringstream oss;
+		oss << functionName(_function) << " system call error: (" << _errnum << ") " << strerror(_errnum);
+		if (!_info.empty()) {
+			oss << ": " << _info;
+		}
+		return oss.str();
+	}
+
 	Function _function;
 	int _errnum;
+	const std::string _info;
 };
 
 } // namespace isl

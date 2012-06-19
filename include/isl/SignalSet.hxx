@@ -1,7 +1,6 @@
 #ifndef ISL__SIGNAL_SET__HXX
 #define ISL__SIGNAL_SET__HXX
 
-#include <isl/Core.hxx>
 #include <isl/Exception.hxx>
 #include <isl/SystemCallError.hxx>
 #include <stdarg.h>
