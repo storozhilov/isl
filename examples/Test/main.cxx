@@ -13,6 +13,14 @@
 #include <isl/Date.hxx>
 #include <isl/VariantFormatter.hxx>
 #include <isl/HttpRequestStreamReader.hxx>
+#include <isl/AbstractMessageConsumer.hxx>
+#include <isl/MessageProvider.hxx>
+#include <isl/MessageFan.hxx>
+#include <isl/MessageBus.hxx>
+#include <isl/MessageQueue.hxx>
+#include <isl/MessageBuffer.hxx>
+#include <isl/AbstractMessageBrokerService.hxx>
+#include <isl/AbstractMessageBrokerConnection.hxx>
 //#include <isl/Timeout.hxx>
 //#include <isl/FileLogTarget.hxx>
 //#include <isl/AbstractHTTPTask.hxx>

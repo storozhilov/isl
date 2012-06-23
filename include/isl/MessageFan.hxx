@@ -1,16 +1,16 @@
-#ifndef ISL__MESSAGE_BUS__HXX
-#define ISL__MESSAGE_BUS__HXX
+#ifndef ISL__MESSAGE_FAN__HXX
+#define ISL__MESSAGE_FAN__HXX
 
 #include <isl/MessageProvider.hxx>
 
 namespace isl
 {
 
-//! Thread-safe message bus templated class
+//! Thread-safe message fanout templated class
 /*!
   \tparam Msg Message class with <tt>Msg * Msg::clone() const</tt> method
 */
-template <typename Msg> class MessageBus : public MessageProvider<Msg>, public AbstractMessageConsumer<Msg>
+template <typename Msg> class MessageFan : public MessageProvider<Msg>, public AbstractMessageConsumer<Msg>
 {
 public:
 	typedef Msg MessageType;
@@ -18,7 +18,7 @@ public:
 	typedef AbstractMessageConsumer<Msg> AbstractMessageConsumerType;
 
 	//! Constructor
-	MessageBus() :
+	MessageFan() :
 		MessageProviderType(),
 		AbstractMessageConsumerType()
 	{}
@@ -26,21 +26,21 @@ public:
 	/*!
 	  \param maxConsumersAmount Maximum consumers amount
 	*/
-	MessageBus(size_t maxConsumersAmount) :
+	MessageFan(size_t maxConsumersAmount) :
 		MessageProviderType(maxConsumersAmount),
 		AbstractMessageConsumerType()
 	{}
-	//! Pushes a message to bus
+	//! Drops a message to fun
 	/*!
-	  \param msg Constant reference to a message to push
-	  \return True if message has been accepted by the bus's filter
+	  \param msg Constant reference to a message to drop
+	  \return True if message has been accepted by the fan's filter
 	*/
 	virtual bool push(const Msg& msg)
 	{
 		if (!isAccepting(msg)) {
 			return false;
 		}
-		provideToAll(msg);
+		provideToOne(msg);
 		return true;
 	}
 protected:
