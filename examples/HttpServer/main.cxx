@@ -119,9 +119,9 @@ private:
 	class HttpTask : public isl::AbstractSyncTcpService::AbstractTask
 	{
 	public:
-		HttpTask(AbstractSyncTcpService& service, isl::TcpSocket * socket) :
+		HttpTask(AbstractSyncTcpService& service, isl::TcpSocket& socket) :
 			isl::AbstractSyncTcpService::AbstractTask(service, socket),
-			_requestReader(*socket)
+			_requestReader(socket)
 		{}
 	private:
 		HttpTask();
@@ -174,7 +174,7 @@ private:
 
 	HttpService();
 
-	virtual std::auto_ptr<isl::AbstractSyncTcpService::AbstractTask> createTask(isl::TcpSocket * socket, ListenerThread& /*listener*/)
+	virtual std::auto_ptr<isl::AbstractSyncTcpService::AbstractTask> createTask(ListenerThread& /*listener*/, isl::TcpSocket& socket)
 	{
 		return std::auto_ptr<isl::AbstractSyncTcpService::AbstractTask>(new HttpTask(*this, socket));
 	}

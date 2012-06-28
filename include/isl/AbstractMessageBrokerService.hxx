@@ -76,11 +76,11 @@ public:
 	{
 		MutexLocker locker(startStopMutex());
 		if (state() != IdlingState) {
-			throw Exception(Error(SOURCE_LOCATION_ARGS, "Message provider  could be removed while subsystem idling only"));
+			throw Exception(Error(SOURCE_LOCATION_ARGS, "Message provider could be removed while subsystem idling only"));
 		}
 		typename ProvidersContainer::iterator pos = std::find(_providers.begin(), _providers.end(), &provider);
 		if (pos == _providers.end()) {
-			errorLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Message provider not found in connection"));
+			errorLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Message provider not found"));
 			return;
 		}
 		_providers.erase(pos);
@@ -118,7 +118,7 @@ public:
 		}
 		typename ConsumersContainer::iterator pos = std::find(_consumers.begin(), _consumers.end(), &consumer);
 		if (pos == _consumers.end()) {
-			errorLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Message consumer not found in connection"));
+			errorLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Message consumer not found"));
 			return;
 		}
 		_consumers.erase(pos);
@@ -133,23 +133,34 @@ public:
 		_consumers.clear();
 	}
 protected:
-	//! Class for storing data shared between receiver and sender task objects
-	class Connection : public AbstractAsyncTcpService::Connection
+	//! Shared staff which is to be used by sender and receiver tasks concurrently
+	class SharedStaff : public AbstractAsyncTcpService::SharedStaff
 	{
 	public:
 		//! Constructor
 		/*!
-		  \param service Reference to message broker service
-		  \param socketPtr Pointer to client connection socket
+		  \param socket Reference to the client connection socket
 		*/
-		Connection(AbstractMessageBrokerService& service, TcpSocket * socketPtr) :
-			AbstractAsyncTcpService::Connection(socketPtr),
-			_inputQueueAutoPtr(service.createInputQueue())
+		SharedStaff(TcpSocket& socket) :
+			AbstractAsyncTcpService::SharedStaff(socket),
+			_inputQueueAutoPtr()
 		{}
 		//! Returns a reference to input message queue
 		inline MessageQueueType& inputQueue()
 		{
+			if (!_inputQueueAutoPtr.get()) {
+				_inputQueueAutoPtr = createInputQueue();
+			}
 			return *_inputQueueAutoPtr.get();
+		}
+	protected:
+		//! Input message queue creation factory method
+		/*!
+		  \return Auto-pointer to the input queue object
+		*/
+		virtual std::auto_ptr<MessageQueueType> createInputQueue()
+		{
+			return std::auto_ptr<MessageQueueType>(new MessageQueueType());
 		}
 	private:
 		std::auto_ptr<MessageQueueType> _inputQueueAutoPtr;
@@ -161,27 +172,17 @@ protected:
 		//! Constructor
 		/*!
 		  \param service Reference to message broker service
-		  \param Pointer to the connection object
+		  \param sharedStaff Reference to the shared staff object
 		*/
-		AbstractReceiverTask(AbstractMessageBrokerService& service, Connection * connection) :
-			AbstractAsyncTcpService::AbstractReceiverTask(service, connection),
+		AbstractReceiverTask(AbstractMessageBrokerService& service, SharedStaff& sharedStaff) :
+			AbstractAsyncTcpService::AbstractReceiverTask(service, sharedStaff),
 			_service(service),
-			_connection(connection)
+			_sharedStaff(sharedStaff)
 		{}
-		//! Returns a reference to the message broker service
-		inline AbstractMessageBrokerService& service()
-		{
-			return _service;
-		}
-		//! Returns a reference to the connection object
-		inline Connection& connection()
-		{
-			return *_connection;
-		}
 		//! Returns a reference to the input message queue
 		inline MessageQueueType& inputQueue()
 		{
-			return _connection->inputQueue();
+			return _sharedStaff.inputQueue();
 		}
 	protected:
 		//! On receive message from transport event handler
@@ -272,7 +273,7 @@ protected:
 		}
 
 		AbstractMessageBrokerService& _service;
-		Connection * _connection;
+		SharedStaff& _sharedStaff;
 	};
 	//! Sender task object abstract class
 	class AbstractSenderTask : public AbstractAsyncTcpService::AbstractSenderTask
@@ -281,29 +282,19 @@ protected:
 		//! Constructor
 		/*!
 		  \param service Reference to message broker service
-		  \param Pointer to the connection object
+		  \param sharedStaff Reference to the shared staff object
 		*/
-		AbstractSenderTask(AbstractMessageBrokerService& service, Connection * connection) :
-			AbstractAsyncTcpService::AbstractSenderTask(service, connection),
+		AbstractSenderTask(AbstractMessageBrokerService& service, SharedStaff& sharedStaff) :
+			AbstractAsyncTcpService::AbstractSenderTask(service, sharedStaff),
 			_service(service),
-			_connection(connection),
+			_sharedStaff(sharedStaff),
 			_consumeBuffer()
 		{}
 
-		//! Returns a reference to the message broker service
-		inline AbstractMessageBrokerService& service()
-		{
-			return _service;
-		}
-		//! Returns a reference to the connection object
-		inline Connection& connection()
-		{
-			return *_connection;
-		}
 		//! Returns a reference to the input message queue
 		inline MessageQueueType& inputQueue()
 		{
-			return _connection->inputQueue();
+			return _sharedStaff.inputQueue();
 		}
 	protected:
 		//! On consume message from any provider event handler
@@ -415,23 +406,19 @@ protected:
 		}
 
 		AbstractMessageBrokerService& _service;
-		Connection * _connection;
+		SharedStaff& _sharedStaff;
 		MessageBufferType _consumeBuffer;
 	};
 
-	//! Connection creation factory method
+	//! Shared staff creation factory method
 	/*!
-	  \param socket TCP-socket for collaborative usage
-	  \return std::auto_ptr with new connection
+	  \param socket Reference to the client connection socket
+	  \return Auto-pointer to the new shared staff object
 	*/
-	virtual std::auto_ptr<AbstractAsyncTcpService::Connection> createConnection(TcpSocket * socket)
+	virtual std::auto_ptr<AbstractAsyncTcpService::SharedStaff> createSharedStaff(TcpSocket& socket)
 	{
-		return std::auto_ptr<AbstractAsyncTcpService::Connection>(new Connection(*this, socket));
-	}
-	//! Connection's input message queue creation factory method
-	virtual std::auto_ptr<MessageQueueType> createInputQueue()
-	{
-		return std::auto_ptr<MessageQueueType>(new MessageQueueType());
+		//return std::auto_ptr<AbstractAsyncTcpService::SharedStaff>(new SharedStaff(*this, socket));
+		return std::auto_ptr<AbstractAsyncTcpService::SharedStaff>(new SharedStaff(socket));
 	}
 private:
 	AbstractMessageBrokerService();

@@ -90,7 +90,7 @@ protected:
 					msg << "TCP-connection has been received from " << socketAutoPtr.get()->remoteAddr().firstEndpoint().host << ':' <<
 						socketAutoPtr.get()->remoteAddr().firstEndpoint().port;
 					debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, msg.str()));
-					std::auto_ptr<AbstractTaskType> taskAutoPtr(_service.createTask(socketAutoPtr.get(), *this));
+					std::auto_ptr<AbstractTaskType> taskAutoPtr(_service.createTask(*this, *socketAutoPtr.get()));
 					socketAutoPtr.release();
 					if (taskDispatcher().perform(taskAutoPtr.get())) {
 						taskAutoPtr.release();
@@ -115,12 +115,12 @@ protected:
 	public:
 		//! Constructor
 		/*!
-		  \param socket Socket to use for I/O
+		  \param socket Reference to the client connection socket
 		*/
-		AbstractTask(AbstractSyncTcpService& service, TcpSocket * socket) :
+		AbstractTask(AbstractSyncTcpService& service, TcpSocket& socket) :
 			AbstractTaskType(),
 			_service(service),
-			_socket(socket)
+			_socketAutoPtr(&socket)
 		{}
 		//! Returns reference to TCP-service
 		inline AbstractSyncTcpService& service()
@@ -130,7 +130,7 @@ protected:
 		//! Returns reference to the socket
 		inline TcpSocket& socket() const
 		{
-			return *_socket.get();
+			return *_socketAutoPtr.get();
 		}
 	protected:
 		// Returns true if task should be terminated
@@ -146,7 +146,7 @@ protected:
 		AbstractTask& operator=(const AbstractTask&);							// No copy
 
 		AbstractSyncTcpService& _service;
-		std::auto_ptr<TcpSocket> _socket;
+		std::auto_ptr<TcpSocket> _socketAutoPtr;
 	};
 
 	//! Creating listener factory method
@@ -154,7 +154,7 @@ protected:
 	  \param addrInfo TCP-address info to bind to
 	  \param listenTimeout Timeout to wait for incoming connections
 	  \param backLog Listen backlog
-	  \return New listener's auto_ptr
+	  \return Auto-pointer to the new listener object
 	*/
 	virtual std::auto_ptr<AbstractListenerThread> createListener(const TcpAddrInfo& addrInfo, const Timeout& listenTimeout, unsigned int backLog)
 	{
@@ -162,10 +162,11 @@ protected:
 	}
 	//! Creating task factory method to override
 	/*!
-	  \param socket TCP-socket for I/O
-	  \return auto_ptr to new task
+	  \param listener Reference to listener thread object
+	  \param socket Reference to the client connection socket
+	  \return Auto-pointer to the new task object
 	*/
-	virtual std::auto_ptr<AbstractTask> createTask(TcpSocket * socket, ListenerThread& listener) = 0;
+	virtual std::auto_ptr<AbstractTask> createTask(ListenerThread& listener, TcpSocket& socket) = 0;
 private:
 	AbstractSyncTcpService();
 	AbstractSyncTcpService(const AbstractSyncTcpService&);						// No copy

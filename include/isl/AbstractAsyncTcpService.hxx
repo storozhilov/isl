@@ -8,7 +8,7 @@
 namespace isl
 {
 
-//! Base class for asynchronous TCP-service, which reads from and writes to socket in the different threads
+//! Base class for asynchronous TCP-service, which reads from and writes data to socket in two different threads per client connection
 class AbstractAsyncTcpService : public AbstractTcpService
 {
 public:
@@ -39,12 +39,19 @@ public:
 protected:
 	class AbstractReceiverTask;
 	class AbstractSenderTask;
-	//! Connection, which is to be thread-safely erased during sender's and receiver's destructor invocations. Feel free to subclass.
-	class Connection
+	//! Shared staff which is to be used by sender and receiver tasks concurrently
+	/*!
+	  Object of this class is to be thread-safely erased during sender's and receiver's destructor invocations. Feel free to subclass.
+	*/
+	class SharedStaff
 	{
 	public:
-		Connection(TcpSocket * socketPtr) :
-			_socket(socketPtr),
+		//! Constructor
+		/*!
+		  \param socketPtr Reference to the client connection socket
+		*/
+		SharedStaff(TcpSocket& socket) :
+			_socketAutoPtr(&socket),
 			_refsCount(0),
 			_refsCountMutex(),
 			_shouldTerminate(false),
@@ -52,43 +59,31 @@ protected:
 			_receiverTask(),
 			_senderTask()
 		{}
-		virtual ~Connection()
+		//! Destructor
+		virtual ~SharedStaff()
 		{}
-//		inline int incRef()
-//		{
-//			MutexLocker locker(_refsCountMutex);
-//			return ++_refsCount;
-//		}
-//		inline int decRef()
-//		{
-//			MutexLocker locker(_refsCountMutex);
-//			return --_refsCount;
-//		}
-//		inline void setReceiverTask(AbstractReceiverTask& receiverTask)
-//		{
-//			_receiverTask = &receiverTask;
-//		}
+		//! Returns reference to the reciever task object
 		inline AbstractReceiverTask& receiverTask()
 		{
 			return *_receiverTask;
 		}
-//		inline void setSenderTask(AbstractSenderTask& senderTask)
-//		{
-//			_senderTask = &senderTask;
-//		}
+		//! Returns reference to the sender task object
 		inline AbstractSenderTask& senderTask()
 		{
 			return *_senderTask;
 		}
+		//! Returns reference to the client connection socket
 		inline TcpSocket& socket()
 		{
-			return *_socket.get();
+			return *_socketAutoPtr.get();
 		}
+		//! Returns true if the shared staff object considers that serving sould be terminated
 		inline bool shouldTerminate() const
 		{
 			ReadLocker locker(_shouldTerminateRwLock);
 			return _shouldTerminate;
 		}
+		//! Initiates serving terminateion
 		inline bool setShouldTerminate(bool newValue)
 		{
 			WriteLocker locker(_shouldTerminateRwLock);
@@ -97,10 +92,10 @@ protected:
 			return oldValue;
 		}
 	private:
-		Connection();
-		Connection(const Connection&);							// No copy
+		SharedStaff();
+		SharedStaff(const SharedStaff&);						// No copy
 
-		Connection& operator=(const Connection&);					// No copy
+		SharedStaff& operator=(const SharedStaff&);					// No copy
 
 		inline int incRef()
 		{
@@ -113,7 +108,7 @@ protected:
 			return --_refsCount;
 		}
 
-		std::auto_ptr<TcpSocket> _socket;
+		std::auto_ptr<TcpSocket> _socketAutoPtr;
 		int _refsCount;
 		Mutex _refsCountMutex;
 		bool _shouldTerminate;
@@ -144,7 +139,7 @@ protected:
 		ListenerThread();
 		ListenerThread(const ListenerThread&);								// No copy
 
-		ListenerThread& operator=(const ListenerThread&);							// No copy
+		ListenerThread& operator=(const ListenerThread&);						// No copy
 
 		virtual void run()
 		{
@@ -177,12 +172,12 @@ protected:
 					msg << "TCP-connection has been received from " << socketAutoPtr.get()->remoteAddr().firstEndpoint().host << ':' <<
 						socketAutoPtr.get()->remoteAddr().firstEndpoint().port;
 					debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, msg.str()));
-					std::auto_ptr<Connection> connectionAutoPtr(_service.createConnection(socketAutoPtr.get()));
+					std::auto_ptr<SharedStaff> sharedStaffAutoPtr(_service.createSharedStaff(*socketAutoPtr.get()));
 					socketAutoPtr.release();
-					std::auto_ptr<AbstractTaskType> receiverTaskAutoPtr(_service.createReceiverTask(*this, connectionAutoPtr.get()));
-					Connection * connectionPtr = connectionAutoPtr.get();
-					connectionAutoPtr.release();
-					std::auto_ptr<AbstractTaskType> senderTaskAutoPtr(_service.createSenderTask(*this, connectionPtr));
+					std::auto_ptr<AbstractTaskType> receiverTaskAutoPtr(_service.createReceiverTask(*this, *sharedStaffAutoPtr.get()));
+					SharedStaff * sharedStaffPtr = sharedStaffAutoPtr.get();
+					sharedStaffAutoPtr.release();
+					std::auto_ptr<AbstractTaskType> senderTaskAutoPtr(_service.createSenderTask(*this, *sharedStaffPtr));
 					std::list<AbstractTaskType *> taskList;
 					taskList.push_back(receiverTaskAutoPtr.get());
 					taskList.push_back(senderTaskAutoPtr.get());
@@ -209,43 +204,33 @@ protected:
 	public:
 		//! Constructor
 		/*!
-		  \param connection Connection to use for I/O
+		  \param sharedStaff Reference to the shared staff object
 		*/
-		AbstractReceiverTask(AbstractAsyncTcpService& service, Connection * connection) :
+		AbstractReceiverTask(AbstractAsyncTcpService& service, SharedStaff& sharedStaff) :
 			AbstractTaskType(),
 			_service(service),
-			_connection(connection)
+			_sharedStaffPtr(&sharedStaff)
 		{
-			_connection->_receiverTask = this;
-			_connection->incRef();
+			_sharedStaffPtr->_receiverTask = this;
+			_sharedStaffPtr->incRef();
 		}
 		virtual ~AbstractReceiverTask()
 		{
-			if (_connection->decRef() <= 0) {
-				delete _connection;
-				debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Connection object has been destroyed"));
+			if (_sharedStaffPtr->decRef() <= 0) {
+				delete _sharedStaffPtr;
+				debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "SharedStaff object has been destroyed"));
 			}
 		}
-		//! Returns reference to TCP-service
-		inline AbstractAsyncTcpService& service()
-		{
-			return _service;
-		}
-		//! Returns reference to connection
-		/*inline Connection& connection()
-		{
-			return _connection;
-		}*/
 		//! Returns reference to the socket
 		inline TcpSocket& socket() const
 		{
-			return _connection->socket();
+			return _sharedStaffPtr->socket();
 		}
 	protected:
 		// Returns true if task should be terminated
 		inline bool shouldTerminate() const
 		{
-			return _service.shouldTerminate() || _connection->shouldTerminate();
+			return _service.shouldTerminate() || _sharedStaffPtr->shouldTerminate();
 		}
 	private:
 		AbstractReceiverTask();
@@ -254,7 +239,7 @@ protected:
 		AbstractReceiverTask& operator=(const AbstractReceiverTask&);					// No copy
 
 		AbstractAsyncTcpService& _service;
-		Connection * _connection;
+		SharedStaff * _sharedStaffPtr;
 	};
 	//! Base class for asynchronous TCP-service sender task
 	class AbstractSenderTask : public AbstractTaskType
@@ -262,43 +247,33 @@ protected:
 	public:
 		//! Constructor
 		/*!
-		  \param socket Socket to use for I/O
+		  \param sharedStaff Reference to the shared staff object
 		*/
-		AbstractSenderTask(AbstractAsyncTcpService& service, Connection * connection) :
+		AbstractSenderTask(AbstractAsyncTcpService& service, SharedStaff& sharedStaff) :
 			AbstractTaskType(),
 			_service(service),
-			_connection(connection)
+			_sharedStaffPtr(&sharedStaff)
 		{
-			_connection->_senderTask = this;
-			_connection->incRef();
+			_sharedStaffPtr->_senderTask = this;
+			_sharedStaffPtr->incRef();
 		}
 		virtual ~AbstractSenderTask()
 		{
-			if (_connection->decRef() <= 0) {
-				delete _connection;
-				debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Connection object has been destroyed"));
+			if (_sharedStaffPtr->decRef() <= 0) {
+				delete _sharedStaffPtr;
+				debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "SharedStaff object has been destroyed"));
 			}
 		}
-		//! Returns reference to TCP-service
-		inline AbstractAsyncTcpService& service()
-		{
-			return _service;
-		}
-		//! Returns reference to connection
-		/*inline Connection& connection()
-		{
-			return _connection;
-		}*/
 		//! Returns reference to the socket
 		inline TcpSocket& socket() const
 		{
-			return _connection->socket();
+			return _sharedStaffPtr->socket();
 		}
 	protected:
 		// Returns true if task should be terminated
 		inline bool shouldTerminate() const
 		{
-			return _service.shouldTerminate() || _connection->shouldTerminate();
+			return _service.shouldTerminate() || _sharedStaffPtr->shouldTerminate();
 		}
 	private:
 		AbstractSenderTask();
@@ -307,41 +282,43 @@ protected:
 		AbstractSenderTask& operator=(const AbstractSenderTask&);					// No copy
 
 		AbstractAsyncTcpService& _service;
-		Connection * _connection;
+		SharedStaff * _sharedStaffPtr;
 	};
 
-	//! Creating connection factory method
+	//! Shared staff object creation factory method
 	/*!
-	  \param socket TCP-socket for collaborative usage
-	  \return std::auto_ptr with new connection
+	  \param socket Reference to the client connection socket
+	  \return Auto-pointer to the new shared staff object
 	*/
-	virtual std::auto_ptr<Connection> createConnection(TcpSocket * socket)
+	virtual std::auto_ptr<SharedStaff> createSharedStaff(TcpSocket& socket)
 	{
-		return std::auto_ptr<Connection>(new Connection(socket));
+		return std::auto_ptr<SharedStaff>(new SharedStaff(socket));
 	}
-	//! Creating listener factory method
+	//! Listener object creation factory method
 	/*!
 	  \param addrInfo TCP-address info to bind to
 	  \param listenTimeout Timeout to wait for incoming connections
 	  \param backLog Listen backlog
-	  \return New listener's auto_ptr
+	  \return Auto-pointer to the new listener object
 	*/
 	virtual std::auto_ptr<AbstractListenerThread> createListener(const TcpAddrInfo& addrInfo, const Timeout& listenTimeout, unsigned int backLog)
 	{
 		return std::auto_ptr<AbstractListenerThread>(new ListenerThread(*this, addrInfo, listenTimeout, backLog));
 	}
-	//! Creating receiver task factory method to override
+	//! Receiver task object creation factory method to override
 	/*!
-	  \param socket TCP-socket for I/O
-	  \return std::auto_ptr with pointer to the new receiver task
+	  \param listener Reference to listener thread object
+	  \param sharedStaff Reference to the shared staff object
+	  \return Auto-pointer to the new receiver task object
 	*/
-	virtual std::auto_ptr<AbstractReceiverTask> createReceiverTask(ListenerThread& listener, Connection * connectionPtr) = 0;
-	//! Creating sender task factory method to override
+	virtual std::auto_ptr<AbstractReceiverTask> createReceiverTask(ListenerThread& listener, SharedStaff& sharedStaff) = 0;
+	//! Sender task object creation factory method to override
 	/*!
-	  \param socket TCP-socket for I/O
-	  \return std::auto_ptr with pointer to the new sender task
+	  \param listener Reference to listener thread object
+	  \param sharedStaff Reference to the shared staff object
+	  \return Auto-pointer to the new sender task object
 	*/
-	virtual std::auto_ptr<AbstractSenderTask> createSenderTask(ListenerThread& listener, Connection * connectionPtr) = 0;
+	virtual std::auto_ptr<AbstractSenderTask> createSenderTask(ListenerThread& listener, SharedStaff& sharedStaff) = 0;
 private:
 	AbstractAsyncTcpService();
 	AbstractAsyncTcpService(const AbstractAsyncTcpService&);						// No copy
