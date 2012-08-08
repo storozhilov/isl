@@ -91,6 +91,9 @@ protected:
 			_shouldTerminate = newValue;
 			return oldValue;
 		}
+		//! Shared staff initialization virtual method
+		virtual void init()
+		{}
 	private:
 		SharedStaff();
 		SharedStaff(const SharedStaff&);						// No copy
@@ -178,6 +181,7 @@ protected:
 					SharedStaff * sharedStaffPtr = sharedStaffAutoPtr.get();
 					sharedStaffAutoPtr.release();
 					std::auto_ptr<AbstractTaskType> senderTaskAutoPtr(_service.createSenderTask(*this, *sharedStaffPtr));
+					sharedStaffPtr->init();
 					std::list<AbstractTaskType *> taskList;
 					taskList.push_back(receiverTaskAutoPtr.get());
 					taskList.push_back(senderTaskAutoPtr.get());

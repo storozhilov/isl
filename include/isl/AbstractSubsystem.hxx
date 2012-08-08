@@ -17,9 +17,6 @@ namespace isl
 {
 
 //! Subsystem base class
-/*!
-  TODO Maybe bool shouldTerminate() method?
-*/
 class AbstractSubsystem
 {
 public:

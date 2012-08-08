@@ -60,6 +60,7 @@ public:
 	bool push(std::auto_ptr<Msg>& msgAutoPtr)
 	{
 		if (!msgAutoPtr.get()) {
+			errorLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Attempting to push a zero pointer to message into the message queue"));
 			return false;
 		}
 		MutexLocker locker(_queueCond.mutex());
@@ -210,7 +211,13 @@ public:
 			debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Message has been rejected by queue's filter"));
 			return false;
 		}
-		_queue.push_front(msg.clone());
+		std::auto_ptr<Msg> clonedMsgAutoPtr(msg.clone());
+		if (!clonedMsgAutoPtr.get()) {
+			errorLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Message cloning method returns null pointer"));
+			return false;
+		}
+		_queue.push_front(clonedMsgAutoPtr.get());
+		clonedMsgAutoPtr.release();
 		_queueCond.wakeOne();
 		return true;
 	}

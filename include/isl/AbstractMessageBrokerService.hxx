@@ -41,6 +41,7 @@ public:
 	typedef AbstractMessageConsumer<Msg> AbstractMessageConsumerType;
 	typedef MessageQueue<Msg> MessageQueueType;
 	typedef MessageBuffer<Msg> MessageBufferType;
+	typedef MessageBus<Msg> MessageBusType;
 
 	//! Constructor
 	/*!
@@ -143,15 +144,40 @@ protected:
 		*/
 		SharedStaff(TcpSocket& socket) :
 			AbstractAsyncTcpService::SharedStaff(socket),
-			_inputQueueAutoPtr()
+			_inputQueueAutoPtr(),
+			_outputBusAutoPtr()
 		{}
-		//! Returns a reference to input message queue
+		//! Returns a reference to the internal input message queue
 		inline MessageQueueType& inputQueue()
 		{
-			if (!_inputQueueAutoPtr.get()) {
-				_inputQueueAutoPtr = createInputQueue();
-			}
 			return *_inputQueueAutoPtr.get();
+		}
+		//! Returns a reference to the internal output message bus
+		inline MessageBusType& outputBus()
+		{
+			return *_outputBusAutoPtr.get();
+		}
+		//! Sends a request message to message broker client and waits for response(-s)
+		/*!
+		  \param request Constant reference to request message to send
+		  \param responseQueue Reference to response-filtering message queue to save a response(-s) to
+		  \param timeout Timeout to wait for response
+		  \return True if the message has been accepted by input message queue
+		*/
+		inline bool sendRequest(const Msg& request, MessageQueueType& responseQueue, const Timeout& timeout = Timeout::defaultTimeout())
+		{
+			responseQueue.clear();
+			typename MessageProviderType::Subscriber subscriber(outputBus(), responseQueue);
+			if (!inputQueue().push(request)) {
+				return false;
+			}
+			return responseQueue.await(timeout);
+		}
+		//! Shared staff initialization virtual method
+		virtual void init()
+		{
+			_inputQueueAutoPtr = createInputQueue();
+			_outputBusAutoPtr = createOutputBus();
 		}
 	protected:
 		//! Input message queue creation factory method
@@ -162,8 +188,17 @@ protected:
 		{
 			return std::auto_ptr<MessageQueueType>(new MessageQueueType());
 		}
+		//! Output message bus creation factory method
+		/*!
+		  \return Auto-pointer to the output bus object
+		*/
+		virtual std::auto_ptr<MessageBusType> createOutputBus()
+		{
+			return std::auto_ptr<MessageBusType>(new MessageBusType());
+		}
 	private:
 		std::auto_ptr<MessageQueueType> _inputQueueAutoPtr;
+		std::auto_ptr<MessageBusType> _outputBusAutoPtr;
 	};
 	//! Receiver task object abstract class
 	class AbstractReceiverTask : public AbstractAsyncTcpService::AbstractReceiverTask
@@ -208,7 +243,12 @@ protected:
 		*/
 		virtual void onProvideMessage(const Msg& msg, AbstractMessageConsumerType& consumer)
 		{
-			debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Message has been provided to the consumer"));
+			//debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Message has been provided to the consumer"));
+			if (&consumer == &_sharedStaff.outputBus()) {
+				debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Message has been provided to the internal output bus"));
+			} else {
+				debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Message has been provided to the consumer"));
+			}
 		}
 		//! On receive data from transport exception event handler
 		/*!
@@ -254,6 +294,10 @@ protected:
 						if (!onReceiveMessage(*msgAutoPtr.get())) {
 							debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Message has been rejected by the on receive event handler"));
 							continue;
+						}
+						// Providing message to the internal output bus
+						if (_sharedStaff.outputBus().push(*msgAutoPtr.get())) {
+							onProvideMessage(*msgAutoPtr.get(), _sharedStaff.outputBus());
 						}
 						// Providing message to all consumers
 						for (typename ConsumersContainer::iterator i = _service._consumers.begin(); i != _service._consumers.end(); ++i) {
@@ -417,7 +461,6 @@ protected:
 	*/
 	virtual std::auto_ptr<AbstractAsyncTcpService::SharedStaff> createSharedStaff(TcpSocket& socket)
 	{
-		//return std::auto_ptr<AbstractAsyncTcpService::SharedStaff>(new SharedStaff(*this, socket));
 		return std::auto_ptr<AbstractAsyncTcpService::SharedStaff>(new SharedStaff(socket));
 	}
 private:

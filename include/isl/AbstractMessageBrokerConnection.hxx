@@ -51,25 +51,133 @@ public:
 	typedef MessageBuffer<Msg> MessageBufferType;
 	typedef MessageBus<Msg> MessageBusType;
 
+	//! Input message queue factory base class
+	class InputQueueFactory
+	{
+	public:
+		virtual ~InputQueueFactory()
+		{}
+		//! Input message queue creation factory method
+		virtual std::auto_ptr<MessageQueueType> create() const
+		{
+			return std::auto_ptr<MessageQueueType>(new MessageQueueType());
+		}
+	};
+
+	//! Output message bus factory base class
+	class OutputBusFactory
+	{
+	public:
+		virtual ~OutputBusFactory()
+		{}
+		//! Output message bus creation factory method
+		virtual std::auto_ptr<MessageBusType> create() const
+		{
+			return std::auto_ptr<MessageBusType>(new MessageBusType());
+		}
+	};
+
 	//! Constructor
 	/*!
 	  \param owner Pointer to the owner subsystem
 	  \param serverAddrInfo Message broker address
-	  \param inputQueue Reference to the input message queue to fetch messages and subscribe it to the providers
 	  \param listeningInputQueueTimeout Listening input queue timeout
 	  \param awaitingConnectionTimeout Awaiting connection timeout
+	  \param inputQueueFactory Input message queue factory object reference
+	  \param outputBusFactory Output message bus factory object reference
 	*/
-	AbstractMessageBrokerConnection(AbstractSubsystem * owner, const TcpAddrInfo& serverAddrInfo, MessageQueueType& inputQueue,
-			const Timeout& listeningInputQueueTimeout = Timeout(0, 100), const Timeout& awaitingConnectionTimeout = Timeout(1)) :
+	AbstractMessageBrokerConnection(AbstractSubsystem * owner, const TcpAddrInfo& serverAddrInfo,
+			const Timeout& listeningInputQueueTimeout = Timeout(0, 100), const Timeout& awaitingConnectionTimeout = Timeout(1),
+			const InputQueueFactory& inputQueueFactory = InputQueueFactory(), const OutputBusFactory& outputBusFactory = OutputBusFactory()) :
 		AbstractSubsystem(owner),
 		_serverAddrInfo(serverAddrInfo),
-		_inputQueue(inputQueue),
+		_inputQueueAutoPtr(inputQueueFactory.create()),
+		_providedInputQueuePtr(),
+		_outputBusAutoPtr(outputBusFactory.create()),
+		_providedOutputBusPtr(),
 		_listeningInputQueueTimeout(listeningInputQueueTimeout),
 		_awaitingConnectionTimeout(awaitingConnectionTimeout),
 		_receiverThreadAutoPtr(),
 		_senderThreadAutoPtr(),
 		_socket(),
-		_internalConsumerBus(),
+		_providers(),
+		_consumers()
+	{}
+	//! Constructor with user provided input message queue
+	/*!
+	  \param owner Pointer to the owner subsystem
+	  \param serverAddrInfo Message broker address
+	  \param inputQueue Reference to the input message queue to fetch messages from
+	  \param listeningInputQueueTimeout Listening input queue timeout
+	  \param awaitingConnectionTimeout Awaiting connection timeout
+	  \param outputBusFactory Output message bus factory object reference
+	*/
+	AbstractMessageBrokerConnection(AbstractSubsystem * owner, const TcpAddrInfo& serverAddrInfo, MessageQueueType& inputQueue,
+			const Timeout& listeningInputQueueTimeout = Timeout(0, 100), const Timeout& awaitingConnectionTimeout = Timeout(1),
+			const OutputBusFactory& outputBusFactory = OutputBusFactory()) :
+		AbstractSubsystem(owner),
+		_serverAddrInfo(serverAddrInfo),
+		_inputQueueAutoPtr(),
+		_providedInputQueuePtr(&inputQueue),
+		_outputBusAutoPtr(outputBusFactory.create()),
+		_providedOutputBusPtr(),
+		_listeningInputQueueTimeout(listeningInputQueueTimeout),
+		_awaitingConnectionTimeout(awaitingConnectionTimeout),
+		_receiverThreadAutoPtr(),
+		_senderThreadAutoPtr(),
+		_socket(),
+		_providers(),
+		_consumers()
+	{}
+	//! Constructor with user provided output message bus
+	/*!
+	  \param owner Pointer to the owner subsystem
+	  \param serverAddrInfo Message broker address
+	  \param outputBus Reference to the output message bus to provide all received messages to
+	  \param listeningInputQueueTimeout Listening input queue timeout
+	  \param awaitingConnectionTimeout Awaiting connection timeout
+	  \param inputQueueFactory Input message queue factory object reference
+	*/
+	AbstractMessageBrokerConnection(AbstractSubsystem * owner, const TcpAddrInfo& serverAddrInfo, MessageBusType& outputBus,
+			const Timeout& listeningInputQueueTimeout = Timeout(0, 100), const Timeout& awaitingConnectionTimeout = Timeout(1),
+			const InputQueueFactory& inputQueueFactory = InputQueueFactory()) :
+		AbstractSubsystem(owner),
+		_serverAddrInfo(serverAddrInfo),
+		_inputQueueAutoPtr(inputQueueFactory.create()),
+		_providedInputQueuePtr(),
+		_outputBusAutoPtr(),
+		_providedOutputBusPtr(&outputBus),
+		_listeningInputQueueTimeout(listeningInputQueueTimeout),
+		_awaitingConnectionTimeout(awaitingConnectionTimeout),
+		_receiverThreadAutoPtr(),
+		_senderThreadAutoPtr(),
+		_socket(),
+		_providers(),
+		_consumers()
+	{}
+	//! Constructor with user provided input message queue and output message bus
+	/*!
+	  \param owner Pointer to the owner subsystem
+	  \param serverAddrInfo Message broker address
+	  \param inputQueue Reference to the input message queue to fetch messages from
+	  \param outputBus Reference to the output message bus to provide all received messages to
+	  \param listeningInputQueueTimeout Listening input queue timeout
+	  \param awaitingConnectionTimeout Awaiting connection timeout
+	*/
+	AbstractMessageBrokerConnection(AbstractSubsystem * owner, const TcpAddrInfo& serverAddrInfo, MessageQueueType& inputQueue,
+			MessageBusType& outputBus, const Timeout& listeningInputQueueTimeout = Timeout(0, 100),
+			const Timeout& awaitingConnectionTimeout = Timeout(1)) :
+		AbstractSubsystem(owner),
+		_serverAddrInfo(serverAddrInfo),
+		_inputQueueAutoPtr(),
+		_providedInputQueuePtr(&inputQueue),
+		_outputBusAutoPtr(),
+		_providedOutputBusPtr(&outputBus),
+		_listeningInputQueueTimeout(listeningInputQueueTimeout),
+		_awaitingConnectionTimeout(awaitingConnectionTimeout),
+		_receiverThreadAutoPtr(),
+		_senderThreadAutoPtr(),
+		_socket(),
 		_providers(),
 		_consumers()
 	{}
@@ -78,10 +186,27 @@ public:
 	{
 		return _socket;
 	}
-	//! Returns a reference to the input queue
+	//! Returns a reference to the input message queue
 	inline MessageQueueType& inputQueue()
 	{
-		return _inputQueue;
+		if (_providedInputQueuePtr) {
+			return *_providedInputQueuePtr;
+		} else if (_inputQueueAutoPtr.get()) {
+			return *_inputQueueAutoPtr.get();
+		} else {
+			throw Exception(Error(SOURCE_LOCATION_ARGS, "Input message queue have not been initialized"));
+		}
+	}
+	//! Returns a reference to the output message bus
+	inline MessageBusType& outputBus()
+	{
+		if (_providedOutputBusPtr) {
+			return *_providedOutputBusPtr;
+		} else if (_outputBusAutoPtr.get()) {
+			return *_outputBusAutoPtr.get();
+		} else {
+			throw Exception(Error(SOURCE_LOCATION_ARGS, "Output message bus have not been initialized"));
+		}
 	}
 	//! Adds message provider to subscribe input queue to while running
 	/*!
@@ -141,7 +266,7 @@ public:
 	{
 		MutexLocker locker(startStopMutex());
 		if (state() != IdlingState) {
-			throw Exception(Error(SOURCE_LOCATION_ARGS, "Message consumer  could be removed while subsystem idling only"));
+			throw Exception(Error(SOURCE_LOCATION_ARGS, "Message consumer could be removed while subsystem idling only"));
 		}
 		typename ConsumersContainer::iterator pos = std::find(_consumers.begin(), _consumers.end(), &consumer);
 		if (pos == _consumers.end()) {
@@ -174,23 +299,23 @@ public:
 	//! Sends a message to message broker
 	inline bool sendMessage(const Msg& msg)
 	{
-		return _inputQueue.push(msg);
+		return inputQueue().push(msg);
 	}
-	//! Sends a request message to message broker and waits for response
+	//! Sends a request message to message broker and waits for response(-s)
 	/*!
 	  \param request Constant reference to request message to send
-	  \param responseQueue Reference to response-filtering message queue to save a response(s) to
+	  \param responseQueue Reference to response-filtering message queue to save a response(-s) to
 	  \param timeout Timeout to wait for response
 	  \return True if the message has been accepted by input message queue
 	*/
 	inline bool sendRequest(const Msg& request, MessageQueueType& responseQueue, const Timeout& timeout = Timeout::defaultTimeout())
 	{
 		responseQueue.clear();
-		typename MessageProviderType::Subscriber subscriber(_internalConsumerBus, responseQueue);
-		if (!_inputQueue.push(request)) {
+		typename MessageProviderType::Subscriber subscriber(outputBus(), responseQueue);
+		if (!inputQueue().push(request)) {
 			return false;
 		}
-		return _inputQueue.await(timeout);
+		return responseQueue.await(timeout);
 	}
 protected:
 	//! Receiving messages from the network transport and providing them to subscribed consumers abstract thread class
@@ -260,8 +385,8 @@ protected:
 		*/
 		virtual void onProvideMessage(const Msg& msg, AbstractMessageConsumerType& consumer)
 		{
-			if (&consumer == &_connection._internalConsumerBus) {
-				debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Message has been provided to the internal consumer bus"));
+			if (&consumer == &_connection.outputBus()) {
+				debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Message has been provided to the internal output bus"));
 			} else {
 				debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Message has been provided to the consumer"));
 			}
@@ -342,9 +467,10 @@ protected:
 							debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Message has been rejected by the on receive event handler"));
 							continue;
 						}
-						// Providing message to internal consumer bus
-						_connection._internalConsumerBus.push(*msgAutoPtr.get());
-						onProvideMessage(*msgAutoPtr.get(), _connection._internalConsumerBus);
+						// Providing message to the internal output message bus
+						if (_connection.outputBus().push(*msgAutoPtr.get())) {
+							onProvideMessage(*msgAutoPtr.get(), _connection.outputBus());
+						}
 						// Providing message to all consumers
 						for (typename ConsumersContainer::iterator i = _connection._consumers.begin(); i != _connection._consumers.end(); ++i) {
 							if ((*i)->push(*msgAutoPtr.get())) {
@@ -457,7 +583,7 @@ protected:
 			// Susbcribing input message queue to the providers
 			typename MessageProviderType::SubscriberListReleaser subscriberListReleaser;
 			for (typename ProvidersContainer::iterator i = _connection._providers.begin(); i != _connection._providers.end(); ++i) {
-				std::auto_ptr<typename MessageProviderType::Subscriber> subscriberAutoPtr(new typename MessageProviderType::Subscriber(**i, _connection._inputQueue));
+				std::auto_ptr<typename MessageProviderType::Subscriber> subscriberAutoPtr(new typename MessageProviderType::Subscriber(**i, _connection.inputQueue()));
 				subscriberListReleaser.addSubscriber(subscriberAutoPtr.get());
 				subscriberAutoPtr.release();
 				debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Sender thread's input queue has been subscribed to the message provider"));
@@ -495,7 +621,7 @@ protected:
 					}
 				} else if (_consumeBuffer.empty()) {
 					// Fetching all messages from the input to the consume buffer
-					size_t consumedMessagesAmount = _connection._inputQueue.popAll(_consumeBuffer, _connection._listeningInputQueueTimeout);
+					size_t consumedMessagesAmount = _connection.inputQueue().popAll(_consumeBuffer, _connection._listeningInputQueueTimeout);
 					if (consumedMessagesAmount > 0) {
 						std::ostringstream oss;
 						oss << consumedMessagesAmount << " message(s) has been fetched from the input queue to the consume buffer";
@@ -517,11 +643,6 @@ protected:
 		WaitCondition _sleepCond;
 		MessageBufferType _consumeBuffer;
 	};
-	//! Returns a reference to the internal consumer bus which all incoming messages are provided to
-	MessageBusType& internalConsumerBus()
-	{
-		return _internalConsumerBus;
-	}
 	//! Before subsystem's start event handler
 	virtual void beforeStart()
 	{
@@ -572,13 +693,15 @@ private:
 	typedef std::list<AbstractMessageConsumerType *> ConsumersContainer;
 
 	TcpAddrInfo _serverAddrInfo;
-	MessageQueueType& _inputQueue;
+	std::auto_ptr<MessageQueueType> _inputQueueAutoPtr;
+	MessageQueueType * _providedInputQueuePtr;
+	std::auto_ptr<MessageBusType> _outputBusAutoPtr;
+	MessageBusType * _providedOutputBusPtr;
 	const Timeout _listeningInputQueueTimeout;
 	const Timeout _awaitingConnectionTimeout;
 	std::auto_ptr<AbstractReceiverThread> _receiverThreadAutoPtr;
 	std::auto_ptr<AbstractSenderThread> _senderThreadAutoPtr;
 	TcpSocket _socket;
-	MessageBusType _internalConsumerBus;
 	ProvidersContainer _providers;
 	ConsumersContainer _consumers;
 };
