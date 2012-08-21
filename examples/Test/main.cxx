@@ -1,5 +1,7 @@
 #define LIBISL__DEBUGGING_ON 1
 
+// TODO Migrate test to Goole Test library
+
 #include <isl/common.hxx>
 #include <isl/LogMessage.hxx>
 #include <isl/TcpAddrInfo.hxx>
@@ -11,7 +13,7 @@
 #include <isl/DateTime.hxx>
 #include <isl/Time.hxx>
 #include <isl/Date.hxx>
-#include <isl/VariantFormatter.hxx>
+//#include <isl/VariantFormatter.hxx>
 #include <isl/HttpRequestStreamReader.hxx>
 #include <isl/AbstractMessageConsumer.hxx>
 #include <isl/MessageProvider.hxx>
@@ -31,6 +33,7 @@
 //#include <isl/Utf8TextCodec.hxx>
 #include <iostream>
 #include <stdexcept>
+#include <iomanip>
 //#include <stdlib.h>
 
 #include <errno.h>
@@ -47,6 +50,40 @@
 //#define BUFFERED_READING false
 #define BUFFERED_READING true
 
+void testTimeout()
+{
+	//isl::Timeout to1(2, 100000000);
+	isl::Timeout to1(1, 100000000);
+	std::cout << to1.seconds() << '.' << std::setw(9) << std::setfill('0') << to1.nanoSeconds() << std::endl;
+	timespec limit = to1.limit();
+	sleep(1);
+	isl::Timeout to2 = isl::Timeout::leftToLimit(limit);
+	std::cout << to2.seconds() << '.' << std::setw(9) << std::setfill('0') << to2.nanoSeconds() << std::endl;
+}
+
+void testTime()
+{
+	isl::Time t1(0, 0, 1, 1);
+	std::cout << "t1 = " << t1.toString() << std::endl;
+	isl::Time t2 = t1.addNanoSeconds(-2000000002);
+	std::cout << "t2 = " << t2.toString() << std::endl;
+	isl::Time t3 = t1.addSeconds(-2);
+	std::cout << "t3 = " << t3.toString() << std::endl;
+	isl::Time t4 = t1.addNanoSeconds(1000000023);
+	std::cout << "t4 = " << t4.toString() << std::endl;
+	time_t now = time(0);
+	isl::Time t5(now, true, 123);
+	std::cout << "t5 = " << t5.toString() << std::endl;
+	isl::Time t6(isl::Time::now());
+	std::cout << "t6 = " << t6.toString() << std::endl;
+	isl::Time t7("10:11:12.123456");
+	std::cout << "t7 = " << t7.toString() << std::endl;
+	isl::Time t8("10:11:12.1p");
+	std::cout << "t8 = " << t8.toString() << std::endl;
+	isl::Time t9("10:11:12.p");
+	std::cout << "t9 = " << t9.toString() << std::endl;
+}
+
 void testDateTime()
 {
 	/*const wchar_t * wfmt = L"%Y-%m-%d %H:%M:%S %z";
@@ -56,26 +93,26 @@ void testDateTime()
 	isl::Time t1 = isl::Time::now();
 	std::wcout << t1.toWString(wfmt) << std::endl;*/
 
-	const wchar_t * inTimeFormat = L"%H:%M:%S.%f";
-	const wchar_t * outTimeFormat = L"%H/%M/%S.%f";
-	std::wcout << "Time is = " << isl::Time::fromWString(L"12:25:33.432", inTimeFormat).toWString(outTimeFormat) << std::endl;
+	//const wchar_t * inTimeFormat = L"%H:%M:%S.%f";
+	//const wchar_t * outTimeFormat = L"%H/%M/%S.%f";
+	//std::wcout << "Time is = " << isl::Time::fromWString(L"12:25:33.432", inTimeFormat).toWString(outTimeFormat) << std::endl;
 
-	const wchar_t * inDateFormat = L"%Y-%m-%d";
-	const wchar_t * outDateFormat = L"%d.%m.%Y";
-	std::wcout << "Date is " << isl::Date::fromWString(L"1974-12-28", inDateFormat).toWString(outDateFormat) << std::endl;
+	//const wchar_t * inDateFormat = L"%Y-%m-%d";
+	//const wchar_t * outDateFormat = L"%d.%m.%Y";
+	//std::wcout << "Date is " << isl::Date::fromWString(L"1974-12-28", inDateFormat).toWString(outDateFormat) << std::endl;
 
-	const wchar_t * inDateTimeFormat = L"%Y-%m-%d %H:%M:%S.%f%z";
-	//const wchar_t * outDateTimeFormat = L"%d.%m.%Y %H/%M/%S.%f%z";
-	const wchar_t * outDateTimeFormat = isl::Http::DateTimeWFormat;
-	std::wcout << "Date is " << isl::DateTime::fromWString(L"1974-12-28 12:33:21.436+0400", inDateTimeFormat).toWString(outDateTimeFormat) << std::endl;
+	//const wchar_t * inDateTimeFormat = L"%Y-%m-%d %H:%M:%S.%f%z";
+	////const wchar_t * outDateTimeFormat = L"%d.%m.%Y %H/%M/%S.%f%z";
+	//const wchar_t * outDateTimeFormat = isl::Http::DateTimeWFormat;
+	//std::wcout << "Date is " << isl::DateTime::fromWString(L"1974-12-28 12:33:21.436+0400", inDateTimeFormat).toWString(outDateTimeFormat) << std::endl;
 }
 
 void testVariant()
 {
-	isl::Variant v(1);
+/*	isl::Variant v(1);
 	std::wcout << isl::VariantWFormatter(L"int value = $0, string value = '$1', double value = $2, date value = $3, time value = $4, datetime value = $5").arg(isl::Variant(1)).arg(isl::Variant(std::wstring(L"FooBar"))).arg(isl::Variant(24.5)).arg(isl::Variant(isl::Date::now())).arg(isl::Variant(isl::Time::now())).arg(isl::Variant(isl::DateTime::now())).compose() << std::endl;
 	std::wcout << isl::VariantWFormatter(L"char value = $0, wchar_t value = $1").arg(isl::Variant('i')).arg(isl::Variant(L's')).compose() << std::endl;
-	std::wcout << isl::VariantWFormatter(L"char value = $0, wchar_t value = $1").arg('i').arg(L's').compose() << std::endl;
+	std::wcout << isl::VariantWFormatter(L"char value = $0, wchar_t value = $1").arg('i').arg(L's').compose() << std::endl;*/
 	//std::cout << isl::ArgumentsFormatter("int value = $0, string value = '$1'").arg(isl::Variant(1)).arg(isl::Variant(std::string("FooBar"))).compose() << std::endl;
 	//std::cout << isl::ArgumentsFormatter("int value = $0, string value = '$1'").arg(isl::Variant(1)).arg(isl::Variant(std::wstring(L"FooBar"))).compose() << std::endl;
 }
@@ -200,7 +237,9 @@ int main(int argc, char *argv[])
 	isl::debugLog().connectTarget(isl::FileLogTarget("test.log"));
 
 	//testDateTime();
-	testTcpEndpoint();
+	testTimeout();
+	testTime();
+	//testTcpEndpoint();
 	return 0;
 	//testVariant();
 	//testHttpRequestStreamReader();

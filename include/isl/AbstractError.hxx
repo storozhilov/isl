@@ -9,7 +9,7 @@
 namespace isl
 {
 
-//! Base class for usage in multi-error exception (isl::Exception)
+//! Base class for usage in ISL's exception class (isl::Exception)
 class AbstractError
 {
 public:

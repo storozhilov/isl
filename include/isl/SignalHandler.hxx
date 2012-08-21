@@ -12,14 +12,17 @@
 namespace isl
 {
 
-//! UNIX-signal handler subsystem
+//! UNIX signal handler subsystem
+/*!
+  TODO Migration from sigpending(2)/sigwait(P) to sigtimedwait(2)
+*/
 class SignalHandler : public AbstractSubsystem
 {
 public:
 	//! Constructor
 	/*!
 	  \param owner Pointer to owner subsystem
-	  \param signalSet Set of UNIX-signals to track
+	  \param signalSet Set of UNIX signals to track
 	  \param timeout Sleeping timeout
 	*/
 	SignalHandler(AbstractSubsystem * owner, const SignalSet& signalSet = SignalSet(3, SIGHUP, SIGINT, SIGTERM), const Timeout& timeout = Timeout::defaultTimeout());
@@ -39,6 +42,9 @@ protected:
 	//! Returns pointer to AbstractServer's instance among subsystem's owners or 0 if not found
 	AbstractServer * findServer();
 	//! On signal event handler
+	/*!
+	  \param signo UNIX signal to process
+	*/
 	virtual void onSignal(int signo);
 private:
 	SignalHandler();

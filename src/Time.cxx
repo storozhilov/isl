@@ -9,36 +9,7 @@
 namespace isl
 {
 
-/*------------------------------------------------------------------------------
- * Time
- * ---------------------------------------------------------------------------*/
-
-const char * Time::DefaultFormat = "%H:%M:%S";
-const wchar_t * Time::DefaultWFormat = L"%H:%M:%S";
-
-Time::Time() :
-	_millisecond(NullTime),
-	_gmtOffset(0)
-{}
-
-Time::Time(int hour, int minute, int second, int millisecond, long int gmtOffset) :
-	_millisecond(NullTime),
-	_gmtOffset(gmtOffset)
-{
-	setTime(hour, minute, second, millisecond);
-}
-
-std::string Time::toString(const std::string& format) const
-{
-	if (isNull()) {
-		return "[null]";
-	}
-	std::string result;
-	if (!DateTime::bdts2str(toBdts(), msecond(), format, result)) {
-		result.assign("[invalid time format]");
-	}
-	return result;
-}
+const char * Time::DefaultFormat = "%H:%M:%S.%f";
 
 struct tm Time::toBdts() const
 {
@@ -51,39 +22,90 @@ struct tm Time::toBdts() const
 	return bdts;
 }
 
-time_t Time::secondsFromEpoch() const
+std::string Time::toString(const std::string& format) const
 {
-	return _millisecond / 1000;
-}
-
-bool Time::setTime(int hour, int minute, int second, int millisecond)
-{
-	if (!isValid(hour, minute, second, millisecond)) {
-		_millisecond = NullTime;
-		return false;
+	if (isNull()) {
+		return "[null time]";
 	}
-	_millisecond = (hour * SecondsPerHour + minute * SecondsPerMinute + second) * 1000 + millisecond;
-	return true;
-}
-
-Time Time::addMSeconds(int nmseconds) const
-{
-	if (isNull() || (nmseconds == 0)) {
-		return *this;
-	}
-	Time result;
-	if (nmseconds < 0) {
-		result._millisecond = _millisecond + (nmseconds % MillisecondsPerDay);
-		if (result._millisecond < 0) {
-			result._millisecond = MillisecondsPerDay + result._millisecond;
-		}
-	} else {
-		result._millisecond = (_millisecond + nmseconds) % MillisecondsPerDay;
+	std::string result;
+	if (!DateTime::bdts2str(toBdts(), _nanoSecond, format, result)) {
+		result.assign("[invalid time format]");
 	}
 	return result;
 }
 
-int Time::msecondsTo(const Time& time) const
+bool Time::set(int hour, int minute, int second, int nanoSecond, long int gmtOffset)
+{
+	if (!isValid(hour, minute, second, nanoSecond, gmtOffset)) {
+		reset();
+		return false;
+	}
+	_isNull = false;
+	_second = hour * SecondsPerHour + minute * SecondsPerMinute + second;
+	_nanoSecond = nanoSecond;
+	_gmtOffset = gmtOffset;
+	return true;
+}
+
+bool Time::set(time_t secondsFromEpoch, bool isLocalTime, int nanoSecond)
+{
+	tm bdts;
+	if (isLocalTime) {
+		if (localtime_r(&secondsFromEpoch, &bdts) == NULL) {
+			throw Exception(SystemCallError(SOURCE_LOCATION_ARGS, SystemCallError::LocalTimeR, errno, "Error converting time_t to local time"));
+		}
+	} else {
+		if (gmtime_r(&secondsFromEpoch, &bdts) == NULL) {
+			throw Exception(SystemCallError(SOURCE_LOCATION_ARGS, SystemCallError::GMTimeR, errno, "Error converting time_t to GMT"));
+		}
+	}
+	return set(bdts, nanoSecond);
+}
+
+bool Time::set(const std::string& str, const std::string& fmt)
+{
+	struct tm bdts;
+	int nanoSecond;
+	if (DateTime::str2bdts(str, fmt, bdts, nanoSecond)) {
+		return set(bdts, nanoSecond);
+	} else {
+		reset();
+		return false;
+	}
+}
+
+Time Time::addSeconds(long int nSeconds) const
+{
+	if (isNull() || nSeconds == 0) {
+		return *this;
+	}
+	Time result(*this);
+	result._second = (result._second + nSeconds) % SecondsPerDay;
+	if (result._second < 0) {
+		result._second += SecondsPerDay;
+	}
+	return result;
+}
+
+Time Time::addNanoSeconds(long int nNanoSeconds) const
+{
+	if (isNull() || nNanoSeconds == 0) {
+		return *this;
+	}
+	Time result(*this);
+	result._second = (result._second + (result._nanoSecond + nNanoSeconds) / 1000000000) % SecondsPerDay;
+	result._nanoSecond = (result._nanoSecond + nNanoSeconds) % 1000000000;
+	if (result._nanoSecond < 0) {
+		--result._second;
+		result._nanoSecond += 1000000000;
+	}
+	if (result._second < 0) {
+		result._second += SecondsPerDay;
+	}
+	return result;
+}
+
+/*int Time::msecondsTo(const Time& time) const
 {
 	if (!isValid() || !time.isValid()) {
 		return 0;
@@ -125,100 +147,20 @@ int Time::elapsed() const
 		n += MillisecondsPerDay;
 	}
 	return n;
-}
-
-Time Time::fromSecondsFromEpoch(time_t nsecs, bool isLocalTime)
-{
-	tm bdts;
-	if (isLocalTime) {
-		if (localtime_r(&nsecs, &bdts) == NULL) {
-			throw Exception(SystemCallError(SOURCE_LOCATION_ARGS, SystemCallError::LocalTimeR, errno, "Error converting time_t to local time"));
-		}
-	} else {
-		if (gmtime_r(&nsecs, &bdts) == NULL) {
-			throw Exception(SystemCallError(SOURCE_LOCATION_ARGS, SystemCallError::LocalTimeR, errno, "Error converting time_t to GMT"));
-		}
-	}
-	return Time(bdts.tm_hour, bdts.tm_min, bdts.tm_sec, bdts.tm_gmtoff);
-}
+}*/
 
 Time Time::now()
 {
-	struct timeval tv;
-	struct timezone tz;
-	if (gettimeofday(&tv, &tz) != 0) {
-		throw Exception(SystemCallError(SOURCE_LOCATION_ARGS, SystemCallError::GetTimeOfDay, errno, "Fetching time of day error"));
+	
+	timespec ts;
+	if (clock_gettime(CLOCK_REALTIME, &ts) != 0) {
+		throw Exception(SystemCallError(SOURCE_LOCATION_ARGS, SystemCallError::ClockGetTime, errno, "Fetching time of day error"));
 	}
 	tm bdts;
-	if (localtime_r(&(tv.tv_sec), &bdts) == NULL) {
+	if (localtime_r(&(ts.tv_sec), &bdts) == NULL) {
 		throw Exception(SystemCallError(SOURCE_LOCATION_ARGS, SystemCallError::LocalTimeR, errno, "Error converting time_t to local time"));
 	}
-	return Time(bdts.tm_hour, bdts.tm_min, bdts.tm_sec, tv.tv_usec / 1000, bdts.tm_gmtoff);
-}
-
-bool Time::operator==(const Time& other) const
-{
-	if (!isValid() || !other.isValid()) {
-		return false;
-	}
-	return _millisecond == other._millisecond;
-}
-
-bool Time::operator!=(const Time& other) const
-{
-	if (!isValid() || !other.isValid()) {
-		return false;
-	}
-	return _millisecond != other._millisecond;
-}
-
-bool Time::operator<(const Time& other) const
-{
-	if (!isValid() || !other.isValid()) {
-		return false;
-	}
-	return _millisecond < other._millisecond;
-}
-
-bool Time::operator<=(const Time& other) const
-{
-	if (!isValid() || !other.isValid()) {
-		return false;
-	}
-	return _millisecond <= other._millisecond;
-}
-
-bool Time::operator>(const Time& other) const
-{
-	if (!isValid() || !other.isValid()) {
-		return false;
-	}
-	return _millisecond > other._millisecond;
-}
-
-bool Time::operator>=(const Time& other) const
-{
-	if (!isValid() || !other.isValid()) {
-		return false;
-	}
-	return _millisecond >= other._millisecond;
-}
-
-bool Time::isValid(int hour, int minute, int second, int millisecond)
-{
-	return (0 <= hour) && (hour <= 23) && (0 <= minute) && (minute <= 59) && (0 <= second) && (second <= 59) && (0 <= millisecond) &&
-		(millisecond <= 999);
-	return false;
-}
-
-Time Time::fromString(const std::string& str, const std::string& fmt)
-{
-	struct tm bdts;
-	unsigned int msec;
-	if (!DateTime::str2bdts(str, fmt, bdts, msec)) {
-		return Time();
-	}
-	return fromBdts(bdts, msec);
+	return Time(bdts.tm_hour, bdts.tm_min, bdts.tm_sec, ts.tv_nsec, bdts.tm_gmtoff);
 }
 
 } // namespace isl

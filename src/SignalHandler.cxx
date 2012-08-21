@@ -5,7 +5,6 @@
 #include <isl/LogMessage.hxx>
 #include <isl/ExceptionLogMessage.hxx>
 #include <errno.h>
-#include <iostream>
 #include <sstream>
 
 namespace isl
@@ -99,8 +98,8 @@ void SignalHandler::afterStop()
 {
 	debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Unblocking signals"));
 	if (pthread_sigmask(SIG_SETMASK, &_initialSignalMask, 0)) {
-		// TODO Maybe to use an exception?
-		std::cerr << SystemCallError(SOURCE_LOCATION_ARGS, SystemCallError::PThreadSigMask, errno).message() << std::endl;
+		// TODO Maybe to throw an exception?
+		errorLog().log(LogMessage(SOURCE_LOCATION_ARGS, SystemCallError(SOURCE_LOCATION_ARGS, SystemCallError::PThreadSigMask, errno).message()));
 	}
 	debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Signals have been unblocked"));
 	debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Signal handler has been stopped"));

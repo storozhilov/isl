@@ -40,7 +40,7 @@ void WaitCondition::wait()
 	}
 }
 
-bool WaitCondition::wait(const Timeout& timeout)
+bool WaitCondition::wait(const Timeout& timeout, Timeout * timeoutLeft)
 {
 	if (timeout.isZero()) {
 		return false;
@@ -49,8 +49,14 @@ bool WaitCondition::wait(const Timeout& timeout)
 	int errorCode = pthread_cond_timedwait(&_cond, &(_mutex._mutex), &timeoutLimit);
 	switch (errorCode) {
 		case 0:
+			if (timeoutLeft) {
+				*timeoutLeft = Timeout::leftToLimit(timeoutLimit);
+			}
 			return true;
 		case ETIMEDOUT:
+			if (timeoutLeft) {
+				*timeoutLeft = Timeout();
+			}
 			return false;
 		default:
 			throw Exception(SystemCallError(SOURCE_LOCATION_ARGS, SystemCallError::PThreadCondTimedWait, errorCode));

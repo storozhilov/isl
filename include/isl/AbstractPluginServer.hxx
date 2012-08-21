@@ -11,7 +11,7 @@
 namespace isl
 {
 
-// TODO
+//! TODO: This class needs to be completely refactored!
 class AbstractPluginServer : public AbstractServer
 {
 public:

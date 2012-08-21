@@ -10,29 +10,8 @@
 namespace isl
 {
 
-/*------------------------------------------------------------------------------
- * Date
- * ---------------------------------------------------------------------------*/
-
 const char * Date::DefaultFormat = "%Y-%m-%d";
-const wchar_t * Date::DefaultWFormat = L"%Y-%m-%d";
 const int Date::_monthDays[] = { 0, 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31 };
-
-Date::Date() :
-	_dayNumber(0),
-	_year(0),
-	_month(0),
-	_day(0)
-{}
-
-Date::Date(int year, int month, int day) :
-	_dayNumber(0),
-	_year(0),
-	_month(0),
-	_day(0)
-{
-	setDate(year, month, day);
-}
 
 int Date::dayOfWeek(bool mondayStartsWeek) const
 {
@@ -77,7 +56,7 @@ int Date::weekNumber(int& actualYear, bool mondayStartsWeek) const
 	}
 }
 
-bool Date::setDate(int year, int month, int day)
+bool Date::set(int year, int month, int day)
 {
 	_dayNumber = dayNumberFromDate(year, month, day);
 	if (_dayNumber == 0) {
@@ -90,6 +69,33 @@ bool Date::setDate(int year, int month, int day)
 		_month = month;
 		_day = day;
 		return true;
+	}
+}
+
+bool Date::set(time_t secondsFromEpoch, bool isLocalTime)
+{
+	tm bdts;
+	if (isLocalTime) {
+		if (localtime_r(&secondsFromEpoch, &bdts) == NULL) {
+			throw Exception(SystemCallError(SOURCE_LOCATION_ARGS, SystemCallError::LocalTimeR, errno, "Error converting time_t to local time"));
+		}
+	} else {
+		if (gmtime_r(&secondsFromEpoch, &bdts) == NULL) {
+			throw Exception(SystemCallError(SOURCE_LOCATION_ARGS, SystemCallError::GMTimeR, errno, "Error converting time_t to GMT"));
+		}
+	}
+	return set(bdts);
+}
+
+bool Date::set(const std::string& str, const std::string& fmt)
+{
+	struct tm bdts;
+	int nanoSecond;
+	if (DateTime::str2bdts(str, fmt, bdts, nanoSecond)) {
+		return set(bdts);
+	} else {
+		reset();
+		return false;
 	}
 }
 
@@ -166,18 +172,6 @@ Date Date::addYears(int nyears) const
 	return Date(y, _month, std::min(_day, daysInMonth(y, _month)));
 }
 
-std::string Date::toString(const std::string& format) const
-{
-	if (isNull()) {
-		return "[null]";
-	}
-	std::string result;
-	if (!DateTime::bdts2str(toBdts(), 0, format, result)) {
-		result.assign("[invalid date format]");
-	}
-	return result;
-}
-
 struct tm Date::toBdts() const
 {
 	struct tm bdts;
@@ -190,58 +184,16 @@ struct tm Date::toBdts() const
 	return bdts;
 }
 
-time_t Date::secondsFromEpoch() const
+std::string Date::toString(const std::string& format) const
 {
-	Date epoch(1970, 1, 1);
-	return epoch.daysTo(*this) * SecondsPerDay;
-}
-
-bool Date::operator==(const Date& other) const
-{
-	if (!isValid() || !other.isValid()) {
-		return false;
+	if (isNull()) {
+		return "[null date]";
 	}
-	return _dayNumber == other._dayNumber;
-}
-
-bool Date::operator!=(const Date& other) const
-{
-	if (!isValid() || !other.isValid()) {
-		return false;
+	std::string result;
+	if (!DateTime::bdts2str(toBdts(), 0, format, result)) {
+		result.assign("[invalid date format]");
 	}
-	return _dayNumber != other._dayNumber;
-}
-
-bool Date::operator<(const Date& other) const
-{
-	if (!isValid() || !other.isValid()) {
-		return false;
-	}
-	return _dayNumber < other._dayNumber;
-}
-
-bool Date::operator<=(const Date& other) const
-{
-	if (!isValid() || !other.isValid()) {
-		return false;
-	}
-	return _dayNumber <= other._dayNumber;
-}
-
-bool Date::operator>(const Date& other) const
-{
-	if (!isValid() || !other.isValid()) {
-		return false;
-	}
-	return _dayNumber > other._dayNumber;
-}
-
-bool Date::operator>=(const Date& other) const
-{
-	if (!isValid() || !other.isValid()) {
-		return false;
-	}
-	return _dayNumber >= other._dayNumber;
+	return result;
 }
 
 bool Date::isLeapYear(int year)
@@ -288,21 +240,6 @@ int Date::daysInMonth(int year, int month)
 	}
 }
 
-Date Date::fromSecondsFromEpoch(time_t nsecs, bool isLocalTime)
-{
-	tm bdts;
-	if (isLocalTime) {
-		if (localtime_r(&nsecs, &bdts) == NULL) {
-			throw Exception(SystemCallError(SOURCE_LOCATION_ARGS, SystemCallError::LocalTimeR, errno, "Error converting time_t to local time"));
-		}
-	} else {
-		if (gmtime_r(&nsecs, &bdts) == NULL) {
-			throw Exception(SystemCallError(SOURCE_LOCATION_ARGS, SystemCallError::LocalTimeR, errno, "Error converting time_t to GMT"));
-		}
-	}
-	return Date(bdts.tm_year + 1900, bdts.tm_mon + 1, bdts.tm_mday);
-}
-
 Date Date::now()
 {
 	struct timeval tv;
@@ -315,16 +252,6 @@ Date Date::now()
 		throw Exception(SystemCallError(SOURCE_LOCATION_ARGS, SystemCallError::LocalTimeR, errno, "Error converting time_t to local time"));
 	}
 	return Date(bdts.tm_year + 1900, bdts.tm_mon + 1, bdts.tm_mday);
-}
-
-Date Date::fromString(const std::string& str, const std::string& fmt)
-{
-	struct tm bdts;
-	unsigned int msec;
-	if (!DateTime::str2bdts(str, fmt, bdts, msec)) {
-		return Date();
-	}
-	return fromBdts(bdts);
 }
 
 int Date::dayNumberFromDate(int year, int month, int day)

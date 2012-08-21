@@ -11,19 +11,31 @@ namespace isl
 
 class AbstractLogTarget;
 
+//! File logging device
 class FileLogDevice : public AbstractLogDevice
 {
 public:
+	//! Constructor
+	/*!
+	  \param fileName Log file name
+	*/
 	FileLogDevice(const std::string& fileName);
-	~FileLogDevice();
-
-	virtual bool serving(const AbstractLogTarget * target) const;
+	virtual ~FileLogDevice();
 private:
 	FileLogDevice();
 	FileLogDevice(const FileLogDevice&);
 
 	FileLogDevice& operator=(const FileLogDevice&);
-
+	//! Returns true if the log device is serving passed log target
+	/*!
+	  \param target Pointer to the log target to check if the device is serving it or not.
+	*/
+	virtual bool serving(const AbstractLogTarget * target) const;
+	//! Thread unsafely writing log message to the log device abstract virtual method
+	/*!
+	  \param log Constant reference to log object
+	  \param msg Constant reference to log message object to write to the log device
+	*/
 	virtual void writeMessage(const Log& log, const AbstractLogMessage& msg);
 
 	std::string _fileName;

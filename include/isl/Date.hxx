@@ -7,34 +7,101 @@
 namespace isl
 {
 
-//! Date representation class
+//! Date
 class Date
 {
 public:
-	//! Default datetime format (narrow characters)
+	//! Default date format
 	static const char * DefaultFormat;
-	//! ISO datetime format (wide characters)
-	static const wchar_t * DefaultWFormat;
 
 	//! Constructs NULL date
-	Date();
-	//! Constructs particular date
+	Date() :
+		_dayNumber(0),
+		_year(0),
+		_month(0),
+		_day(0)
+	{}
+	//! Constructs date
 	/*!
+	  If an invalid data has been passed it constructs NULL date.
+
 	    \param year Year
 	    \param month Month
 	    \param day Day
 	*/
-	Date(int year, int month, int day);
+	Date(int year, int month, int day) :
+		_dayNumber(0),
+		_year(0),
+		_month(0),
+		_day(0)
+	{
+		set(year, month, day);
+	}
+	//! Constructs date from the time_t value
+	/*!
+	  If an invalid data has been passed it constructs NULL date.
+
+	  \param secondsFromEpoch Seconds from the Epoch (1970-01-01)
+	  \param isLocalTime Does the time_t value should be treated as local time or GMT one
+	*/
+	Date(time_t secondsFromEpoch, bool isLocalTime) :
+		_dayNumber(0),
+		_year(0),
+		_month(0),
+		_day(0)
+	{
+		set(secondsFromEpoch, isLocalTime);
+	};
+	//! Constructs date from the UNIX break-down time structure
+	/*!
+	  If an invalid data has been passed it constructs NULL date.
+
+	  \param bdts UNIX break-down time structure
+	  \param nanoSecond Nanoseconds
+	*/
+	Date(const struct tm& bdts) :
+		_dayNumber(0),
+		_year(0),
+		_month(0),
+		_day(0)
+	{
+		set(bdts);
+	}
+	//! Constructs date from POSIX.1b structure for a time value
+	/*!
+	  If an invalid data has been passed it constructs NULL date.
+
+	  \param ts POSIX.1b structure for a time value
+	  \param isLocalTime Does the time value should be treated as local time or GMT one
+	*/
+	Date(const struct timespec& ts, bool isLocalTime) :
+		_dayNumber(0),
+		_year(0),
+		_month(0),
+		_day(0)
+	{
+		set(ts.tv_sec, isLocalTime);
+	}
+	//! Constructs date from the string using supplied format
+	/*!
+	  If an invalid data has been passed it constructs NULL date.
+
+	  \param str String to parse
+	  \param format Date format (see man strftime)
+	*/
+	Date(const std::string& str, const std::string& fmt = std::string(DefaultFormat)) :
+		_dayNumber(0),
+		_year(0),
+		_month(0),
+		_day(0)
+	{
+		set(str, fmt);
+	}
 
 	//! Inspects for NULL date
 	inline bool isNull() const
 	{
 		return (_dayNumber == 0);
-	}
-	//! Opposite of isNull()
-	inline bool isValid() const
-	{
-		return !isNull();
 	}
 	//! Returns day or 0 if NULL date
 	inline int day() const
@@ -50,7 +117,7 @@ public:
 	//! Returns day of the year (1..365) or 0 if NULL date
 	inline int dayOfYear() const
 	{
-		return (_dayNumber - Date(_year, 1, 1)._dayNumber + 1);
+		return isNull() ? 0 : (_dayNumber - Date(_year, 1, 1)._dayNumber + 1);
 	}
 	// Returns week number or 0 if NULL date
 	/*!
@@ -99,13 +166,48 @@ public:
 	}
 	//! Sets date
 	/*!
-	    \param year Year
-	    \param month Month
-	    \param day Day
+	  \param year Year
+	  \param month Month
+	  \param day Day
+	  \return TRUE if the new time value is not NULL date
 	*/
-	bool setDate(int year, int month, int day);
+	bool set(int year, int month, int day);
+	//! Sets date from the time_t value
+	/*!
+	  \param secondsFromEpoch Seconds from the Epoch (1970-01-01)
+	  \param isLocalTime Does the time_t value should be treated as local time or GMT one
+	  \return TRUE if the new time value is not NULL date
+	*/
+	bool set(time_t secondsFromEpoch, bool isLocalTime);
+	//! Sets date from the UNIX break-down time structure
+	/*!
+	  \param bdts UNIX break-down time structure
+	  \param nanoSecond Nanoseconds
+	  \return TRUE if the new time value in not NULL date
+	*/
+	inline bool set(const struct tm& bdts)
+	{
+		return set(bdts.tm_year + 1900, bdts.tm_mon + 1, bdts.tm_mday);
+	}
+	//! Sets date from POSIX.1b structure for a time value
+	/*!
+	  \param ts POSIX.1b structure for a time value
+	  \param isLocalTime Does the time value should be treated as local time or GMT one
+	  \return TRUE if the new date value is not NULL date
+	*/
+	inline bool set(const struct timespec& ts, bool isLocalTime)
+	{
+		return set(ts.tv_sec, isLocalTime);
+	}
+	//! Sets date from the string using supplied format
+	/*!
+	  \param str String to parse
+	  \param format Date format (see man strftime)
+	  \return TRUE if the new time value is not NULL date
+	*/
+	bool set(const std::string& str, const std::string& fmt = std::string(DefaultFormat));
 	//! Resets date to NULL value
-	inline void setNull()
+	inline void reset()
 	{
 		_dayNumber = 0;
 		_year = 0;
@@ -127,37 +229,78 @@ public:
 	    \param nyears Number of years to add to the date
 	*/
 	Date addYears(int nyears) const;
+	//! Returns seconds since Epoch
+	inline time_t toSecondsFromEpoch() const
+	{
+		return Date(1970, 1, 1).daysTo(*this) * SecondsPerDay;
+	}
+	//! Converts date value to UNIX break-down time structure
+	struct tm toBdts() const;
+	//! Converts date value to POSIX.1b structure for a time value
+	/*!
+	  \return POSIX.1b representation for date
+	*/
+	inline struct timespec toTimeSpec() const
+	{
+		struct timespec ts;
+		ts.tv_sec = isNull() ? 0 : toSecondsFromEpoch();
+		ts.tv_nsec = 0;
+		return ts;
+	}
 	//! Formats date value to the one-byte character string
 	/*!
 	    \param format Date format (see man strftime)
 	    \return Formatted date value
 	*/
 	std::string toString(const std::string& format = std::string(DefaultFormat)) const;
-	//! Formats date value to the wide character string
-	/*!
-	    \param format Date format (see man strftime)
-	    \return Formatted date value
-	*/
-	inline std::wstring toWString(const std::wstring& format = std::wstring(DefaultWFormat)) const
+	//! Comparence operator
+	inline bool operator==(const Date& rhs) const
 	{
-		return String::utf8Decode(toString(String::utf8Encode(format)));
+		if (isNull() || rhs.isNull()) {
+			return false;
+		}
+		return _dayNumber == rhs._dayNumber;
 	}
-	//! Converts date value to UNIX break-down time structure
-	struct tm toBdts() const;
-	//! Returns seconds since Epoch
-	time_t secondsFromEpoch() const;
 	//! Comparence operator
-	bool operator==(const Date& other) const;
+	inline bool operator!=(const Date& rhs) const
+	{
+		if (isNull() || rhs.isNull()) {
+			return false;
+		}
+		return _dayNumber != rhs._dayNumber;
+	}
 	//! Comparence operator
-	bool operator!=(const Date& other) const;
+	inline bool operator<(const Date& rhs) const
+	{
+		if (isNull() || rhs.isNull()) {
+			return false;
+		}
+		return _dayNumber < rhs._dayNumber;
+	}
 	//! Comparence operator
-	bool operator<(const Date& other) const;
+	inline bool operator<=(const Date& rhs) const
+	{
+		if (isNull() || rhs.isNull()) {
+			return false;
+		}
+		return _dayNumber <= rhs._dayNumber;
+	}
 	//! Comparence operator
-	bool operator<=(const Date& other) const;
+	inline bool operator>(const Date& rhs) const
+	{
+		if (isNull() || rhs.isNull()) {
+			return false;
+		}
+		return _dayNumber > rhs._dayNumber;
+	}
 	//! Comparence operator
-	bool operator>(const Date& other) const;
-	//! Comparence operator
-	bool operator>=(const Date& other) const;
+	inline bool operator>=(const Date& rhs) const
+	{
+		if (isNull() || rhs.isNull()) {
+			return false;
+		}
+		return _dayNumber >= rhs._dayNumber;
+	}
 
 	//! Returns true if leap year has been provided
 	/*!
@@ -182,41 +325,8 @@ public:
 	    \param month Month
 	*/
 	static int daysInMonth(int year, int month);
-	//! Composes new Date object from time_t value
-	/*!
-	    \param nsecs Seconds from the Epoch (1970-01-01)
-	    \param isLocalTime 'true' or 'false' if the time_t value should be treated as local time or GMT
-	    \return new Date object
-	*/
-	static Date fromSecondsFromEpoch(time_t nsecs, bool isLocalTime);
-	//! Returnse date object for the current local tim
+	//! Returns date object for the current local tim
 	static Date now();
-	//! Parses date from narrow character string and returns new Date object from it
-	/*!
-	    TODO Milliseconds support
-	*/
-	//! Parses date from narrow character string and returns new Date object from it
-	/*!
-	    \param str String to parse
-	    \param format Date format (see man strftime)
-	    \return Date value
-	*/
-	static Date fromString(const std::string& str, const std::string& fmt = std::string(DefaultFormat));
-	//! Parses date from wide character string and returns new Date object from it
-	/*!
-	    \param str String to parse
-	    \param format Date format (see man strftime)
-	    \return Date value
-	*/
-	inline static Date fromWString(const std::wstring& str, const std::wstring& fmt = std::wstring(DefaultWFormat))
-	{
-		return fromString(String::utf8Encode(str), String::utf8Encode(fmt));
-	}
-	//! Composes new Date object from UNIX break-down time structure
-	inline static Date fromBdts(struct tm& bdts)
-	{
-		return Date(bdts.tm_year + 1900, bdts.tm_mon + 1, bdts.tm_mday);
-	}
 private:
 	enum Consts {
 		FormatBufferSize = 4096,
@@ -239,4 +349,3 @@ private:
 } // namespace isl
 
 #endif
-

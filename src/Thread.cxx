@@ -37,14 +37,14 @@ void Thread::start()
 		_awaitStartupCond = &awaitStartupCond;
 		{
 			MutexLocker locker(awaitStartupCond.mutex());
-			if (int errorCode = pthread_create(&_thread, NULL, Thread_execute, this)) {
+			if (int errorCode = pthread_create(&_thread, NULL, execute, this)) {
 				throw Exception(SystemCallError(SOURCE_LOCATION_ARGS, SystemCallError::PThreadCreate, errorCode));
 			}
 			awaitStartupCond.wait();
 		}
 		_awaitStartupCond = 0;
 	} else {
-		if (int errorCode = pthread_create(&_thread, NULL, Thread_execute, this)) {
+		if (int errorCode = pthread_create(&_thread, NULL, execute, this)) {
 			throw Exception(SystemCallError(SOURCE_LOCATION_ARGS, SystemCallError::PThreadCreate, errorCode));
 		}
 	}
@@ -83,35 +83,30 @@ bool Thread::isRunning() const
 	return _isRunning;
 }
 
-void Thread::execute()
+void * Thread::execute(void * arg)
 {
-	if (_awaitStartup) {
-		MutexLocker locker(_awaitStartupCond->mutex());
-		_awaitStartupCond->wakeAll();
+	Thread * threadPtr = reinterpret_cast<Thread *>(arg);
+	if (threadPtr->_awaitStartup) {
+		MutexLocker locker(threadPtr->_awaitStartupCond->mutex());
+		threadPtr->_awaitStartupCond->wakeAll();
 	}
 	{
-		WriteLocker locker(_isRunningRWLock);
-		if (_isRunning) {
+		WriteLocker locker(threadPtr->_isRunningRWLock);
+		if (threadPtr->_isRunning) {
 			throw Exception(Error(SOURCE_LOCATION_ARGS, "Thread is already running"));
 		}
-		_isRunning = true;
+		threadPtr->_isRunning = true;
 	}
 	try {
-		run();
+		threadPtr->run();
 	} catch (std::exception& e) {
 		errorLog().log(ExceptionLogMessage(SOURCE_LOCATION_ARGS, e, "Thread execution error"));
 	} catch (...) {
 		errorLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Thread execution unknown error"));
 	}
-	WriteLocker locker(_isRunningRWLock);
-	_isRunning = false;
-}
-
-extern "C" void * Thread_execute(void * arg)
-{
-	reinterpret_cast<Thread *>(arg)->execute();
+	WriteLocker locker(threadPtr->_isRunningRWLock);
+	threadPtr->_isRunning = false;
 	return 0;
 }
 
 } // namespace
-

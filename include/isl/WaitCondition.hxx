@@ -9,17 +9,27 @@ namespace isl
 /*------------------------------------------------------------------------------
  * WaitCondition
 ------------------------------------------------------------------------------*/
-
+//! Condition variable inter-thread synchronization object
 class WaitCondition
 {
 public:
 	WaitCondition();
 	~WaitCondition();
 
+	//! Returns a reference to the internal mutex to be used with condition variable
 	Mutex& mutex();
+	//! Waits for condition variable wake-up
 	void wait();
-	bool wait(const Timeout& timeout);
+	//! Waits for condition variable wake-up until timeout expires
+	/*!
+	  /param timeout Timeout to wait for wake-up
+	  /param timeoutLeft Time interval which is remains after wake up
+	*/
+	bool wait(const Timeout& timeout, Timeout * timeoutLeft = 0);
+	//bool wait(const Timeout& timeout);
+	//! Wakes up one thread, which waits on condition variable
 	void wakeOne();
+	//! Wakes up all threads, which wait on condition variable
 	void wakeAll();
 private:
 	WaitCondition(const WaitCondition&);					// No copy

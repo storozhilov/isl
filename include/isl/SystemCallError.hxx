@@ -8,6 +8,9 @@
 namespace isl
 {
 
+/*!
+  TODO Allow any function to be passed and introduce funcion name lookup virtual method
+*/
 class SystemCallError : public AbstractError
 {
 public:
@@ -77,6 +80,7 @@ public:
 		StrFTime,
 		StrPTime,
 		GetTimeOfDay,
+		ClockGetTime,
 		// System calls
 		Fork,
 		GetPid,
@@ -222,6 +226,8 @@ public:
 				return "strptime(3)";
 			case GetTimeOfDay:
 				return "gettimeofday(2)";
+			case ClockGetTime:
+				return "clock_gettime(2)";
 			// System calls
 			case Fork:
 				return "fork(2)";
