@@ -16,8 +16,9 @@ public:
 	//! Constructs an object
 	/*!
 	    \param SOURCE_LOCATION_ARGS_DECLARATION 'SOURCE_LOCATION_ARGS' macro should be placed here while constructor call
+	    \param info Optional info about an error
 	*/
-	AbstractError(SOURCE_LOCATION_ARGS_DECLARATION);
+	AbstractError(SOURCE_LOCATION_ARGS_DECLARATION, const std::string& info = std::string());
 	//! Destructor
 	virtual ~AbstractError();
 
@@ -35,6 +36,11 @@ public:
 	inline const char * function() const throw()
 	{
 		return _function.c_str();
+	}
+	//! Returns error info
+	inline const std::string& info() const
+	{
+		return _info;
 	}
 	//! Returns true if an error is an instance of particular type templated method
 	template <typename T> bool instanceOf()
@@ -59,6 +65,7 @@ private:
 	std::string _function;
 	mutable bool _isComposed;
 	mutable std::string _message;
+	std::string _info;
 };
 
 } // namespace isl

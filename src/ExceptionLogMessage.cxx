@@ -5,31 +5,33 @@
 namespace isl
 {
 
-ExceptionLogMessage::ExceptionLogMessage(SOURCE_LOCATION_ARGS_DECLARATION, const std::exception& expt) :
+ExceptionLogMessage::ExceptionLogMessage(SOURCE_LOCATION_ARGS_DECLARATION, const std::exception& expt, const std::string& contextInfo) :
 	AbstractLogMessage(SOURCE_LOCATION_ARGS_PASSTHRU),
-	_expt(expt),
-	_info()
-{}
-
-ExceptionLogMessage::ExceptionLogMessage(SOURCE_LOCATION_ARGS_DECLARATION, const std::exception& expt, const std::string& info) :
-	AbstractLogMessage(SOURCE_LOCATION_ARGS_PASSTHRU),
-	_expt(expt),
-	_info(info)
+	_msg(composeStatic(expt, contextInfo))
 {}
 
 std::string ExceptionLogMessage::compose() const
 {
+	return _msg;
+}
+
+std::string ExceptionLogMessage::composeStatic(const std::exception& expt, const std::string& contextInfo)
+{
 	std::ostringstream oss;
-	const Exception * e = dynamic_cast<const Exception *>(&_expt);
+	const Exception * e = dynamic_cast<const Exception *>(&expt);
 	if (e) {
-		oss << "isl::Exception detected in " << e->error().sourceLocation() << ": ";
+		oss << "Exception detected at " << e->error().sourceLocation() << ": ";
 	} else {
-		oss << "std::exception detected: ";
+		oss << "Exception detected: ";
 	}
-	oss << _expt.what();
-	if (!_info.empty()) {
-		oss << ". Info: " << _info;
+	oss << expt.what();
+	if (e && !e->error().info().empty()) {
+		oss << ". Exception info: " << e->error().info();
 	}
+	if (!contextInfo.empty()) {
+		oss << ". Context info: " << contextInfo;
+	}
+	oss << '.';
 	return oss.str();
 }
 

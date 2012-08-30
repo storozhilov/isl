@@ -3,12 +3,13 @@
 namespace isl
 {
 
-AbstractError::AbstractError(SOURCE_LOCATION_ARGS_DECLARATION) :
+AbstractError::AbstractError(SOURCE_LOCATION_ARGS_DECLARATION, const std::string& info) :
 	_file(SOURCE_LOCATION_ARGS_FILE),
 	_line(SOURCE_LOCATION_ARGS_LINE),
 	_function(SOURCE_LOCATION_ARGS_FUNCTION),
 	_isComposed(false),
-	_message()
+	_message(),
+	_info(info)
 {}
 
 AbstractError::~AbstractError()

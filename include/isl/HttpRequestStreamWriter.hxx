@@ -6,39 +6,64 @@
 namespace isl
 {
 
+//! HTTP-request stream writer
 class HttpRequestStreamWriter : public HttpMessageStreamWriter
 {
 public:
+	//! Constructs HTTP-request stream writer
+	/*!
+	  \param device Reference to the I/O-device to write data to
+	  \param uri Request URI
+	  \param method HTTP-method
+	  \param version HTTP-version
+	*/
 	HttpRequestStreamWriter(AbstractIODevice& device, const std::string& uri, const std::string& method = std::string("GET"), const std::string& version = std::string("HTTP/1.1")) :
 		HttpMessageStreamWriter(device),
 		_method(method),
 		_uri(uri),
 		_version(version)
 	{}
-
+	//! Returns HTTP-method of the request
 	inline std::string method() const
 	{
 		return _method;
 	}
+	//! Returns URI of the request
 	inline std::string uri() const
 	{
 		return _uri;
 	}
+	//! Returns HTTP-version of the request
 	inline std::string version() const
 	{
 		return _version;
 	}
+	//! Resets HTTP-request stream writer
+	/*!
+	  \param uri Request URI
+	*/
 	inline void reset(const std::string& uri)
 	{
 		HttpMessageStreamWriter::reset();
 		_uri = uri;
 	}
+	//! Resets HTTP-request stream writer
+	/*!
+	  \param uri Request URI
+	  \param method HTTP-method
+	*/
 	inline void reset(const std::string& uri, const std::string& method)
 	{
 		HttpMessageStreamWriter::reset();
 		_uri = uri;
 		_method = method;
 	}
+	//! Resets HTTP-request stream writer
+	/*!
+	  \param uri Request URI
+	  \param method HTTP-method
+	  \param version HTTP-version
+	*/
 	inline void reset(const std::string& uri, const std::string& method, const std::string& version)
 	{
 		HttpMessageStreamWriter::reset();

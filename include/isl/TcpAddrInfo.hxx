@@ -27,14 +27,22 @@ public:
 	//! TCP-endoint: "host:port"
 	struct Endpoint
 	{
+		//! Conbstructs TCP-endoint
+		/*!
+		  \param host TCP-host
+		  \param port TCP-port
+		*/
 		Endpoint(const std::string& host, unsigned int port) :
 			host(host),
 			port(port)
 		{}
 
+		//! TCP-host
 		std::string host;
+		//! TCP-port
 		unsigned int port;
 	};
+	//! Endpoints container
 	typedef std::list<Endpoint> EndpointList;
 	//! Address family enumeration
 	enum Family {

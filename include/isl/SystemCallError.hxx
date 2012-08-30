@@ -8,14 +8,13 @@
 namespace isl
 {
 
-/*!
-  TODO Allow any function to be passed and introduce funcion name lookup virtual method
-*/
+//! System call error
 class SystemCallError : public AbstractError
 {
 public:
-	// TODO Make them Token's or Enum's children
+	//! Recognized function ids
 	enum Function {
+		Undefined,					// Undefined function
 		// pthread functions
 		PThreadCreate,
 		PThreadJoin,
@@ -86,22 +85,49 @@ public:
 		GetPid,
 		SetSid
 	};
-
-	SystemCallError(SOURCE_LOCATION_ARGS_DECLARATION, Function function, int errnum, const std::string& info = std::string()) :
-		AbstractError(SOURCE_LOCATION_ARGS_PASSTHRU),
-		_function(function),
-		_errnum(errnum),
-		_info(info)
+	//! Constructs an object from recognized function id
+	/*
+	   \param func Function id
+	   \param errnum Errno value
+	   \param info User info
+	*/
+	SystemCallError(SOURCE_LOCATION_ARGS_DECLARATION, Function func, int errnum, const std::string& info = std::string()) :
+		AbstractError(SOURCE_LOCATION_ARGS_PASSTHRU, info),
+		_function(func),
+		_functionName(functionName(func)),
+		_errnum(errnum)
 	{}
-	
+	//! Constructs an object from arbitrary function name
+	/*
+	   \param func Function name
+	   \param errnum Errno value
+	   \param info User info
+	*/
+	SystemCallError(SOURCE_LOCATION_ARGS_DECLARATION, const  std::string& func, int errnum, const std::string& info = std::string()) :
+		AbstractError(SOURCE_LOCATION_ARGS_PASSTHRU, info),
+		_function(Undefined),
+		_functionName(func),
+		_errnum(errnum)
+	{}
+	//! Returns function id
+	inline Function function() const
+	{
+		return _function;
+	}
+	//! Returns function name
+	inline const std::string& functionName() const
+	{
+		return _functionName;
+	}
+	//! Clones error
 	virtual AbstractError * clone() const
 	{
 		return new SystemCallError(*this);
 	}
-
-	static std::string functionName(Function function)
+protected:
+	static std::string functionName(Function func)
 	{
-		switch (function) {
+		switch (func) {
 			// pthread functions
 			case PThreadCreate:
 				return "pthread_create(3)";
@@ -245,16 +271,13 @@ private:
 	virtual std::string composeMessage() const
 	{
 		std::ostringstream oss;
-		oss << functionName(_function) << " system call error: (" << _errnum << ") " << strerror(_errnum);
-		if (!_info.empty()) {
-			oss << ": " << _info;
-		}
+		oss << _functionName << " system call error: (" << _errnum << ") " << strerror(_errnum);
 		return oss.str();
 	}
 
 	Function _function;
+	std::string _functionName;
 	int _errnum;
-	const std::string _info;
 };
 
 } // namespace isl

@@ -7,10 +7,7 @@
 namespace isl
 {
 
-/*------------------------------------------------------------------------------
-   Helper class to automatically release namelist parameter of the scandir(3) call
-------------------------------------------------------------------------------*/
-
+//! TODO: This class needs to be completely refactored or removed! 
 class NameListReleaser
 {
 public:

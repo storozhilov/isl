@@ -18,11 +18,11 @@ namespace isl
 class TcpSocket : public AbstractIODevice
 {
 public:
-	// Constructor
+	//! Constructor
 	TcpSocket();
-	// Destructor
+	//! Destructor
 	virtual ~TcpSocket();
-	// Returns a TCP-socket descriptor
+	//! Returns a TCP-socket descriptor
 	inline int descriptor() const
 	{
 		return _descriptor;

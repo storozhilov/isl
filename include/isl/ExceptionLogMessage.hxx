@@ -6,20 +6,20 @@
 namespace isl
 {
 
-//! Log message abstract class
+//! Log message about exception
 class ExceptionLogMessage : public AbstractLogMessage
 {
 public:
-	ExceptionLogMessage(SOURCE_LOCATION_ARGS_DECLARATION, const std::exception& expt);
-	ExceptionLogMessage(SOURCE_LOCATION_ARGS_DECLARATION, const std::exception& expt, const std::string& info);
+	ExceptionLogMessage(SOURCE_LOCATION_ARGS_DECLARATION, const std::exception& expt, const std::string& contextInfo = std::string());
 private:
 	ExceptionLogMessage();
 
 	//! Composes and returns exception log message
 	virtual std::string compose() const;
 
-	const std::exception& _expt;
-	const std::string _info;
+	static std::string composeStatic(const std::exception& expt, const std::string& contextInfo);
+
+	const std::string _msg;
 };
 
 } // namespace isl

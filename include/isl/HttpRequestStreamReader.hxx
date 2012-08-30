@@ -7,9 +7,14 @@
 namespace isl
 {
 
+//! HTTP-request stream reader
 class HttpRequestStreamReader : public HttpMessageStreamReader
 {
 public:
+	//! Constructs HTTP-request stream reader
+	/*!
+	  \param device Reference to the I/O-device to fetch data from
+	*/
 	HttpRequestStreamReader(AbstractIODevice& device) :
 		HttpMessageStreamReader(device),
 		_method(),
@@ -19,44 +24,61 @@ public:
 		_maxUriLength(MaxUriLength),
 		_maxVersionLength(MaxVersionLength)
 	{}
-
+	//! Returns HTTP-method of the HTTP-request
 	inline std::string method() const
 	{
 		return _method;
 	}
+	//! Returns URI of the HTTP-request
 	inline std::string uri() const
 	{
 		return _uri;
 	}
+	//! Returns HTTP-version of the HTTP-request
 	inline std::string version() const
 	{
 		return _version;
 	}
+	//! Returns maximum HTTP-method length
 	inline size_t maxMethodLength() const
 	{
 		return _maxMethodLength;
 	}
+	//! Sets maximum HTTP-method length
+	/*!
+	  \param newValue New maximum HTTP-method length value
+	*/
 	inline void setMaxMethodLength(size_t newValue)
 	{
 		_maxMethodLength = newValue;
 	}
+	//! Returns maximum URI length
 	inline size_t maxUriLength() const
 	{
 		return _maxUriLength;
 	}
+	//! Sets maximum URI length
+	/*!
+	  \param newValue New maximum URI length value
+	*/
 	inline void setMaxUriLength(size_t newValue)
 	{
 		_maxUriLength = newValue;
 	}
+	//! Returns maximum HTTP-version length
 	inline size_t maxVersionLength() const
 	{
 		return _maxVersionLength;
 	}
+	//! Sets maximum HTTP-version length
+	/*!
+	  \param newValue New maximum HTTP-version length value
+	*/
 	inline void setMaxVersionLength(size_t newValue)
 	{
 		_maxVersionLength = newValue;
 	}
-
+	//! Resets HTTP-request stream reader to it's initial state
 	virtual void reset()
 	{
 		HttpMessageStreamReader::reset();

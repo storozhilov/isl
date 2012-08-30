@@ -34,17 +34,36 @@ namespace isl
   facing the similar challenges where design solutions along with versatile tools must be provided by easy to use toolkit. This
   toolkit is aimed to be an ISL project.
 
-  TODO
+  \section features_section Features
+
+  - C++ wrappers for basic inter-thread synchronization objects (thread, mutex, R/W-lock, conditional variable, etc.) and helper classes;
+  - Tools for common server application tasks (pidfile saving, daemonizing, logging, etc.);
+  - Thread-safe multi-target extensible logging architecture implementation with any kind of targets (stdout, file, syslog, database, etc.)
+    and multiple target per log support;
+  - <a href="http://en.wikipedia.org/wiki/Active_object">Active object pattern</a> templated extensible implementation;
+  - Hierarchially organized extensible server and it's subsystems abstractions design in accordance with
+    <a href="http://en.wikipedia.org/wiki/Composite_pattern">Composite design pattern</a>;
+  - Buffered I/O-device abstraction and it's implementation for TCP/UDP(TODO) sockets with asynchronous data transmission and SSL (TODO) support;
+  - Extensible UNIX-signal handler subsystem implementation;
+  - Extensible design for synchronous (one thread per client connection) and asynchronous (two threads per client connection) TCP-service
+    subsystems implementation;
+  - Extensible message queueing functionality implementation, including thread-safe message queue, thread-safe message bus/fan, asynchronous
+    message broker connection subsystem, asynchronous message brocker service subsystem, message routing facilities, etc.;
+  - Nanosecond-precision datetime and interval support;
+  - Functionally rich HTTP-module with HTTP-message/HTTP-cookie parsers and composers, HTTP-request/HTTP-response stream readers and writers,
+    utility methods, etc.
 
   \section installation_section Installation
 
   Runtime requirements:
 
-  TODO
+  - libc;
+  - libpthread;
+  - STL.
 
   Build requirements:
 
-  TODO
+  - <a href="http://scons.org/doc/production/HTML/scons-user/c95.html">SCons</a>.
 
   To get ISL's source code do SVN-checkout from the http://svn.storozhilov.com/isl repository:
 
@@ -70,10 +89,6 @@ namespace isl
   \verbatim
   $ scons -h
   \endverbatim
-
-  \section features_section Features
-
-  TODO
 
   \section usage_section Usage
 

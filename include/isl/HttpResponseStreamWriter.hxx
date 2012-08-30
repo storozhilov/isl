@@ -8,40 +8,68 @@
 namespace isl
 {
 
+//! HTTP-response stream writer
+/*!
+  TODO setCookie() method
+*/
 class HttpResponseStreamWriter : public HttpMessageStreamWriter
 {
 public:
+	//! Constructs HTTP-response stream writer
+	/*!
+	  \param device Reference to the I/O-device to write data to
+	  \param statusCode Status code
+	  \param reasonPhrase Reason phrase
+	  \param version HTTP-version
+	*/
 	HttpResponseStreamWriter(AbstractIODevice& device, const std::string& statusCode = std::string("200"), const std::string& reasonPhrase = std::string(), const std::string& version = std::string("HTTP/1.1")) :
 		HttpMessageStreamWriter(device),
 		_version(version),
 		_statusCode(statusCode),
 		_reasonPhrase(reasonPhrase.empty() ? lookupReasonPhrase(statusCode) : reasonPhrase)
 	{}
-
+	//! Returns status code
 	inline std::string statusCode() const
 	{
 		return _statusCode;
 	}
+	//! Returns reason phrase
 	inline std::string reasonPhrase() const
 	{
 		return _reasonPhrase;
 	}
+	//! Returns HTTP-version
 	inline std::string version() const
 	{
 		return _version;
 	}
+	//! Resets HTTP-response stream writer
+	/*!
+	  \param statusCode Status code
+	*/
 	inline void reset(const std::string& statusCode)
 	{
 		HttpMessageStreamWriter::reset();
 		_statusCode = statusCode;
 		_reasonPhrase = lookupReasonPhrase(statusCode);
 	}
+	//! Resets HTTP-response stream writer
+	/*!
+	  \param statusCode Status code
+	  \param reasonPhrase Reason phrase
+	*/
 	inline void reset(const std::string& statusCode, const std::string& reasonPhrase)
 	{
 		HttpMessageStreamWriter::reset();
 		_statusCode = statusCode;
 		_reasonPhrase = reasonPhrase;
 	}
+	//! Resets HTTP-response stream writer
+	/*!
+	  \param statusCode Status code
+	  \param reasonPhrase Reason phrase
+	  \param version HTTP-version
+	*/
 	inline void reset(const std::string& statusCode, const std::string& reasonPhrase, const std::string& version)
 	{
 		HttpMessageStreamWriter::reset();

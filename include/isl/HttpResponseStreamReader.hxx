@@ -6,9 +6,14 @@
 namespace isl
 {
 
+//! HTTP-response stream reader
 class HttpResponseStreamReader : public HttpMessageStreamReader
 {
 public:
+	//! Constructs HTTP-response stream reader
+	/*!
+	  \param device Reference to the I/O-device to fetch data from
+	*/
 	HttpResponseStreamReader(AbstractIODevice& device) :
 		HttpMessageStreamReader(device),
 		_version(),
@@ -19,43 +24,61 @@ public:
 		_maxReasonPhraseLength(MaxReasonPhraseLength)
 	{}
 
+	//! Returns HTTP-version of the HTTP-response
 	inline std::string version() const
 	{
 		return _version;
 	}
+	//! Returns status code of the HTTP-response
 	inline std::string statusCode() const
 	{
 		return _statusCode;
 	}
+	//! Returns reason phrase of the HTTP-response
 	inline std::string reasonPhrase() const
 	{
 		return _reasonPhrase;
 	}
+	//! Returns maximum HTTP-method length
 	inline size_t maxVersionLength() const
 	{
 		return _maxVersionLength;
 	}
+	//! Sets maximum HTTP-method length
+	/*!
+	  \param newValue New maximum HTTP-method length value
+	*/
 	inline void setMaxVersionLength(size_t newValue)
 	{
 		_maxVersionLength = newValue;
 	}
+	//! Returns maximum status code length
 	inline size_t maxStatusCodeLength() const
 	{
 		return _maxStatusCodeLength;
 	}
+	//! Sets maximum status code length
+	/*!
+	  \param newValue New maximum status code length value
+	*/
 	inline void setMaxStatusCodeLength(size_t newValue)
 	{
 		_maxStatusCodeLength = newValue;
 	}
+	//! Returns maximum reason phrase length
 	inline size_t maxReasonPhraseLength() const
 	{
 		return _maxReasonPhraseLength;
 	}
+	//! Sets maximum reason phrase length
+	/*!
+	  \param newValue New maximum reason phrase length value
+	*/
 	inline void setMaxReasonPhraseLength(size_t newValue)
 	{
 		_maxReasonPhraseLength = newValue;
 	}
-
+	//! Resets HTTP-response stream reader to it's initial state
 	virtual void reset()
 	{
 		HttpMessageStreamReader::reset();

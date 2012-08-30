@@ -9,22 +9,39 @@
 namespace isl
 {
 
-/*------------------------------------------------------------------------------
- * ReadWriteLock
-------------------------------------------------------------------------------*/
-
+//! Read-write lock interthread synchronization object
 class ReadWriteLock
 {
 public:
 	ReadWriteLock();
 	~ReadWriteLock();
-
+	//! Locks R/W-lock for read
 	void lockForRead();
+	//! Locks R/W-lock fro write
 	void lockForWrite();
+	//! Tries to lock R/W-lock for read
+	/*!
+	  \return TRUE if the lock has been successfully obtained
+	*/
 	bool tryLockForRead();
+	//! Tries to lock R/W-lock for read during the supplied timeout
+	/*!
+	  \param timeout Timeout to wait for lock to be available
+	  \return TRUE if the lock has been successfully obtained ot FALSE if the timeout has been expired
+	*/
 	bool tryLockForRead(const Timeout& timeout);
+	//! Tries to lock R/W-lock for write
+	/*!
+	  \return TRUE if the lock has been successfully obtained
+	*/
 	bool tryLockForWrite();
+	//! Tries to lock R/W-lock for write during the supplied timeout
+	/*!
+	  \param timeout Timeout to wait for lock to be available
+	  \return TRUE if the lock has been successfully obtained ot FALSE if the timeout has been expired
+	*/
 	bool tryLockForWrite(const Timeout& timeout);
+	//! Unlocks R/W-lock
 	void unlock();
 private:
 	ReadWriteLock(const ReadWriteLock&);					// No copy
@@ -34,10 +51,10 @@ private:
 	pthread_rwlock_t _lock;
 };
 
-/*------------------------------------------------------------------------------
- * ReadLocker
-------------------------------------------------------------------------------*/
-
+//! Locking R/W-lock for read helper class
+/*!
+  Locks R/W-lock in constructor and unlocks it in the dectructor
+*/
 class ReadLocker
 {
 public:
@@ -52,10 +69,10 @@ private:
 	ReadWriteLock& _lock;
 };
 
-/*------------------------------------------------------------------------------
- * WriteLocker
-------------------------------------------------------------------------------*/
-
+//! Locking R/W-lock for write helper class
+/*!
+  Locks R/W-lock in constructor and unlocks it in the dectructor
+*/
 class WriteLocker
 {
 public:
@@ -70,10 +87,10 @@ private:
 	ReadWriteLock& _lock;
 };
 
-/*------------------------------------------------------------------------------
- * ReadWriteUnlocker
-------------------------------------------------------------------------------*/
-
+//! Unlocking R/W-lock for write helper class
+/*!
+  Unlocks R/W-lock in the dectructor
+*/
 class ReadWriteUnlocker
 {
 public:
@@ -91,4 +108,3 @@ private:
 } // namespace isl
 
 #endif
-

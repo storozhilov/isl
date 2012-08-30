@@ -5,8 +5,9 @@
 namespace isl
 {
 
-HttpRequestReader::HttpRequestReader(AbstractIODevice& device) :
+HttpRequestReader::HttpRequestReader(AbstractIODevice& device, size_t maxBodySize) :
 	_streamReader(device),
+	_maxBodySize(maxBodySize),
 	_buf(),
 	_path(),
 	_query(),
@@ -69,7 +70,7 @@ void HttpRequestReader::reset()
 	_cookiesExtracted = false;
 }
 
-void HttpRequestReader::receive(Timeout timeout, size_t maxBodySize)
+/*void HttpRequestReader::receive(Timeout timeout, size_t maxBodySize)
 {
 	reset();
 	while (!_streamReader.isCompleted()) {
@@ -90,6 +91,32 @@ void HttpRequestReader::receive(Timeout timeout, size_t maxBodySize)
 		_body.append(_buf, bytesRead);
 	}
 	Http::parseUri(_streamReader.uri(), _path, _query);
+}*/
+
+bool HttpRequestReader::receive(Timeout timeout)
+{
+	if (_streamReader.isCompleted()) {
+		reset();
+	}
+	bool timeoutExpired;
+	size_t bytesRead = _streamReader.read(_buf, BufferSize, timeout, &timeoutExpired);
+	if (timeoutExpired) {
+		return false;
+	}
+	if (_streamReader.isBad()) {
+		return false;
+	}
+	if ((_body.size() + bytesRead) > _maxBodySize) {
+		_streamReader.setIsBad("Request entity is too long");
+		return false;
+	}
+	_body.append(_buf, bytesRead);
+	if (_streamReader.isCompleted()) {
+		Http::parseUri(_streamReader.uri(), _path, _query);
+		return true;
+	} else {
+		return false;
+	}
 }
 
 } // namespace isl

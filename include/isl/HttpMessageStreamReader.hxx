@@ -11,7 +11,10 @@
 namespace isl
 {
 
-//! Base class for HTTP-message stream writers
+//! Base class for HTTP-message stream readers
+/*!
+  TODO Use isl::AbstractError descendant for the error handling
+*/
 class HttpMessageStreamReader
 {
 public:
@@ -46,45 +49,64 @@ public:
 		MessageCompleted
 	};
 
+	//! Constructs reader
+	/*!
+	  \param device Reference to the I/O-device to fetch data from
+	*/
 	HttpMessageStreamReader(AbstractIODevice& device);
 	virtual ~HttpMessageStreamReader();
-
+	//! Inspects for bad HTTP-message
 	inline bool isBad() const
 	{
 		return _isBad;
 	}
+	//! Returns HTTP-message parsing error
 	inline std::string parsingError() const
 	{
 		return _parsingError;
 	}
+	//! Returns the current position of the HTTP-message parser
 	inline size_t pos() const
 	{
 		return _pos;
 	}
+	//! Returns the current line of the HTTP-message parser
 	inline size_t line() const
 	{
 		return _line;
 	}
+	//! Returns the current column of the HTTP-message parser
 	inline size_t col() const
 	{
 		return _col;
 	}
+	//! Returns a constant referense to the HTTP-message header
 	inline const Http::Params& header() const
 	{
 		return _header;
 	}
+	//! Returns maximum header field name length
 	inline size_t maxHeaderFieldNameLength() const
 	{
 		return _maxHeaderFieldNameLength;
 	}
+	//! Sets maximum header field name length
+	/*!
+	  \param newValue New maximum header field name length
+	*/
 	inline void setMaxHeaderFieldNameLength(size_t newValue)
 	{
 		_maxHeaderFieldNameLength = newValue;
 	}
+	//! Returns maximum header field value length
 	inline size_t maxHeaderFieldValueLength() const
 	{
 		return _maxHeaderFieldValueLength;
 	}
+	//! Sets maximum header field value length
+	/*!
+	  \param newValue New maximum header field value length
+	*/
 	inline void setMaxHeaderFieldValueLength(size_t newValue)
 	{
 		_maxHeaderFieldValueLength = newValue;
@@ -163,6 +185,8 @@ private:
 	char _bodyByte;
 	size_t _maxHeaderFieldNameLength;
 	size_t _maxHeaderFieldValueLength;
+
+	friend class HttpRequestReader;
 };
 
 } // namespace isl
