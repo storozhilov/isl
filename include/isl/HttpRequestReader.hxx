@@ -2,9 +2,18 @@
 #define ISL__HTTP_REQUEST_READER__HXX
 
 #include <isl/HttpRequestStreamReader.hxx>
+#include <vector>
 
 namespace isl
 {
+
+#ifndef ISL__HTTP_REQUEST_READER_DEFAULT_MAX_BODY_SIZE
+#define ISL__HTTP_REQUEST_READER_DEFAULT_MAX_BODY_SIZE 102400		// 100 Kb
+#endif
+
+#ifndef ISL__HTTP_REQUEST_READER_DEFAULT_BUFFER_SIZE
+#define ISL__HTTP_REQUEST_READER_DEFAULT_BUFFER_SIZE 1024		// 1 Kb
+#endif
 
 //! HTTP-request reader
 /*!
@@ -12,60 +21,35 @@ namespace isl
 */
 class HttpRequestReader
 {
-private:
-	enum PrivateConstants {
-		DefaultMaxBodySize = 102400,			// 100 Kb
-		//DefaultTimeoutSec = 1,
+public:
+	enum Constants {
+		DefaultMaxBodySize = ISL__HTTP_REQUEST_READER_DEFAULT_MAX_BODY_SIZE,
+		DefaultBufferSize = ISL__HTTP_REQUEST_READER_DEFAULT_BUFFER_SIZE,
 		BufferSize = 1024
 	};
-public:
 	//! Constructs a reader
 	/*!
 	  \param device Reference to the I/O-device to fetch data from
+	  \param maxBodySize Maximum body size
+	  \param bufferSize Boby buffer size
+	  \param streamReaderBufferSize Internal stream reader buffer size
 	*/
-	HttpRequestReader(AbstractIODevice& device, size_t maxBodySize = DefaultMaxBodySize);
-
-	inline bool isCompleted() const
+	HttpRequestReader(AbstractIODevice& device, size_t maxBodySize = DefaultMaxBodySize, size_t bufferSize = DefaultBufferSize,
+			size_t streamReaderBufferSize = HttpMessageStreamReader::DefaultBufferSize);
+	//! Returns const reference to the internal stream reader
+	inline const HttpRequestStreamReader& streamReader() const
 	{
-		return _streamReader.isCompleted();
-	}
-	inline bool isBad() const
-	{
-		return _streamReader.isBad();
-	}
-	inline std::string error() const
-	{
-		return _streamReader.parsingError();
-	}
-	//! Returns an HTTP-method of the HTTP-request
-	inline std::string method() const
-	{
-		return _streamReader.method();
-	}
-	//! Returns a URI of the HTTP-request
-	inline std::string uri() const
-	{
-		return _streamReader.uri();
-	}
-	//! Returns an HTTP-version of the HTTP-request
-	inline std::string version() const
-	{
-		return _streamReader.version();
+		return _streamReader;
 	}
 	//! Returns a path part of the URI of the HTTP-request
-	inline std::string path() const
+	inline const std::string& path() const
 	{
 		return _path;
 	}
 	//! Returns a query part of the URI of the HTTP-request
-	inline std::string query() const
+	inline const std::string& query() const
 	{
 		return _query;
-	}
-	//! Returns a constant reference to the HTTP-header of the HTTP-request
-	inline const Http::Params& header() const
-	{
-		return _streamReader.header();
 	}
 	//! Returns a constant reference to the HTTP-cookies of the HTTP-request
 	const Http::RequestCookies& cookies() const;
@@ -80,24 +64,19 @@ public:
 	const Http::Params& post() const;
 	//! Resets reader to it's initial state
 	void reset();
-	//! Fetches a request (Obsoleted!)
-	/*!
-	  \param timeout Read data timeout
-	  \param maxBodySize Maximum body size
-	*/
-	//void receive(Timeout timeout = Timeout(DefaultTimeoutSec), size_t maxBodySize = DefaultMaxBodySize);
 	//! Fetches a request
 	/*!
 	  \param timeout Read data timeout
-	  \return TRUE if the complete HTTP-request has been received or false if the timeout has bee expired or an error occured
+	  \param bytesReadFromDevice Pointer to memory location where number of bytes have been fetched from the device is to be put
+	  \return TRUE if the complete HTTP-request has been received or FALSE otherwise
 	*/
-	bool receive(Timeout timeout = Timeout::defaultTimeout());
+	bool receive(Timeout timeout = Timeout::defaultTimeout(), size_t * bytesReadFromDevice = 0);
 private:
 	HttpRequestReader();
 
 	HttpRequestStreamReader _streamReader;
 	size_t _maxBodySize;
-	char _buf[BufferSize];
+	std::vector<char> _buffer;
 	std::string _path;
 	std::string _query;
 	std::string _body;

@@ -14,9 +14,10 @@ public:
 	//! Constructs HTTP-request stream reader
 	/*!
 	  \param device Reference to the I/O-device to fetch data from
+	  \param bufferSize Data reading buffer size
 	*/
-	HttpRequestStreamReader(AbstractIODevice& device) :
-		HttpMessageStreamReader(device),
+	HttpRequestStreamReader(AbstractIODevice& device, size_t bufferSize = DefaultBufferSize) :
+		HttpMessageStreamReader(device, bufferSize),
 		_method(),
 		_uri(),
 		_version(),
@@ -102,7 +103,7 @@ private:
 	virtual void appendToFirstToken(char ch)
 	{
 		if (_method.length() >= _maxMethodLength) {
-			setIsBad("Request method is too long");
+			setIsBad(Error(SOURCE_LOCATION_ARGS, "Request method is too long"));
 			return;
 		}
 		_method.append(1, ch);
@@ -114,7 +115,7 @@ private:
 	virtual void appendToSecondToken(char ch)
 	{
 		if (_uri.length() >= _maxUriLength) {
-			setIsBad("Request URI is too long");
+			setIsBad(Error(SOURCE_LOCATION_ARGS, "Request URI is too long"));
 			return;
 		}
 		_uri.append(1, ch);
@@ -126,7 +127,7 @@ private:
 	virtual void appendToThirdToken(char ch)
 	{
 		if (_version.length() >= _maxVersionLength) {
-			setIsBad("Request version is too long");
+			setIsBad(Error(SOURCE_LOCATION_ARGS, "Request version is too long"));
 			return;
 		}
 		_version.append(1, ch);

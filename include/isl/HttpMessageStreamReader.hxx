@@ -2,22 +2,27 @@
 #define ISL__HTTP_MESSAGE_STREAM_READER__HXX
 
 #include <isl/AbstractIODevice.hxx>
+#include <isl/AbstractError.hxx>
 #include <isl/Http.hxx>
 #include <isl/Char.hxx>
 #include <string>
-#include <map>
-#include <list>
+#include <vector>
+#include <memory>
 
 namespace isl
 {
 
+#ifndef ISL__HTTP_MESSAGE_STREAM_READER_DEFAULT_BUFFER_SIZE
+#define ISL__HTTP_MESSAGE_STREAM_READER_DEFAULT_BUFFER_SIZE 1024	// 1 Kb
+#endif
+
 //! Base class for HTTP-message stream readers
-/*!
-  TODO Use isl::AbstractError descendant for the error handling
-*/
 class HttpMessageStreamReader
 {
 public:
+	enum Constants {
+		DefaultBufferSize = ISL__HTTP_MESSAGE_STREAM_READER_DEFAULT_BUFFER_SIZE
+	};
 	//! Parser states
 	enum ParserState {
 		ParsingMessage,
@@ -52,18 +57,19 @@ public:
 	//! Constructs reader
 	/*!
 	  \param device Reference to the I/O-device to fetch data from
+	  \param bufferSize Data reading buffer size
 	*/
-	HttpMessageStreamReader(AbstractIODevice& device);
+	HttpMessageStreamReader(AbstractIODevice& device, size_t bufferSize = DefaultBufferSize);
 	virtual ~HttpMessageStreamReader();
 	//! Inspects for bad HTTP-message
 	inline bool isBad() const
 	{
-		return _isBad;
+		return _errorAutoPtr.get();
 	}
-	//! Returns HTTP-message parsing error
-	inline std::string parsingError() const
+	//! Returnts pointer to the error object ot 0 if no error occured
+	inline const AbstractError * error() const
 	{
-		return _parsingError;
+		return _errorAutoPtr.get();
 	}
 	//! Returns the current position of the HTTP-message parser
 	inline size_t pos() const
@@ -111,14 +117,15 @@ public:
 	{
 		_maxHeaderFieldValueLength = newValue;
 	}
-	//! Reads data from the HTTP-message stream
+	//! Reads an HTTP-message from the device and puts the HTTP-message body to the supplied buffer
 	/*!
-	  \param buffer Buffer for the data
-	  \param bufferSize Data buffer size
+	  \param bodyBuffer Body buffer
+	  \param bodyBufferSize Body buffer size
 	  \param timeout Timeout for reading operation
-	  \return Number of bytes fetched
+	  \param bytesReadFromDevice Pointer to memory location where number of bytes have been fetched from the device is to be put
+	  \return Number of body bytes fetched
 	*/
-	size_t read(char * buffer, size_t bufferSize, const Timeout& timeout = Timeout(), bool * timeoutExpired = 0);
+	size_t read(char * bodyBuffer, size_t bodyBufferSize, const Timeout& timeout = Timeout::defaultTimeout(), size_t * bytesReadFromDevice = 0);
 	//! Return the state of the parser
 	inline ParserState parserState() const
 	{
@@ -133,10 +140,13 @@ public:
 	//! Resets reader
 	virtual void reset();
 protected:
-	inline void setIsBad(const std::string& parsingError)
+	//! Sets the message is bad
+	/*!
+	  \param error Constant reference to the error occured
+	*/
+	inline void setIsBad(const AbstractError& error)
 	{
-		_isBad = true;
-		_parsingError = parsingError;
+		_errorAutoPtr.reset(error.clone());
 	}
 
 	virtual bool isAllowedInFirstToken(char ch) const = 0;
@@ -168,9 +178,13 @@ private:
 	void parseHeaderFieldValueLWS(char ch, bool isTrailer);
 
 	AbstractIODevice& _device;
+	std::vector<char> _buffer;
+	size_t _bufferSize;
+	size_t _bufferPosition;
 	ParserState _parserState;
-	bool _isBad;
-	std::string _parsingError;
+	//bool _isBad;
+	//std::string _parsingError;
+	std::auto_ptr<AbstractError> _errorAutoPtr;
 	size_t _pos;
 	size_t _line;
 	size_t _col;

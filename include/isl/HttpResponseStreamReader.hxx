@@ -13,9 +13,10 @@ public:
 	//! Constructs HTTP-response stream reader
 	/*!
 	  \param device Reference to the I/O-device to fetch data from
+	  \param bufferSize Data reading buffer size
 	*/
-	HttpResponseStreamReader(AbstractIODevice& device) :
-		HttpMessageStreamReader(device),
+	HttpResponseStreamReader(AbstractIODevice& device, size_t bufferSize = DefaultBufferSize) :
+		HttpMessageStreamReader(device, bufferSize),
 		_version(),
 		_statusCode(),
 		_reasonPhrase(),
@@ -102,7 +103,7 @@ private:
 	virtual void appendToFirstToken(char ch)
 	{
 		if (_version.length() >= _maxVersionLength) {
-			setIsBad("Response HTTP-version is too long");
+			setIsBad(Error(SOURCE_LOCATION_ARGS, "Response HTTP-version is too long"));
 			return;
 		}
 		_version.append(1, ch);
@@ -114,7 +115,7 @@ private:
 	virtual void appendToSecondToken(char ch)
 	{
 		if (_statusCode.length() >= _maxStatusCodeLength) {
-			setIsBad("Response status code is too long");
+			setIsBad(Error(SOURCE_LOCATION_ARGS, "Response status code is too long"));
 			return;
 		}
 		_statusCode.append(1, ch);
@@ -126,7 +127,7 @@ private:
 	virtual void appendToThirdToken(char ch)
 	{
 		if (_reasonPhrase.length() >= _maxReasonPhraseLength) {
-			setIsBad("Response reason phrase is too long");
+			setIsBad(Error(SOURCE_LOCATION_ARGS, "Response reason phrase is too long"));
 			return;
 		}
 		_reasonPhrase.append(1, ch);

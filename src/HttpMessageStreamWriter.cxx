@@ -83,6 +83,7 @@ void HttpMessageStreamWriter::removeHeaderField(const std::string &fieldName)
 	}
 	_header.erase(range.first, range.second);
 }
+
 bool HttpMessageStreamWriter::writeChunk(const char * buffer, size_t bufferSize, const Timeout& timeout)
 {
 	if (needFlush()) {

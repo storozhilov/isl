@@ -16,7 +16,7 @@
 #include <sstream>
 #include <memory>
 
-#define LISTEN_PORT 8080
+#define LISTEN_PORT 8888
 #define MAX_CLIENTS 10
 #define LISTEN_BACKLOG 10
 #define ACCEPT_SECONDS_TIMEOUT 1
@@ -122,6 +122,7 @@ private:
 		HttpTask(AbstractSyncTcpService& service, isl::TcpSocket& socket) :
 			isl::AbstractSyncTcpService::AbstractTask(service, socket),
 			_requestReader(socket)
+			//_requestReader(socket, isl::HttpRequestReader::DefaultMaxBodySize, isl::HttpMessageStreamReader::DefaultBufferSize, 10)
 		{}
 	private:
 		HttpTask();
@@ -129,7 +130,11 @@ private:
 		virtual void execute(TaskDispatcherType::WorkerThread& worker)
 		{
 			try {
-				_requestReader.receive(isl::Timeout(TRANSMISSION_SECONDS_TIMEOUT));
+				std::clog << "Starting to read HTTP-request" << std::endl;
+				//_requestReader.receive(isl::Timeout(TRANSMISSION_SECONDS_TIMEOUT));
+				size_t bytesReadFromDevice;
+				bool requestFetched = _requestReader.receive(isl::Timeout(TRANSMISSION_SECONDS_TIMEOUT), &bytesReadFromDevice);
+				std::clog << (requestFetched ? "Request has been completed" : "Request has NOT been completed") << ", bytesReadFromDevice = " << bytesReadFromDevice << std::endl;
 			} catch (isl::Exception& e) {
 				std::cerr << e.what() << std::endl;
 				isl::HttpResponseStreamWriter responseWriter(socket(), "500");
@@ -150,18 +155,22 @@ private:
 				return;
 			}
 			std::ostringstream oss;
-			oss << "<html><head><title>HTTP-request has been recieved</title></head><body>" <<
-				"<p>URI: &quot;" << _requestReader.uri() << "&quot;</p>" <<
-				"<p>path: &quot;" << isl::String::decodePercent(_requestReader.path()) << "&quot;</p>" <<
-				"<p>query: &quot;" << _requestReader.query() << "&quot;</p>";
-			for (isl::Http::Params::const_iterator i = _requestReader.get().begin(); i != _requestReader.get().end(); ++i) {
-				oss << "<p>get[&quot;" << i->first << "&quot;] = &quot;" << i->second << "&quot;</p>";
-			}
-			for (isl::Http::Params::const_iterator i = _requestReader.header().begin(); i != _requestReader.header().end(); ++i) {
-				oss << "<p>header[&quot;" << i->first << "&quot;] = &quot;" << i->second << "&quot;</p>";
-			}
-			for (isl::Http::RequestCookies::const_iterator i = _requestReader.cookies().begin(); i != _requestReader.cookies().end(); ++i) {
-				oss << "<p>cookie[&quot;" << i->first << "&quot;] = &quot;" << i->second.value << "&quot;</p>";
+			oss << "<html><head><title>HTTP-request has been recieved</title></head><body>";
+			if (_requestReader.streamReader().isBad()) {
+				oss << "<p>Bad request: &quot;" << _requestReader.streamReader().error()->message() << "&quot;</p>";
+			} else {
+				oss << "<p>URI: &quot;" << _requestReader.streamReader().uri() << "&quot;</p>" <<
+					"<p>path: &quot;" << isl::String::decodePercent(_requestReader.path()) << "&quot;</p>" <<
+					"<p>query: &quot;" << _requestReader.query() << "&quot;</p>";
+				for (isl::Http::Params::const_iterator i = _requestReader.get().begin(); i != _requestReader.get().end(); ++i) {
+					oss << "<p>get[&quot;" << i->first << "&quot;] = &quot;" << i->second << "&quot;</p>";
+				}
+				for (isl::Http::Params::const_iterator i = _requestReader.streamReader().header().begin(); i != _requestReader.streamReader().header().end(); ++i) {
+					oss << "<p>header[&quot;" << i->first << "&quot;] = &quot;" << i->second << "&quot;</p>";
+				}
+				for (isl::Http::RequestCookies::const_iterator i = _requestReader.cookies().begin(); i != _requestReader.cookies().end(); ++i) {
+					oss << "<p>cookie[&quot;" << i->first << "&quot;] = &quot;" << i->second.value << "&quot;</p>";
+				}
 			}
 			oss << "</body></html>";
 			isl::HttpResponseStreamWriter responseWriter(socket());

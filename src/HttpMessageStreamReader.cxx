@@ -7,11 +7,13 @@
 namespace isl
 {
 
-HttpMessageStreamReader::HttpMessageStreamReader(AbstractIODevice& device) :
+HttpMessageStreamReader::HttpMessageStreamReader(AbstractIODevice& device, size_t bufferSize) :
 	_device(device),
+	_buffer(bufferSize),
+	_bufferSize(0),
+	_bufferPosition(0),
 	_parserState(ParsingMessage),
-	_isBad(false),
-	_parsingError(),
+	_errorAutoPtr(),
 	_pos(0),
 	_line(1),
 	_col(1),
@@ -34,8 +36,7 @@ HttpMessageStreamReader::~HttpMessageStreamReader()
 void HttpMessageStreamReader::reset()
 {
 	_parserState = ParsingMessage;
-	_isBad = false;
-	_parsingError.clear();
+	_errorAutoPtr.reset();
 	_pos = 0;
 	_line = 1;
 	_col = 1;
@@ -49,37 +50,31 @@ void HttpMessageStreamReader::reset()
 	_chunkBytesParsed = 0;
 }
 
-size_t HttpMessageStreamReader::read(char * buffer, size_t bufferSize, const Timeout& timeout, bool * timeoutExpired)
+size_t HttpMessageStreamReader::read(char * bodyBuffer, size_t bodyBufferSize, const Timeout& timeout, size_t * bytesReadFromDevice)
 {
 	// Checking parser to be in a valid state
 	if (isBad()) {
-		//throw Exception(Error(SOURCE_LOCATION_ARGS, "Bad HTTP-message detected"));
-		throw Exception(Error(SOURCE_LOCATION_ARGS, _parsingError));
+		throw Exception(*_errorAutoPtr.get());
 	}
 	// Resetting reader/parser if previous message has been completed
 	if (isCompleted()) {
 		reset();
 	}
-	if (timeoutExpired) {
-		*timeoutExpired = false;
+	if (bytesReadFromDevice) {
+		*bytesReadFromDevice = 0;
 	}
-	size_t bytesRead = 0;
-	while (bytesRead < (bufferSize - 1) && !isCompleted()) {
-		// Fetching next character from the IO-device
-		char ch;
-		if (!_device.getChar(ch, timeout)) {
-			// Timeout expired
-			if (timeoutExpired) {
-				*timeoutExpired = true;
-			}
-			break;
-		}
-		// Parsing next fetched character
+	if (bodyBufferSize <= 0) {
+		return 0;
+	}
+	size_t bodyBytesRead = 0;
+	// Parsing the rest of the data in the buffer
+	while (_bufferPosition < _bufferSize) {
+		char ch = _buffer[_bufferPosition++];
 		if (parse(ch)) {
-			buffer[bytesRead++] = _bodyByte;
+			bodyBuffer[bodyBytesRead++] = _bodyByte;
 		}
-		if (isBad()) {
-			return bytesRead;
+		if (isCompleted() || isBad() || bodyBytesRead >= bodyBufferSize) {
+			return bodyBytesRead;
 		}
 		// Updating current position data
 		++_pos;
@@ -90,7 +85,37 @@ size_t HttpMessageStreamReader::read(char * buffer, size_t bufferSize, const Tim
 			++_col;
 		}
 	}
-	return bytesRead;
+	// Reading available data from the device
+	bool isFirstReading = true;
+	while (true) {
+		_bufferPosition = 0;
+		_bufferSize = _device.read(&_buffer[0], _buffer.size(), isFirstReading ? timeout : Timeout());
+		if (_bufferSize <= 0) {
+			return bodyBytesRead;
+		}
+		isFirstReading = false;
+		if (bytesReadFromDevice) {
+			*bytesReadFromDevice += _bufferSize;
+		}
+		// Parsing data fetched from the device
+		while (_bufferPosition < _bufferSize) {
+			char ch = _buffer[_bufferPosition++];
+			if (parse(ch)) {
+				bodyBuffer[bodyBytesRead++] = _bodyByte;
+			}
+			if (isCompleted() || isBad() || bodyBytesRead >= bodyBufferSize) {
+				return bodyBytesRead;
+			}
+			// Updating current position data
+			++_pos;
+			if (Char::isLineFeed(ch)) {
+				++_line;
+				_col = 1;
+			} else {
+				++_col;
+			}
+		}
+	}
 }
 
 bool HttpMessageStreamReader::parse(char ch)
@@ -108,7 +133,7 @@ bool HttpMessageStreamReader::parse(char ch)
 			msg << "HTTP-message starts with invalid character " << std::showbase << std::hex <<
 				static_cast<unsigned char>(ch) << " at " << std::dec << _pos << " position";
 			debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, msg.str()));
-			setIsBad(msg.str());
+			setIsBad(Error(SOURCE_LOCATION_ARGS, msg.str()));
 		}
 		break;
 	case ParsingFirstToken:
@@ -121,7 +146,7 @@ bool HttpMessageStreamReader::parse(char ch)
 			msg << "First token contains invalid character " << std::showbase << std::hex <<
 				static_cast<unsigned char>(ch) << " at " << std::dec << _pos << " position";
 			debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, msg.str()));
-			setIsBad(msg.str());
+			setIsBad(Error(SOURCE_LOCATION_ARGS, msg.str()));
 		}
 		break;
 	case ParsingFirstTokenSP:
@@ -137,7 +162,7 @@ bool HttpMessageStreamReader::parse(char ch)
 			msg << "Second token starts with invalid character " << std::showbase << std::hex <<
 				static_cast<unsigned char>(ch) << " at " << std::dec << _pos << " position";
 			debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, msg.str()));
-			setIsBad(msg.str());
+			setIsBad(Error(SOURCE_LOCATION_ARGS, msg.str()));
 		}
 		break;
 	case ParsingSecondToken:
@@ -150,7 +175,7 @@ bool HttpMessageStreamReader::parse(char ch)
 			msg << "Second token contains invalid character " << std::showbase << std::hex <<
 				static_cast<unsigned char>(ch) << " at " << std::dec << _pos << " position";
 			debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, msg.str()));
-			setIsBad(msg.str());
+			setIsBad(Error(SOURCE_LOCATION_ARGS, msg.str()));
 		}
 		break;
 	case ParsingSecondTokenSP:
@@ -166,7 +191,7 @@ bool HttpMessageStreamReader::parse(char ch)
 			msg << "Third token starts with invalid character " << std::showbase << std::hex <<
 				static_cast<unsigned char>(ch) << " at " << std::dec << _pos << " position";
 			debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, msg.str()));
-			setIsBad(msg.str());
+			setIsBad(Error(SOURCE_LOCATION_ARGS, msg.str()));
 		}
 		break;
 	case ParsingThirdToken:
@@ -179,7 +204,7 @@ bool HttpMessageStreamReader::parse(char ch)
 			msg << "Third token contains invalid character " << std::showbase << std::hex <<
 				static_cast<unsigned char>(ch) << " at " << std::dec << _pos << " position";
 			debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, msg.str()));
-			setIsBad(msg.str());
+			setIsBad(Error(SOURCE_LOCATION_ARGS, msg.str()));
 		}
 		break;
 	case ParsingFirstLineLF:
@@ -190,7 +215,7 @@ bool HttpMessageStreamReader::parse(char ch)
 			msg << "HTTP-message line's CR is followed by the invalid character " << std::showbase << std::hex <<
 				static_cast<unsigned char>(ch) << " instead of LF at " << std::dec << _pos << " position";
 			debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, msg.str()));
-			setIsBad(msg.str());
+			setIsBad(Error(SOURCE_LOCATION_ARGS, msg.str()));
 		}
 		break;
 	case ParsingHeaderField:
@@ -217,7 +242,7 @@ bool HttpMessageStreamReader::parse(char ch)
 				bool contentLengthConversionErrorOccured;
 				_contentLength = String::toUnsignedInt(Http::paramValue(_header, "Content-Length"), &contentLengthConversionErrorOccured);
 				if (contentLengthConversionErrorOccured) {
-					setIsBad("Invalid 'Content-Length' header field value");
+					setIsBad(Error(SOURCE_LOCATION_ARGS, "Invalid 'Content-Length' header field value"));
 				} else if (_contentLength <= 0) {
 					_parserState = MessageCompleted;
 				} else {
@@ -231,7 +256,7 @@ bool HttpMessageStreamReader::parse(char ch)
 			msg << "HTTP-message header's CR is followed by the invalid character " << std::showbase << std::hex <<
 				static_cast<unsigned char>(ch) << " instead of LF at " << std::dec << _pos << " position";
 			debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, msg.str()));
-			setIsBad(msg.str());
+			setIsBad(Error(SOURCE_LOCATION_ARGS, msg.str()));
 		}
 		break;
 	case ParsingIdentityBody:
@@ -247,12 +272,12 @@ bool HttpMessageStreamReader::parse(char ch)
 			_chunkSizeStr += ch;
 		} else {
 			if (_chunkSizeStr.empty()) {
-				setIsBad("Empty chunk size");
+				setIsBad(Error(SOURCE_LOCATION_ARGS, "Empty chunk size"));
 			} else {
 				bool chunkSizeConversionErrorOccured;
 				_chunkSize = String::toUnsignedInt(_chunkSizeStr, &chunkSizeConversionErrorOccured, String::HexBase);
 				if (chunkSizeConversionErrorOccured) {
-					setIsBad("Invalid chunk size");
+					setIsBad(Error(SOURCE_LOCATION_ARGS, "Invalid chunk size"));
 				} else {
 					_chunkBytesParsed = 0;
 					_chunkSizeStr.clear();
@@ -279,7 +304,7 @@ bool HttpMessageStreamReader::parse(char ch)
 			msg << "Chunk size's CR is followed by the invalid character " << std::showbase << std::hex <<
 				static_cast<unsigned char>(ch) << " instead of LF at " << std::dec << _pos << " position";
 			debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, msg.str()));
-			setIsBad(msg.str());
+			setIsBad(Error(SOURCE_LOCATION_ARGS, msg.str()));
 		}
 		break;
 	case ParsingChunk:
@@ -298,7 +323,7 @@ bool HttpMessageStreamReader::parse(char ch)
 			msg << "Chunk data is followed by the invalid character " << std::showbase << std::hex <<
 				static_cast<unsigned char>(ch) << " instead of CR at " << std::dec << _pos << " position";
 			debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, msg.str()));
-			setIsBad(msg.str());
+			setIsBad(Error(SOURCE_LOCATION_ARGS, msg.str()));
 		}
 		break;
 	case ParsingChunkLF:
@@ -309,7 +334,7 @@ bool HttpMessageStreamReader::parse(char ch)
 			msg << "Chunk data CR is followed by the invalid character " << std::showbase << std::hex <<
 				static_cast<unsigned char>(ch) << " instead of LF at " << std::dec << _pos << " position";
 			debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, msg.str()));
-			setIsBad(msg.str());
+			setIsBad(Error(SOURCE_LOCATION_ARGS, msg.str()));
 		}
 		break;
 	case ParsingTrailerHeaderField:
@@ -335,7 +360,7 @@ bool HttpMessageStreamReader::parse(char ch)
 			msg << "Final CR is followed by the invalid character " << std::showbase << std::hex <<
 				static_cast<unsigned char>(ch) << " instead of LF at " << std::dec << _pos << " position";
 			debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, msg.str()));
-			setIsBad(msg.str());
+			setIsBad(Error(SOURCE_LOCATION_ARGS, msg.str()));
 		}
 		break;
 	default:
@@ -361,7 +386,7 @@ void HttpMessageStreamReader::parseHeaderField(char ch, bool isTrailer)
 		_parserState = isTrailer ? ParsingFinalLF : ParsingEndOfHeader;
 	} else if (ch == ':') {
 		debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Empty HTTP-message header field name"));
-		setIsBad("Empty HTTP-message header field name");
+		setIsBad(Error(SOURCE_LOCATION_ARGS, "Empty HTTP-message header field name"));
 	} else if (Http::isToken(ch)) {
 		_headerFieldName += ch;
 		_parserState = isTrailer ? ParsingTrailerHeaderFieldName : ParsingHeaderFieldName;
@@ -370,7 +395,7 @@ void HttpMessageStreamReader::parseHeaderField(char ch, bool isTrailer)
 		msg << "HTTP-message " << (isTrailer ? "trailer " : "") << "header field starts with invalid character " << std::showbase << std::hex <<
 			static_cast<unsigned char>(ch) << " at " << std::dec << _pos << " position";
 		debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, msg.str()));
-		setIsBad(msg.str());
+		setIsBad(Error(SOURCE_LOCATION_ARGS, msg.str()));
 	}
 }
 
@@ -378,7 +403,7 @@ void HttpMessageStreamReader::parseHeaderFieldName(char ch, bool isTrailer)
 {
 	if (Char::isCarriageReturn(ch)) {
 		debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "HTTP-message header field is missing ':' separator"));
-		setIsBad("HTTP-message header field is missing ':' separator");
+		setIsBad(Error(SOURCE_LOCATION_ARGS, "HTTP-message header field is missing ':' separator"));
 	} else if (ch == ':') {
 		_parserState = isTrailer ? ParsingTrailerHeaderFieldValue : ParsingHeaderFieldValue;
 	} else if (Http::isToken(ch)) {
@@ -386,14 +411,14 @@ void HttpMessageStreamReader::parseHeaderFieldName(char ch, bool isTrailer)
 			_headerFieldName += ch;
 		} else {
 			debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "HTTP-message header field name is too long"));
-			setIsBad("HTTP-message header field name is too long");
+			setIsBad(Error(SOURCE_LOCATION_ARGS, "HTTP-message header field name is too long"));
 		}
 	} else {
 		std::ostringstream msg;
 		msg << "HTTP-message " << (isTrailer ? "trailer " : "") << "header field name contains invalid character " << std::showbase << std::hex <<
 			static_cast<unsigned char>(ch) << " at " << std::dec << _pos << " position";
 		debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, msg.str()));
-		setIsBad(msg.str());
+		setIsBad(Error(SOURCE_LOCATION_ARGS, msg.str()));
 	}
 }
 
@@ -406,14 +431,14 @@ void HttpMessageStreamReader::parseHeaderFieldValue(char ch, bool isTrailer)
 			_headerFieldValue += ch;
 		} else {
 			debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "HTTP-message header field value is too long"));
-			setIsBad("HTTP-message header field value is too long");
+			setIsBad(Error(SOURCE_LOCATION_ARGS, "HTTP-message header field value is too long"));
 		}
 	} else {
 		std::ostringstream msg;
 		msg << "HTTP-message " << (isTrailer ? "trailer " : "") << "header field value contains invalid character " << std::showbase << std::hex <<
 			static_cast<unsigned char>(ch) << " at " << std::dec << _pos << " position";
 		debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, msg.str()));
-		setIsBad(msg.str());
+		setIsBad(Error(SOURCE_LOCATION_ARGS, msg.str()));
 	}
 }
 
@@ -426,7 +451,7 @@ void HttpMessageStreamReader::parseHeaderFieldValueLF(char ch, bool isTrailer)
 		msg << "HTTP-message " << (isTrailer ? "trailer " : "") << "header field's CR is followed by the invalid character " << std::showbase << std::hex <<
 			static_cast<unsigned char>(ch) << " instead of LF at " << std::dec << _pos << " position";
 		debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, msg.str()));
-		setIsBad(msg.str());
+		setIsBad(Error(SOURCE_LOCATION_ARGS, msg.str()));
 	}
 }
 
@@ -437,7 +462,7 @@ void HttpMessageStreamReader::parseHeaderFieldValueLWS(char ch, bool isTrailer)
 		_parserState = isTrailer ? ParsingFinalLF : ParsingEndOfHeader;
 	} else if (ch == ':') {
 		debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Empty HTTP-message header field name"));
-		setIsBad("Empty HTTP-message header field name");
+		setIsBad(Error(SOURCE_LOCATION_ARGS, "Empty HTTP-message header field name"));
 	} else if (Char::isSpaceOrTab(ch)) {
 		_headerFieldValue += ' ';
 		_parserState = isTrailer ? ParsingTrailerHeaderFieldValue : ParsingHeaderFieldValue;
@@ -450,7 +475,7 @@ void HttpMessageStreamReader::parseHeaderFieldValueLWS(char ch, bool isTrailer)
 		msg << "HTTP-message " << (isTrailer ? "trailer " : "") << "header field starts with invalid character " << std::showbase << std::hex <<
 			static_cast<unsigned char>(ch) << " at " << std::dec << _pos << " position";
 		debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, msg.str()));
-		setIsBad(msg.str());
+		setIsBad(Error(SOURCE_LOCATION_ARGS, msg.str()));
 	}
 }
 

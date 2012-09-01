@@ -35,9 +35,14 @@ int main(int argc, char *argv[])
 		char buf[BUFFER_SIZE];
 		try {
 			while (!r.isCompleted()) {
-				bool timeoutExpired;
-				unsigned int bytesRead = r.read(buf, BUFFER_SIZE, isl::Timeout(TRANSMISSION_SECONDS_TIMEOUT), &timeoutExpired);
-				if (timeoutExpired) {
+				//bool timeoutExpired;
+				//unsigned int bytesRead = r.read(buf, BUFFER_SIZE, isl::Timeout(TRANSMISSION_SECONDS_TIMEOUT), &timeoutExpired);
+				//if (timeoutExpired) {
+				//	throw isl::Exception(isl::Error(SOURCE_LOCATION_ARGS, "Receiving data timeout expired"));
+				//}
+				size_t rawBytesFetched;
+				size_t bytesRead = r.read(buf, BUFFER_SIZE, isl::Timeout(TRANSMISSION_SECONDS_TIMEOUT), &rawBytesFetched);
+				if (rawBytesFetched <= 0) {
 					throw isl::Exception(isl::Error(SOURCE_LOCATION_ARGS, "Receiving data timeout expired"));
 				}
 				if (bytesRead > 0) {

@@ -3,17 +3,13 @@
 
 #include <isl/Timeout.hxx>
 #include <isl/Mutex.hxx>
-#include <vector>
+//#include <vector>
 #include <sys/types.h>
 
 namespace isl
 {
 
-/*------------------------------------------------------------------------------
- * AbstractIODevice
-------------------------------------------------------------------------------*/
-
-//! I/O device abstraction with buffered reading facility
+//! I/O device abstraction
 class AbstractIODevice
 {
 public:
@@ -29,18 +25,6 @@ public:
 	{
 		return _isOpen;
 	}
-	//! Reads one character from the I/O device
-	/*!
-	    \param ch Reference to the result character
-	    \param timeout Read timeout
-	    \return true if the character has been successfully read and false otherwise
-	*/
-	bool getChar(char& ch, const Timeout& timeout = Timeout());
-	//! Pushes the character back to the I/O device for another reading
-	/*!
-	    \param ch Character to push back
-	*/
-	void ungetChar(char ch);
 	//! Reads data to buffer from the I/O device
 	/*!
 	    \param buffer Pointer to buffer
@@ -49,14 +33,7 @@ public:
 	    \return Count of the actually received bytes
 	*/
 	size_t read(char * buffer, size_t bufferSize, const Timeout& timeout = Timeout());
-	//! Writes character to the I/O device
- 	/*!
-	    \param ch Character to write
-	    \param timeout Write timeout
-	    \return true if character has been written to the I/O device or false otherwise
-	*/
-	bool putChar(char ch, const Timeout& timeout = Timeout());
-	//! Writes buffered data to the I/O device
+	//! Writes data buffer to the I/O device
 	/*!
 	    \param buffer Pointer to the buffer
 	    \param bufferSize Buffer size
@@ -79,28 +56,8 @@ private:
 	AbstractIODevice(const AbstractIODevice&);							// No copy
 
 	AbstractIODevice& operator=(const AbstractIODevice&);						// No copy
-
-	enum PrivateConstants {
-#ifdef ISL__IO_DEVICE_READ_BUFFER_SIZE
-		ReadBufferSize = ISL__IO_DEVICE_READ_BUFFER_SIZE,
-#else
-		ReadBufferSize = 1024,
-#endif
-#ifdef ISL__IO_DEVICE_UNGET_BUFFER_SIZE
-		UngetBufferSize = ISL__IO_DEVICE_UNGET_BUFFER_SIZE
-#else
-		UngetBufferSize = 1024
-#endif
-	};
-
-	void readToReadBuffer(const Timeout& timeout = Timeout());
-
-	std::vector<char> _readBuffer;
-	std::vector<char>::size_type _readBufferPos;
-	std::vector<char> _ungetBuffer;
 };
 
 } // namespace isl
 
 #endif
-

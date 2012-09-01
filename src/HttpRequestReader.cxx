@@ -5,10 +5,10 @@
 namespace isl
 {
 
-HttpRequestReader::HttpRequestReader(AbstractIODevice& device, size_t maxBodySize) :
-	_streamReader(device),
+HttpRequestReader::HttpRequestReader(AbstractIODevice& device, size_t maxBodySize, size_t bufferSize, size_t streamReaderBufferSize) :
+	_streamReader(device, streamReaderBufferSize),
 	_maxBodySize(maxBodySize),
-	_buf(),
+	_buffer(bufferSize),
 	_path(),
 	_query(),
 	_body(),
@@ -70,47 +70,20 @@ void HttpRequestReader::reset()
 	_cookiesExtracted = false;
 }
 
-/*void HttpRequestReader::receive(Timeout timeout, size_t maxBodySize)
-{
-	reset();
-	while (!_streamReader.isCompleted()) {
-		bool timeoutExpired;
-		size_t bytesRead = _streamReader.read(_buf, BufferSize, timeout, &timeoutExpired);
-		if (timeoutExpired) {
-			// TODO Use special error class
-			throw isl::Exception(isl::Error(SOURCE_LOCATION_ARGS, "Timeout expired"));
-		}
-		if (_streamReader.isBad()) {
-			// TODO Use special error class
-			throw isl::Exception(isl::Error(SOURCE_LOCATION_ARGS, _streamReader.parsingError()));
-		}
-		if ((_body.size() + bytesRead) > maxBodySize) {
-			// TODO Use special error class
-			throw isl::Exception(isl::Error(SOURCE_LOCATION_ARGS, "Request entity is too long"));
-		}
-		_body.append(_buf, bytesRead);
-	}
-	Http::parseUri(_streamReader.uri(), _path, _query);
-}*/
-
-bool HttpRequestReader::receive(Timeout timeout)
+bool HttpRequestReader::receive(Timeout timeout, size_t * bytesReadFromDevice)
 {
 	if (_streamReader.isCompleted()) {
 		reset();
 	}
-	bool timeoutExpired;
-	size_t bytesRead = _streamReader.read(_buf, BufferSize, timeout, &timeoutExpired);
-	if (timeoutExpired) {
-		return false;
-	}
+	size_t bodyBytesRead = _streamReader.read(&_buffer[0], _buffer.size(), timeout, bytesReadFromDevice);
 	if (_streamReader.isBad()) {
 		return false;
 	}
-	if ((_body.size() + bytesRead) > _maxBodySize) {
-		_streamReader.setIsBad("Request entity is too long");
+	if ((_body.size() + bodyBytesRead) > _maxBodySize) {
+		_streamReader.setIsBad(Error(SOURCE_LOCATION_ARGS, "Request entity is too long"));
 		return false;
 	}
-	_body.append(_buf, bytesRead);
+	_body.append(&_buffer[0], bodyBytesRead);
 	if (_streamReader.isCompleted()) {
 		Http::parseUri(_streamReader.uri(), _path, _query);
 		return true;
