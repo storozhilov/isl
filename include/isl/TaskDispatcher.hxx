@@ -27,7 +27,7 @@ public:
 	{
 	public:
 		WorkerThread(BasicTaskDispatcher& taskDispatcher, unsigned int id) :
-			SubsystemThread(taskDispatcher, true),
+			SubsystemThread(taskDispatcher, false, true),
 			_taskDispatcher(taskDispatcher),
 			_id(id)
 		{}
@@ -96,6 +96,7 @@ public:
 						errorLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Task execution unknown error"));
 					}
 				} else {
+					// TODO Remove it?
 					debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "No task for worker"));
 				}
 			}
@@ -115,7 +116,7 @@ public:
 	BasicTaskDispatcher(AbstractSubsystem * owner, size_t workersAmount, size_t maxTaskQueueOverflowSize = 0) :
 		AbstractSubsystem(owner),
 		_workersAmount(workersAmount),
-		_workersCountRwLock(),
+		_workersAmountRwLock(),
 		_taskCond(),
 		_awaitingWorkersCount(0),
 		_maxTaskQueueOverflowSize(maxTaskQueueOverflowSize),
@@ -134,7 +135,7 @@ public:
 	//! Thread-safely returns workers amount
 	inline size_t workersAmount() const
 	{
-		ReadLocker locker(_workersCountRwLock);
+		ReadLocker locker(_workersAmountRwLock);
 		return _workersAmount;
 	}
 	//! Thread-safely sets the new workers count.
@@ -144,7 +145,7 @@ public:
 	*/
 	inline void setWorkersAmount(size_t newValue)
 	{
-		WriteLocker locker(_workersCountRwLock);
+		WriteLocker locker(_workersAmountRwLock);
 		_workersAmount = newValue;
 	}
 	//! Thread-safely returns maximum task queue overflow size.
@@ -192,14 +193,6 @@ public:
 		} else {
 			warningLog().log(LogMessage(SOURCE_LOCATION_ARGS, oss.str()));
 		}
-		// TODO The following is thrown "Variant type is not supported..." exception
-		/*VariantWFormatter fmt("Workers awaiting: $0, tasks in pool: $1, available overflow: $2, tasks overflow: $3");
-		fmt.arg(awaitingWorkersCount).arg(taskQueueSize + 1).arg(currentMaxTaskQueueOverflowSize).arg((awaitingWorkersCount >= (taskQueueSize + 1)) ? 0 : taskQueueSize + 1 - awaitingWorkersCount);
-		if (taskPerformed) {
-			debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, fmt.compose()));
-		} else {
-			warningLog().log(LogMessage(SOURCE_LOCATION_ARGS, fmt.compose()));
-		}*/
 		return taskPerformed;
 	}
 	//! Performs a tasks
@@ -286,6 +279,9 @@ private:
 		debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Stopping task dispatcher"));
 		debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Waking up workers"));
 		{
+			for (typename WorkerList::iterator i = _workers.begin(); i != _workers.end(); ++i) {
+				(*i)->setShouldTerminate(true);
+			}
 			MutexLocker locker(_taskCond.mutex());
 			_taskCond.wakeAll();
 		}
@@ -299,7 +295,7 @@ private:
 	}
 
 	size_t _workersAmount;
-	mutable ReadWriteLock _workersCountRwLock;
+	mutable ReadWriteLock _workersAmountRwLock;
 	WaitCondition _taskCond;
 	size_t _awaitingWorkersCount;
 	size_t _maxTaskQueueOverflowSize;

@@ -63,8 +63,8 @@ public:
 	*/
 	void addProvider(MessageProviderType& provider)
 	{
-		MutexLocker locker(startStopMutex());
-		if (state() != IdlingState) {
+		StateLocker locker(*this);
+		if (locker.state() != IdlingState) {
 			throw Exception(Error(SOURCE_LOCATION_ARGS, "Message provider could be added while subsystem idling only"));
 		}
 		_providers.push_back(&provider);
@@ -75,8 +75,8 @@ public:
 	*/
 	void removeProvider(MessageProviderType& provider)
 	{
-		MutexLocker locker(startStopMutex());
-		if (state() != IdlingState) {
+		StateLocker locker(*this);
+		if (locker.state() != IdlingState) {
 			throw Exception(Error(SOURCE_LOCATION_ARGS, "Message provider could be removed while subsystem idling only"));
 		}
 		typename ProvidersContainer::iterator pos = std::find(_providers.begin(), _providers.end(), &provider);
@@ -89,8 +89,8 @@ public:
 	//! Removes all message providers
 	void resetProviders()
 	{
-		MutexLocker locker(startStopMutex());
-		if (state() != IdlingState) {
+		StateLocker locker(*this);
+		if (locker.state() != IdlingState) {
 			throw Exception(Error(SOURCE_LOCATION_ARGS, "Message providers could be reset while subsystem idling only"));
 		}
 		_providers.clear();
@@ -101,8 +101,8 @@ public:
 	*/
 	void addConsumer(AbstractMessageConsumerType& consumer)
 	{
-		MutexLocker locker(startStopMutex());
-		if (state() != IdlingState) {
+		StateLocker locker(*this);
+		if (locker.state() != IdlingState) {
 			throw Exception(Error(SOURCE_LOCATION_ARGS, "Message consumer could be added while subsystem idling only"));
 		}
 		_consumers.push_back(&consumer);
@@ -113,8 +113,8 @@ public:
 	*/
 	void removeConsumer(AbstractMessageConsumerType& consumer)
 	{
-		MutexLocker locker(startStopMutex());
-		if (state() != IdlingState) {
+		StateLocker locker(*this);
+		if (locker.state() != IdlingState) {
 			throw Exception(Error(SOURCE_LOCATION_ARGS, "Message consumer  could be removed while subsystem idling only"));
 		}
 		typename ConsumersContainer::iterator pos = std::find(_consumers.begin(), _consumers.end(), &consumer);
@@ -127,8 +127,8 @@ public:
 	//! Removes all message consumers
 	void resetConsumers()
 	{
-		MutexLocker locker(startStopMutex());
-		if (state() != IdlingState) {
+		StateLocker locker(*this);
+		if (locker.state() != IdlingState) {
 			throw Exception(Error(SOURCE_LOCATION_ARGS, "Message consumers could be reset while subsystem idling only"));
 		}
 		_consumers.clear();
@@ -279,7 +279,7 @@ protected:
 		{
 			isl::debugLog().log(isl::LogMessage(SOURCE_LOCATION_ARGS, "Receiver task execution has been started"));
 			while (true) {
-				if (shouldTerminate()) {
+				if (shouldTerminate(worker)) {
 					isl::debugLog().log(isl::LogMessage(SOURCE_LOCATION_ARGS, "Client service termination has been detected -> exiting from receiver task execution"));
 					return;
 				}
@@ -405,7 +405,7 @@ protected:
 				debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Sender task's input queue has been subscribed to the message provider"));
 			}
 			while (true) {
-				if (shouldTerminate()) {
+				if (shouldTerminate(worker)) {
 					isl::debugLog().log(isl::LogMessage(SOURCE_LOCATION_ARGS, "Client service termination has been detected -> exiting from sender task execution"));
 					return;
 				}

@@ -231,10 +231,13 @@ protected:
 			return _sharedStaffPtr->socket();
 		}
 	protected:
-		// Returns true if task should be terminated
-		inline bool shouldTerminate() const
+		//! Returns true if task should be terminated
+		/*!
+		  \param worker Reference to the worker thread
+		*/
+		inline bool shouldTerminate(TaskDispatcher::WorkerThread& worker) const
 		{
-			return _service.shouldTerminate() || _sharedStaffPtr->shouldTerminate();
+			return worker.shouldTerminate() || _sharedStaffPtr->shouldTerminate();
 		}
 	private:
 		AbstractReceiverTask();
@@ -274,10 +277,13 @@ protected:
 			return _sharedStaffPtr->socket();
 		}
 	protected:
-		// Returns true if task should be terminated
-		inline bool shouldTerminate() const
+		//! Returns true if task should be terminated
+		/*!
+		  \param worker Reference to the worker thread
+		*/
+		inline bool shouldTerminate(TaskDispatcher::WorkerThread& worker) const
 		{
-			return _service.shouldTerminate() || _sharedStaffPtr->shouldTerminate();
+			return worker.shouldTerminate() || _sharedStaffPtr->shouldTerminate();
 		}
 	private:
 		AbstractSenderTask();

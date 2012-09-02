@@ -64,7 +64,7 @@ void AbstractServer::sendCommand(Command cmd)
 		errorLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Server commands queue overflow detected"));
 	}
 	_commandsQueue.push_front(cmd);
-	_commandsCond.wakeOne();
+	_commandsCond.wakeAll();
 }
 
 } // namespace isl

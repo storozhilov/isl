@@ -4,9 +4,12 @@
 namespace isl
 {
 
-SubsystemThread::SubsystemThread(AbstractSubsystem& subsystem, bool awaitStartup) :
+SubsystemThread::SubsystemThread(AbstractSubsystem& subsystem, bool autoStop, bool awaitStartup) :
 	Thread(awaitStartup),
-	_subsystem(subsystem)
+	_subsystem(subsystem),
+	_autoStop(autoStop),
+	_shouldTerminate(false),
+	_shouldTerminateCond()
 {
 	_subsystem.registerThread(this);
 }
@@ -18,18 +21,25 @@ SubsystemThread::~SubsystemThread()
 
 bool SubsystemThread::shouldTerminate()
 {
-	MutexLocker locker(_subsystem._stateCond.mutex());
-	return _subsystem._state == AbstractSubsystem::StoppingState || _subsystem._state == AbstractSubsystem::IdlingState;
+	MutexLocker locker(_shouldTerminateCond.mutex());
+	return _shouldTerminate;
 }
 
-bool SubsystemThread::awaitTermination(Timeout timeout)
+bool SubsystemThread::awaitShouldTerminate(Timeout timeout)
 {
-	MutexLocker locker(_subsystem._stateCond.mutex());
-	if (_subsystem._state == AbstractSubsystem::StoppingState || _subsystem._state == AbstractSubsystem::IdlingState) {
+	MutexLocker locker(_shouldTerminateCond.mutex());
+	if (_shouldTerminate) {
 		return true;
 	}
-	_subsystem._stateCond.wait(timeout);
-	return _subsystem._state == AbstractSubsystem::StoppingState || _subsystem._state == AbstractSubsystem::IdlingState;
+	_shouldTerminateCond.wait(timeout);
+	return _shouldTerminate;
+}
+
+void SubsystemThread::setShouldTerminate(bool newValue)
+{
+	MutexLocker locker(_shouldTerminateCond.mutex());
+	_shouldTerminate = newValue;
+	_shouldTerminateCond.wakeAll();
 }
 
 } // namespace isl

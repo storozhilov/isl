@@ -78,7 +78,6 @@ void SignalHandler::beforeStart()
 	debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Blocking signals"));
 	sigset_t blockedSignalMask = _blockedSignals.sigset();
 	if (pthread_sigmask(SIG_SETMASK, &blockedSignalMask, &_initialSignalMask)) {
-		setState(IdlingState);
 		throw Exception(SystemCallError(SOURCE_LOCATION_ARGS, SystemCallError::PThreadSigMask, errno));
 	}
 	debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Signals have been blocked"));
@@ -158,7 +157,7 @@ void SignalHandler::SignalHandlerThread::run()
 					_signalHandler.onSignal(pendingSignal);
 				}
 			} else {
-				if (awaitTermination(_signalHandler.timeout())) {
+				if (awaitShouldTerminate(_signalHandler.timeout())) {
 					debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Signal handler termination detected after inspecting for pending signals -> exiting from signal handler thread"));
 					return;
 				}
@@ -166,10 +165,8 @@ void SignalHandler::SignalHandlerThread::run()
 		}
 	} catch (std::exception& e) {
 		errorLog().log(ExceptionLogMessage(SOURCE_LOCATION_ARGS, e, "Executing signal handler thread error -> exiting from signal handler thread"));
-		_signalHandler.setState(AbstractSubsystem::IdlingState);
 	} catch (...) {
 		errorLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Executing signal handler thread unknown error -> exiting from signal handler thread"));
-		_signalHandler.setState(AbstractSubsystem::IdlingState);
 	}
 }
 
