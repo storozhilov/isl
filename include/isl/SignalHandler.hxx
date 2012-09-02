@@ -23,7 +23,7 @@ public:
 	/*!
 	  \param owner Pointer to owner subsystem
 	  \param signalSet Set of UNIX signals to track
-	  \param timeout Sleeping timeout
+	  \param timeout Awaiting for signal timeout
 	*/
 	SignalHandler(AbstractSubsystem * owner, const SignalSet& signalSet = SignalSet(3, SIGHUP, SIGINT, SIGTERM), const Timeout& timeout = Timeout::defaultTimeout());
 	//! Returns sleepeing timeout

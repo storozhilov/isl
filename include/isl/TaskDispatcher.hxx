@@ -27,7 +27,7 @@ public:
 	{
 	public:
 		WorkerThread(BasicTaskDispatcher& taskDispatcher, unsigned int id) :
-			SubsystemThread(taskDispatcher, false, true),
+			SubsystemThread(taskDispatcher, false, true /* TODO Maybe false? */),
 			_taskDispatcher(taskDispatcher),
 			_id(id)
 		{}
@@ -115,12 +115,11 @@ public:
 	*/
 	BasicTaskDispatcher(AbstractSubsystem * owner, size_t workersAmount, size_t maxTaskQueueOverflowSize = 0) :
 		AbstractSubsystem(owner),
+		_runtimeParamRwLock(),
 		_workersAmount(workersAmount),
-		_workersAmountRwLock(),
+		_maxTaskQueueOverflowSize(maxTaskQueueOverflowSize),
 		_taskCond(),
 		_awaitingWorkersCount(0),
-		_maxTaskQueueOverflowSize(maxTaskQueueOverflowSize),
-		_maxTaskQueueOverflowSizeRwLock(),
 		_taskQueue(),
 		_workers()
 	{}
@@ -135,7 +134,7 @@ public:
 	//! Thread-safely returns workers amount
 	inline size_t workersAmount() const
 	{
-		ReadLocker locker(_workersAmountRwLock);
+		ReadLocker locker(_runtimeParamRwLock);
 		return _workersAmount;
 	}
 	//! Thread-safely sets the new workers count.
@@ -145,13 +144,13 @@ public:
 	*/
 	inline void setWorkersAmount(size_t newValue)
 	{
-		WriteLocker locker(_workersAmountRwLock);
+		WriteLocker locker(_runtimeParamRwLock);
 		_workersAmount = newValue;
 	}
 	//! Thread-safely returns maximum task queue overflow size.
 	inline size_t maxTaskQueueOverflowSize() const
 	{
-		ReadLocker locker(_maxTaskQueueOverflowSizeRwLock);
+		ReadLocker locker(_runtimeParamRwLock);
 		return _maxTaskQueueOverflowSize;
 	}
 	//! Thread-safely sets the new maximum task queue overflow size.
@@ -161,7 +160,7 @@ public:
 	*/
 	inline void setMaxTaskQueueOverflowSize(size_t newValue)
 	{
-		WriteLocker locker(_maxTaskQueueOverflowSizeRwLock);
+		WriteLocker locker(_runtimeParamRwLock);
 		_maxTaskQueueOverflowSize = newValue;
 	}
 	//! Performs a task
@@ -294,12 +293,11 @@ private:
 		debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Task dispatcher has been stopped"));
 	}
 
+	mutable ReadWriteLock _runtimeParamRwLock;
 	size_t _workersAmount;
-	mutable ReadWriteLock _workersAmountRwLock;
+	size_t _maxTaskQueueOverflowSize;
 	WaitCondition _taskCond;
 	size_t _awaitingWorkersCount;
-	size_t _maxTaskQueueOverflowSize;
-	mutable ReadWriteLock _maxTaskQueueOverflowSizeRwLock;
 	TaskQueue _taskQueue;
 	WorkerList _workers;
 };

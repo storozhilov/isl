@@ -97,30 +97,6 @@ public:
 		MutexLocker locker(_stateCond.mutex());
 		return _state;
 	}
-	//! Returns TRUE if subsystem is idling
-	inline bool isIdling() const
-	{
-		MutexLocker locker(_stateCond.mutex());
-		return _state == IdlingState;
-	}
-	//! Returns TRUE if subsystem is starting
-	inline bool isStarting() const
-	{
-		MutexLocker locker(_stateCond.mutex());
-		return _state == StartingState;
-	}
-	//! Returns TRUE if subsystem is running
-	inline bool isRunning() const
-	{
-		MutexLocker locker(_stateCond.mutex());
-		return _state == RunningState;
-	}
-	//! Returns TRUE if subsystem is stopping
-	inline bool isStopping() const
-	{
-		MutexLocker locker(_stateCond.mutex());
-		return _state == StoppingState;
-	}
 	//! Asynchronously starts subsystem
 	void start()
 	{

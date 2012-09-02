@@ -159,12 +159,12 @@ protected:
 				debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Server socket has been switched to the listening state"));
 				while (true) {
 					if (shouldTerminate()) {
-						debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "TCP-service termination state detected before accepting TCP-connection -> exiting from listener thread"));
+						debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Listener thread termination state detected before accepting TCP-connection -> exiting from listener thread"));
 						break;
 					}
 					std::auto_ptr<TcpSocket> socketAutoPtr(serverSocket.accept(listenTimeout()));
 					if (shouldTerminate()) {
-						debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "TCP-service termination state detected after accepting TCP-connection -> exiting from listener thread"));
+						debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Listener thread termination state detected after accepting TCP-connection -> exiting from listener thread"));
 						break;
 					}
 					if (!socketAutoPtr.get()) {
