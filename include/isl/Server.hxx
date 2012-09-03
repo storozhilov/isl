@@ -1,8 +1,8 @@
-#ifndef ISL__ABSTRACT_SERVER__HXX
-#define ISL__ABSTRACT_SERVER__HXX
+#ifndef ISL__SERVER__HXX
+#define ISL__SERVER__HXX
 
 #include <isl/WaitCondition.hxx>
-#include <isl/AbstractSubsystem.hxx>
+#include <isl/Subsystem.hxx>
 #include <vector>
 #include <deque>
 
@@ -16,7 +16,7 @@ namespace isl
 
   TODO Use MessageQueue<Command> for commands queue?
 */
-class AbstractServer : public AbstractSubsystem
+class Server : public Subsystem
 {
 public:
 	//! Constructor
@@ -24,7 +24,7 @@ public:
 	  \param argc Command-line arguments amount
 	  \param argv Command-line arguments array
 	*/
-	AbstractServer(int argc, char * argv[]);
+	Server(int argc, char * argv[]);
 	//! Runs the server
 	/*!
 	  Call this method from the main thread only!
@@ -72,10 +72,10 @@ private:
 		MaxCommandQueueSize = 16
 	};
 
-	AbstractServer();
-	AbstractServer(const AbstractServer&);						// No copy
+	Server();
+	Server(const Server&);						// No copy
 
-	AbstractServer& operator=(const AbstractServer&);				// No copy
+	Server& operator=(const Server&);				// No copy
 
 	void sendCommand(Command cmd);
 

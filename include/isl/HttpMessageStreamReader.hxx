@@ -9,19 +9,27 @@
 #include <vector>
 #include <memory>
 
+#ifndef ISL__HTTP_MESSAGE_STREAM_READER_DEFAULT_BUFFER_SIZE
+#define ISL__HTTP_MESSAGE_STREAM_READER_DEFAULT_BUFFER_SIZE 1024		// 1 Kb
+#endif
+#ifndef ISL__HTTP_MESSAGE_STREAM_READER_DEFAULT_MAX_HEADER_NAME_LENGTH
+#define ISL__HTTP_MESSAGE_STREAM_READER_DEFAULT_MAX_HEADER_NAME_LENGTH 256
+#endif
+#ifndef ISL__HTTP_MESSAGE_STREAM_READER_DEFAULT_MAX_HEADER_VALUE_LENGTH
+#define ISL__HTTP_MESSAGE_STREAM_READER_DEFAULT_MAX_HEADER_VALUE_LENGTH 4096	// 4 Kb
+#endif
+
 namespace isl
 {
-
-#ifndef ISL__HTTP_MESSAGE_STREAM_READER_DEFAULT_BUFFER_SIZE
-#define ISL__HTTP_MESSAGE_STREAM_READER_DEFAULT_BUFFER_SIZE 1024	// 1 Kb
-#endif
 
 //! Base class for HTTP-message stream readers
 class HttpMessageStreamReader
 {
 public:
 	enum Constants {
-		DefaultBufferSize = ISL__HTTP_MESSAGE_STREAM_READER_DEFAULT_BUFFER_SIZE
+		DefaultBufferSize = ISL__HTTP_MESSAGE_STREAM_READER_DEFAULT_BUFFER_SIZE,
+		DefaultMaxHeaderNameLength = ISL__HTTP_MESSAGE_STREAM_READER_DEFAULT_MAX_HEADER_NAME_LENGTH,
+		DefaultMaxHeaderValueLength = ISL__HTTP_MESSAGE_STREAM_READER_DEFAULT_MAX_HEADER_VALUE_LENGTH
 	};
 	//! Parser states
 	enum ParserState {
@@ -32,11 +40,11 @@ public:
 		ParsingSecondTokenSP,
 		ParsingThirdToken,
 		ParsingFirstLineLF,
-		ParsingHeaderField,
-		ParsingHeaderFieldName,
-		ParsingHeaderFieldValue,
-		ParsingHeaderFieldValueLF,
-		ParsingHeaderFieldValueLWS,
+		ParsingHeader,
+		ParsingHeaderName,
+		ParsingHeaderValue,
+		ParsingHeaderValueLF,
+		ParsingHeaderValueLWS,
 		ParsingEndOfHeader,
 		ParsingIdentityBody,
 		ParsingChunkSize,
@@ -45,11 +53,11 @@ public:
 		ParsingChunk,
 		ParsingChunkCR,
 		ParsingChunkLF,
-		ParsingTrailerHeaderField,
-		ParsingTrailerHeaderFieldName,
-		ParsingTrailerHeaderFieldValue,
-		ParsingTrailerHeaderFieldValueLF,
-		ParsingTrailerHeaderFieldValueLWS,
+		ParsingTrailerHeader,
+		ParsingTrailerHeaderName,
+		ParsingTrailerHeaderValue,
+		ParsingTrailerHeaderValueLF,
+		ParsingTrailerHeaderValueLWS,
 		ParsingFinalLF,
 		MessageCompleted
 	};
@@ -59,7 +67,9 @@ public:
 	  \param device Reference to the I/O-device to fetch data from
 	  \param bufferSize Data reading buffer size
 	*/
-	HttpMessageStreamReader(AbstractIODevice& device, size_t bufferSize = DefaultBufferSize);
+	HttpMessageStreamReader(AbstractIODevice& device, size_t bufferSize = DefaultBufferSize,
+			size_t maxHeaderNameLength = DefaultMaxHeaderNameLength,
+			size_t maxHeaderValueLength = DefaultMaxHeaderValueLength);
 	virtual ~HttpMessageStreamReader();
 	//! Inspects for bad HTTP-message
 	inline bool isBad() const
@@ -92,30 +102,30 @@ public:
 		return _header;
 	}
 	//! Returns maximum header field name length
-	inline size_t maxHeaderFieldNameLength() const
+	inline size_t maxHeaderNameLength() const
 	{
-		return _maxHeaderFieldNameLength;
+		return _maxHeaderNameLength;
 	}
 	//! Sets maximum header field name length
 	/*!
 	  \param newValue New maximum header field name length
 	*/
-	inline void setMaxHeaderFieldNameLength(size_t newValue)
+	inline void setMaxHeaderNameLength(size_t newValue)
 	{
-		_maxHeaderFieldNameLength = newValue;
+		_maxHeaderNameLength = newValue;
 	}
 	//! Returns maximum header field value length
-	inline size_t maxHeaderFieldValueLength() const
+	inline size_t maxHeaderValueLength() const
 	{
-		return _maxHeaderFieldValueLength;
+		return _maxHeaderValueLength;
 	}
 	//! Sets maximum header field value length
 	/*!
 	  \param newValue New maximum header field value length
 	*/
-	inline void setMaxHeaderFieldValueLength(size_t newValue)
+	inline void setMaxHeaderValueLength(size_t newValue)
 	{
-		_maxHeaderFieldValueLength = newValue;
+		_maxHeaderValueLength = newValue;
 	}
 	//! Reads an HTTP-message from the device and puts the HTTP-message body to the supplied buffer
 	/*!
@@ -158,10 +168,10 @@ protected:
 private:
 	HttpMessageStreamReader();
 
-	enum PrivateConstants {
-		MaxHeaderFieldNameLength = 256,
-		MaxHeaderFieldValueLength = 4096
-	};
+	/*enum PrivateConstants {
+		DefaultMaxHeaderNameLength = 256,
+		DefaultMaxHeaderValueLength = 4096
+	};*/
 	
 	//! Parsing next character method
 	/*!
@@ -171,19 +181,17 @@ private:
 	bool parse(char ch);
 	void appendHeader();
 
-	void parseHeaderField(char ch, bool isTrailer);
-	void parseHeaderFieldName(char ch, bool isTrailer);
-	void parseHeaderFieldValue(char ch, bool isTrailer);
-	void parseHeaderFieldValueLF(char ch, bool isTrailer);
-	void parseHeaderFieldValueLWS(char ch, bool isTrailer);
+	void parseHeader(char ch, bool isTrailer);
+	void parseHeaderName(char ch, bool isTrailer);
+	void parseHeaderValue(char ch, bool isTrailer);
+	void parseHeaderValueLF(char ch, bool isTrailer);
+	void parseHeaderValueLWS(char ch, bool isTrailer);
 
 	AbstractIODevice& _device;
 	std::vector<char> _buffer;
 	size_t _bufferSize;
 	size_t _bufferPosition;
 	ParserState _parserState;
-	//bool _isBad;
-	//std::string _parsingError;
 	std::auto_ptr<AbstractError> _errorAutoPtr;
 	size_t _pos;
 	size_t _line;
@@ -197,8 +205,8 @@ private:
 	size_t _chunkSize;
 	size_t _chunkBytesParsed;
 	char _bodyByte;
-	size_t _maxHeaderFieldNameLength;
-	size_t _maxHeaderFieldValueLength;
+	size_t _maxHeaderNameLength;
+	size_t _maxHeaderValueLength;
 
 	friend class HttpRequestReader;
 };

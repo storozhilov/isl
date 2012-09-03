@@ -7,7 +7,8 @@
 namespace isl
 {
 
-HttpMessageStreamReader::HttpMessageStreamReader(AbstractIODevice& device, size_t bufferSize) :
+HttpMessageStreamReader::HttpMessageStreamReader(AbstractIODevice& device, size_t bufferSize,
+			size_t maxHeaderNameLength, size_t maxHeaderValueLength) :
 	_device(device),
 	_buffer(bufferSize),
 	_bufferSize(0),
@@ -26,8 +27,8 @@ HttpMessageStreamReader::HttpMessageStreamReader(AbstractIODevice& device, size_
 	_chunkSize(0),
 	_chunkBytesParsed(0),
 	_bodyByte(),
-	_maxHeaderFieldNameLength(MaxHeaderFieldNameLength),
-	_maxHeaderFieldValueLength(MaxHeaderFieldValueLength)
+	_maxHeaderNameLength(maxHeaderNameLength),
+	_maxHeaderValueLength(maxHeaderValueLength)
 {}
 
 HttpMessageStreamReader::~HttpMessageStreamReader()
@@ -209,7 +210,7 @@ bool HttpMessageStreamReader::parse(char ch)
 		break;
 	case ParsingFirstLineLF:
 		if (Char::isLineFeed(ch)) {
-			_parserState = ParsingHeaderField;
+			_parserState = ParsingHeader;
 		} else {
 			std::ostringstream msg;
 			msg << "HTTP-message line's CR is followed by the invalid character " << std::showbase << std::hex <<
@@ -218,20 +219,20 @@ bool HttpMessageStreamReader::parse(char ch)
 			setIsBad(Error(SOURCE_LOCATION_ARGS, msg.str()));
 		}
 		break;
-	case ParsingHeaderField:
-		parseHeaderField(ch, false);
+	case ParsingHeader:
+		parseHeader(ch, false);
 		break;
-	case ParsingHeaderFieldName:
-		parseHeaderFieldName(ch, false);
+	case ParsingHeaderName:
+		parseHeaderName(ch, false);
 		break;
-	case ParsingHeaderFieldValue:
-		parseHeaderFieldValue(ch, false);
+	case ParsingHeaderValue:
+		parseHeaderValue(ch, false);
 		break;
-	case ParsingHeaderFieldValueLF:
-		parseHeaderFieldValueLF(ch, false);
+	case ParsingHeaderValueLF:
+		parseHeaderValueLF(ch, false);
 		break;
-	case ParsingHeaderFieldValueLWS:
-		parseHeaderFieldValueLWS(ch, false);
+	case ParsingHeaderValueLWS:
+		parseHeaderValueLWS(ch, false);
 		break;
 	case ParsingEndOfHeader:
 		if (Char::isLineFeed(ch)) {
@@ -298,7 +299,7 @@ bool HttpMessageStreamReader::parse(char ch)
 		break;
 	case ParsingChunkSizeLF:
 		if (Char::isLineFeed(ch)) {
-			_parserState = (_chunkSize > 0) ? ParsingChunk : ParsingTrailerHeaderField;
+			_parserState = (_chunkSize > 0) ? ParsingChunk : ParsingTrailerHeader;
 		} else {
 			std::ostringstream msg;
 			msg << "Chunk size's CR is followed by the invalid character " << std::showbase << std::hex <<
@@ -337,20 +338,20 @@ bool HttpMessageStreamReader::parse(char ch)
 			setIsBad(Error(SOURCE_LOCATION_ARGS, msg.str()));
 		}
 		break;
-	case ParsingTrailerHeaderField:
-		parseHeaderField(ch, true);
+	case ParsingTrailerHeader:
+		parseHeader(ch, true);
 		break;
-	case ParsingTrailerHeaderFieldName:
-		parseHeaderFieldName(ch, true);
+	case ParsingTrailerHeaderName:
+		parseHeaderName(ch, true);
 		break;
-	case ParsingTrailerHeaderFieldValue:
-		parseHeaderFieldValue(ch, true);
+	case ParsingTrailerHeaderValue:
+		parseHeaderValue(ch, true);
 		break;
-	case ParsingTrailerHeaderFieldValueLF:
-		parseHeaderFieldValueLF(ch, true);
+	case ParsingTrailerHeaderValueLF:
+		parseHeaderValueLF(ch, true);
 		break;
-	case ParsingTrailerHeaderFieldValueLWS:
-		parseHeaderFieldValueLWS(ch, true);
+	case ParsingTrailerHeaderValueLWS:
+		parseHeaderValueLWS(ch, true);
 		break;
 	case ParsingFinalLF:
 		if (Char::isLineFeed(ch)) {
@@ -378,7 +379,7 @@ void HttpMessageStreamReader::appendHeader()
 	_headerFieldValue.clear();
 }
 
-void HttpMessageStreamReader::parseHeaderField(char ch, bool isTrailer)
+void HttpMessageStreamReader::parseHeader(char ch, bool isTrailer)
 {
 	_headerFieldName.clear();
 	_headerFieldValue.clear();
@@ -389,7 +390,7 @@ void HttpMessageStreamReader::parseHeaderField(char ch, bool isTrailer)
 		setIsBad(Error(SOURCE_LOCATION_ARGS, "Empty HTTP-message header field name"));
 	} else if (Http::isToken(ch)) {
 		_headerFieldName += ch;
-		_parserState = isTrailer ? ParsingTrailerHeaderFieldName : ParsingHeaderFieldName;
+		_parserState = isTrailer ? ParsingTrailerHeaderName : ParsingHeaderName;
 	} else {
 		std::ostringstream msg;
 		msg << "HTTP-message " << (isTrailer ? "trailer " : "") << "header field starts with invalid character " << std::showbase << std::hex <<
@@ -399,15 +400,15 @@ void HttpMessageStreamReader::parseHeaderField(char ch, bool isTrailer)
 	}
 }
 
-void HttpMessageStreamReader::parseHeaderFieldName(char ch, bool isTrailer)
+void HttpMessageStreamReader::parseHeaderName(char ch, bool isTrailer)
 {
 	if (Char::isCarriageReturn(ch)) {
 		debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "HTTP-message header field is missing ':' separator"));
 		setIsBad(Error(SOURCE_LOCATION_ARGS, "HTTP-message header field is missing ':' separator"));
 	} else if (ch == ':') {
-		_parserState = isTrailer ? ParsingTrailerHeaderFieldValue : ParsingHeaderFieldValue;
+		_parserState = isTrailer ? ParsingTrailerHeaderValue : ParsingHeaderValue;
 	} else if (Http::isToken(ch)) {
-		if (_headerFieldName.length() < maxHeaderFieldNameLength()) {
+		if (_headerFieldName.length() < maxHeaderNameLength()) {
 			_headerFieldName += ch;
 		} else {
 			debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "HTTP-message header field name is too long"));
@@ -422,12 +423,12 @@ void HttpMessageStreamReader::parseHeaderFieldName(char ch, bool isTrailer)
 	}
 }
 
-void HttpMessageStreamReader::parseHeaderFieldValue(char ch, bool isTrailer)
+void HttpMessageStreamReader::parseHeaderValue(char ch, bool isTrailer)
 {
 	if (Char::isCarriageReturn(ch)) {
-		_parserState = isTrailer ? ParsingTrailerHeaderFieldValueLF : ParsingHeaderFieldValueLF;
+		_parserState = isTrailer ? ParsingTrailerHeaderValueLF : ParsingHeaderValueLF;
 	} else if (!Http::isControl(ch)) {
-		if (_headerFieldValue.length() < maxHeaderFieldValueLength()) {
+		if (_headerFieldValue.length() < maxHeaderValueLength()) {
 			_headerFieldValue += ch;
 		} else {
 			debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "HTTP-message header field value is too long"));
@@ -442,10 +443,10 @@ void HttpMessageStreamReader::parseHeaderFieldValue(char ch, bool isTrailer)
 	}
 }
 
-void HttpMessageStreamReader::parseHeaderFieldValueLF(char ch, bool isTrailer)
+void HttpMessageStreamReader::parseHeaderValueLF(char ch, bool isTrailer)
 {
 	if (Char::isLineFeed(ch)) {
-		_parserState = isTrailer ? ParsingTrailerHeaderFieldValueLWS : ParsingHeaderFieldValueLWS;
+		_parserState = isTrailer ? ParsingTrailerHeaderValueLWS : ParsingHeaderValueLWS;
 	} else {
 		std::ostringstream msg;
 		msg << "HTTP-message " << (isTrailer ? "trailer " : "") << "header field's CR is followed by the invalid character " << std::showbase << std::hex <<
@@ -455,7 +456,7 @@ void HttpMessageStreamReader::parseHeaderFieldValueLF(char ch, bool isTrailer)
 	}
 }
 
-void HttpMessageStreamReader::parseHeaderFieldValueLWS(char ch, bool isTrailer)
+void HttpMessageStreamReader::parseHeaderValueLWS(char ch, bool isTrailer)
 {
 	if (Char::isCarriageReturn(ch)) {
 		appendHeader();
@@ -465,11 +466,11 @@ void HttpMessageStreamReader::parseHeaderFieldValueLWS(char ch, bool isTrailer)
 		setIsBad(Error(SOURCE_LOCATION_ARGS, "Empty HTTP-message header field name"));
 	} else if (Char::isSpaceOrTab(ch)) {
 		_headerFieldValue += ' ';
-		_parserState = isTrailer ? ParsingTrailerHeaderFieldValue : ParsingHeaderFieldValue;
+		_parserState = isTrailer ? ParsingTrailerHeaderValue : ParsingHeaderValue;
 	} else if (Http::isToken(ch)) {
 		appendHeader();
 		_headerFieldName += ch;
-		_parserState = isTrailer ? ParsingTrailerHeaderFieldName : ParsingHeaderFieldName;
+		_parserState = isTrailer ? ParsingTrailerHeaderName : ParsingHeaderName;
 	} else {
 		std::ostringstream msg;
 		msg << "HTTP-message " << (isTrailer ? "trailer " : "") << "header field starts with invalid character " << std::showbase << std::hex <<

@@ -4,7 +4,7 @@
 #include <isl/common.hxx>
 #include <isl/TcpSocket.hxx>
 #include <isl/TcpAddrInfo.hxx>
-#include <isl/AbstractSubsystem.hxx>
+#include <isl/Subsystem.hxx>
 #include <isl/IOError.hxx>
 #include <isl/ReadWriteLock.hxx>
 #include <isl/MessageQueue.hxx>
@@ -41,7 +41,7 @@ namespace isl
 
   \tparam Msg Message class with <tt>Msg * Msg::clone() const</tt> method
 */
-template <typename Msg> class AbstractMessageBrokerConnection : public AbstractSubsystem
+template <typename Msg> class AbstractMessageBrokerConnection : public Subsystem
 {
 public:
 	typedef Msg MessageType;
@@ -58,9 +58,9 @@ public:
 		virtual ~InputQueueFactory()
 		{}
 		//! Input message queue creation factory method
-		virtual std::auto_ptr<MessageQueueType> create() const
+		virtual MessageQueueType * create() const
 		{
-			return std::auto_ptr<MessageQueueType>(new MessageQueueType());
+			return new MessageQueueType();
 		}
 	};
 
@@ -71,9 +71,9 @@ public:
 		virtual ~OutputBusFactory()
 		{}
 		//! Output message bus creation factory method
-		virtual std::auto_ptr<MessageBusType> create() const
+		virtual MessageBusType * create() const
 		{
-			return std::auto_ptr<MessageBusType>(new MessageBusType());
+			return new MessageBusType();
 		}
 	};
 
@@ -86,10 +86,10 @@ public:
 	  \param inputQueueFactory Input message queue factory object reference
 	  \param outputBusFactory Output message bus factory object reference
 	*/
-	AbstractMessageBrokerConnection(AbstractSubsystem * owner, const TcpAddrInfo& serverAddrInfo,
+	AbstractMessageBrokerConnection(Subsystem * owner, const TcpAddrInfo& serverAddrInfo,
 			const Timeout& listeningInputQueueTimeout = Timeout(0, 100), const Timeout& awaitingConnectionTimeout = Timeout(1),
 			const InputQueueFactory& inputQueueFactory = InputQueueFactory(), const OutputBusFactory& outputBusFactory = OutputBusFactory()) :
-		AbstractSubsystem(owner),
+		Subsystem(owner),
 		_serverAddrInfo(serverAddrInfo),
 		_inputQueueAutoPtr(inputQueueFactory.create()),
 		_providedInputQueuePtr(),
@@ -112,10 +112,10 @@ public:
 	  \param awaitingConnectionTimeout Awaiting connection timeout
 	  \param outputBusFactory Output message bus factory object reference
 	*/
-	AbstractMessageBrokerConnection(AbstractSubsystem * owner, const TcpAddrInfo& serverAddrInfo, MessageQueueType& inputQueue,
+	AbstractMessageBrokerConnection(Subsystem * owner, const TcpAddrInfo& serverAddrInfo, MessageQueueType& inputQueue,
 			const Timeout& listeningInputQueueTimeout = Timeout(0, 100), const Timeout& awaitingConnectionTimeout = Timeout(1),
 			const OutputBusFactory& outputBusFactory = OutputBusFactory()) :
-		AbstractSubsystem(owner),
+		Subsystem(owner),
 		_serverAddrInfo(serverAddrInfo),
 		_inputQueueAutoPtr(),
 		_providedInputQueuePtr(&inputQueue),
@@ -138,10 +138,10 @@ public:
 	  \param awaitingConnectionTimeout Awaiting connection timeout
 	  \param inputQueueFactory Input message queue factory object reference
 	*/
-	AbstractMessageBrokerConnection(AbstractSubsystem * owner, const TcpAddrInfo& serverAddrInfo, MessageBusType& outputBus,
+	AbstractMessageBrokerConnection(Subsystem * owner, const TcpAddrInfo& serverAddrInfo, MessageBusType& outputBus,
 			const Timeout& listeningInputQueueTimeout = Timeout(0, 100), const Timeout& awaitingConnectionTimeout = Timeout(1),
 			const InputQueueFactory& inputQueueFactory = InputQueueFactory()) :
-		AbstractSubsystem(owner),
+		Subsystem(owner),
 		_serverAddrInfo(serverAddrInfo),
 		_inputQueueAutoPtr(inputQueueFactory.create()),
 		_providedInputQueuePtr(),
@@ -164,10 +164,10 @@ public:
 	  \param listeningInputQueueTimeout Listening input queue timeout
 	  \param awaitingConnectionTimeout Awaiting connection timeout
 	*/
-	AbstractMessageBrokerConnection(AbstractSubsystem * owner, const TcpAddrInfo& serverAddrInfo, MessageQueueType& inputQueue,
+	AbstractMessageBrokerConnection(Subsystem * owner, const TcpAddrInfo& serverAddrInfo, MessageQueueType& inputQueue,
 			MessageBusType& outputBus, const Timeout& listeningInputQueueTimeout = Timeout(0, 100),
 			const Timeout& awaitingConnectionTimeout = Timeout(1)) :
-		AbstractSubsystem(owner),
+		Subsystem(owner),
 		_serverAddrInfo(serverAddrInfo),
 		_inputQueueAutoPtr(),
 		_providedInputQueuePtr(&inputQueue),
@@ -319,7 +319,7 @@ public:
 	}
 protected:
 	//! Receiving messages from the network transport and providing them to subscribed consumers abstract thread class
-	class AbstractReceiverThread : public SubsystemThread
+	class AbstractReceiverThread : public AbstractThread
 	{
 	public:
 		//! Constructor
@@ -327,7 +327,7 @@ protected:
 		  \param connection Reference to message broker connection object
 		*/
 		AbstractReceiverThread(AbstractMessageBrokerConnection& connection) :
-			SubsystemThread(connection),
+			AbstractThread(connection),
 			_connection(connection),
 			_sleepCond()
 		{}
@@ -431,9 +431,9 @@ protected:
 		}
 		//! Receiving message from transport abstract method
 		/*!
-		  \return Auto-pointer to the received message or to 0 if no message have been received
+		  \return Pointer to the received message or to 0 if no message have been received
 		*/
-		virtual std::auto_ptr<Msg> receiveMessage() = 0;
+		virtual Msg * receiveMessage() = 0;
 	private:
 		virtual void run()
 		{
@@ -449,7 +449,7 @@ protected:
 					// Receiving message
 					std::auto_ptr<Msg> msgAutoPtr;
 					try {
-						msgAutoPtr = receiveMessage();
+						msgAutoPtr(receiveMessage());
 					} catch (std::exception& e) {
 						onReceiveDataException(&e);
 						_connection._socket.close();
@@ -505,7 +505,7 @@ protected:
 		WaitCondition _sleepCond;
 	};
 	//! Consuming messages from message providers subscribed to and sending them to the network transport abstract thread class
-	class AbstractSenderThread : public SubsystemThread
+	class AbstractSenderThread : public AbstractThread
 	{
 	public:
 		//! Constructor
@@ -513,7 +513,7 @@ protected:
 		  \param connection Reference to message broker connection object
 		*/
 		AbstractSenderThread(AbstractMessageBrokerConnection& connection) :
-			SubsystemThread(connection),
+			AbstractThread(connection),
 			_connection(connection),
 			_sleepCond(),
 			_consumeBuffer()
@@ -648,11 +648,11 @@ protected:
 	{
 		debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Opening a socket"));
 		if (!_receiverThreadAutoPtr.get()) {
-			_receiverThreadAutoPtr = createReceiverThread();
+			_receiverThreadAutoPtr.reset(createReceiverThread());
 			debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Receiver thread has been created"));
 		}
 		if (!_senderThreadAutoPtr.get()) {
-			_senderThreadAutoPtr = createSenderThread();
+			_senderThreadAutoPtr.reset(createSenderThread());
 			debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Sender thread has been created"));
 		}
 		debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Starting message broker connection"));
@@ -677,12 +677,12 @@ protected:
 	/*!
 	  \return Auto-pointer to the new receiver thread object
 	*/
-	virtual std::auto_ptr<AbstractReceiverThread> createReceiverThread() = 0;
+	virtual AbstractReceiverThread * createReceiverThread() = 0;
 	//! Sender thread creation abstract factory method
 	/*!
 	  \return Auto-pointer to the new sender thread object
 	*/
-	virtual std::auto_ptr<AbstractSenderThread> createSenderThread() = 0;
+	virtual AbstractSenderThread * createSenderThread() = 0;
 private:
 	AbstractMessageBrokerConnection();
 	AbstractMessageBrokerConnection(const AbstractMessageBrokerConnection&);						// No copy

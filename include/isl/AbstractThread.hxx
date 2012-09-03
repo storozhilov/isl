@@ -1,5 +1,5 @@
-#ifndef ISL__THREAD__HXX
-#define ISL__THREAD__HXX
+#ifndef ISL__ABSTRACT_THREAD__HXX
+#define ISL__ABSTRACT_THREAD__HXX
 
 #include <isl/ReadWriteLock.hxx>
 #include <pthread.h>
@@ -10,20 +10,17 @@ namespace isl
 class WaitCondition;
 
 //! Thread abstract base class
-/*!
-  TODO Rename to AbstractThread?
-*/
-class Thread
+class AbstractThread
 {
 public:
 	//! Constructs a thread
-	Thread();
+	AbstractThread();
 	//! Constructs a thread with await startup flag
 	/*!
 	  \param awaitStartup If TRUE, then the launching thread will wait until new thread is started
 	*/
-	Thread(bool awaitStartup);
-	virtual ~Thread();
+	AbstractThread(bool awaitStartup);
+	virtual ~AbstractThread();
 	//! Start thread execution
 	void start();
 	//! Join a thread and wait for it's termination
@@ -39,9 +36,9 @@ protected:
 	//! Thread execution abstract virtual method to override in subclasses
 	virtual void run() = 0;
 private:
-	Thread(const Thread&);						// No copy
+	AbstractThread(const AbstractThread&);						// No copy
 
-	Thread& operator=(const Thread&);				// No copy
+	AbstractThread& operator=(const AbstractThread&);				// No copy
 
 	static void * execute(void * arg);
 

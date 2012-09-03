@@ -18,7 +18,7 @@ public:
 	  \param maxClients Maximum clients amount to serve at the same time
 	  \param maxTaskQueueOverflowSize Maximum tasks queue overflow size
 	*/
-	AbstractAsyncTcpService(AbstractSubsystem * owner, size_t maxClients, size_t maxTaskQueueOverflowSize = 0) :
+	AbstractAsyncTcpService(Subsystem * owner, size_t maxClients, size_t maxTaskQueueOverflowSize = 0) :
 		AbstractTcpService(owner, maxClients * 2, maxTaskQueueOverflowSize)
 	{}
 
@@ -159,12 +159,12 @@ protected:
 				debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Server socket has been switched to the listening state"));
 				while (true) {
 					if (shouldTerminate()) {
-						debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Listener thread termination state detected before accepting TCP-connection -> exiting from listener thread"));
+						debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Listener thread termination detected before accepting TCP-connection -> exiting from listener thread"));
 						break;
 					}
 					std::auto_ptr<TcpSocket> socketAutoPtr(serverSocket.accept(listenTimeout()));
 					if (shouldTerminate()) {
-						debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Listener thread termination state detected after accepting TCP-connection -> exiting from listener thread"));
+						debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Listener thread termination detected after accepting TCP-connection -> exiting from listener thread"));
 						break;
 					}
 					if (!socketAutoPtr.get()) {
@@ -298,37 +298,37 @@ protected:
 	//! Shared staff object creation factory method
 	/*!
 	  \param socket Reference to the client connection socket
-	  \return Auto-pointer to the new shared staff object
+	  \return Pointer to the new shared staff object
 	*/
-	virtual std::auto_ptr<SharedStaff> createSharedStaff(TcpSocket& socket)
+	virtual SharedStaff * createSharedStaff(TcpSocket& socket)
 	{
-		return std::auto_ptr<SharedStaff>(new SharedStaff(socket));
+		return new SharedStaff(socket);
 	}
 	//! Listener object creation factory method
 	/*!
 	  \param addrInfo TCP-address info to bind to
 	  \param listenTimeout Timeout to wait for incoming connections
 	  \param backLog Listen backlog
-	  \return Auto-pointer to the new listener object
+	  \return Pointer to new listener
 	*/
-	virtual std::auto_ptr<AbstractListenerThread> createListener(const TcpAddrInfo& addrInfo, const Timeout& listenTimeout, unsigned int backLog)
+	virtual AbstractListenerThread * createListener(const TcpAddrInfo& addrInfo, const Timeout& listenTimeout, unsigned int backLog)
 	{
-		return std::auto_ptr<AbstractListenerThread>(new ListenerThread(*this, addrInfo, listenTimeout, backLog));
+		return new ListenerThread(*this, addrInfo, listenTimeout, backLog);
 	}
 	//! Receiver task object creation factory method to override
 	/*!
 	  \param listener Reference to listener thread object
 	  \param sharedStaff Reference to the shared staff object
-	  \return Auto-pointer to the new receiver task object
+	  \return Pointer to the new receiver task object
 	*/
-	virtual std::auto_ptr<AbstractReceiverTask> createReceiverTask(ListenerThread& listener, SharedStaff& sharedStaff) = 0;
+	virtual AbstractReceiverTask * createReceiverTask(ListenerThread& listener, SharedStaff& sharedStaff) = 0;
 	//! Sender task object creation factory method to override
 	/*!
 	  \param listener Reference to listener thread object
 	  \param sharedStaff Reference to the shared staff object
-	  \return Auto-pointer to the new sender task object
+	  \return Pointer to the new sender task object
 	*/
-	virtual std::auto_ptr<AbstractSenderTask> createSenderTask(ListenerThread& listener, SharedStaff& sharedStaff) = 0;
+	virtual AbstractSenderTask * createSenderTask(ListenerThread& listener, SharedStaff& sharedStaff) = 0;
 private:
 	AbstractAsyncTcpService();
 	AbstractAsyncTcpService(const AbstractAsyncTcpService&);						// No copy

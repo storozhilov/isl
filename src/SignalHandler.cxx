@@ -14,8 +14,8 @@ namespace isl
  * SignalHandler
 ------------------------------------------------------------------------------*/
 
-SignalHandler::SignalHandler(AbstractSubsystem * owner, const SignalSet& signalSet, const Timeout& timeout) :
-	AbstractSubsystem(owner),
+SignalHandler::SignalHandler(Subsystem * owner, const SignalSet& signalSet, const Timeout& timeout) :
+	Subsystem(owner),
 	_initialSignalMask(),
 	_blockedSignals(signalSet),
 	_timeout(timeout),
@@ -32,12 +32,12 @@ void SignalHandler::onSignal(int signo)
 			oss << "sending restart command to server";
 			debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, oss.str()));
 			{
-				AbstractServer * server = findServer();
+				Server * server = findServer();
 				if (server) {
 					server->doStop();
 					server->doStart();
 				} else {
-					errorLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Instance of isl::AbstractServer not found in subsystems tree for restarting"));
+					errorLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Instance of isl::Server not found in subsystems tree for restarting"));
 				}
 			}
 			break;
@@ -46,11 +46,11 @@ void SignalHandler::onSignal(int signo)
 			oss << "sending exit command to server";
 			debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, oss.str()));
 			{
-				AbstractServer * server = findServer();
+				Server * server = findServer();
 				if (server) {
 					server->doExit();
 				} else {
-					errorLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Instance of isl::AbstractServer not found in subsystems tree for exiting"));
+					errorLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Instance of isl::Server not found in subsystems tree for exiting"));
 				}
 			}
 			break;
@@ -60,11 +60,11 @@ void SignalHandler::onSignal(int signo)
 	}
 }
 
-AbstractServer * SignalHandler::findServer()
+Server * SignalHandler::findServer()
 {
-	AbstractSubsystem * curOwner = this;
+	Subsystem * curOwner = this;
 	while ((curOwner = curOwner->owner())) {
-		AbstractServer * server = dynamic_cast<AbstractServer *>(curOwner);
+		Server * server = dynamic_cast<Server *>(curOwner);
 		if (server) {
 			return server;
 		}
@@ -109,7 +109,7 @@ void SignalHandler::afterStop()
 ------------------------------------------------------------------------------*/
 
 SignalHandler::SignalHandlerThread::SignalHandlerThread(SignalHandler& signalHandler) :
-	SubsystemThread(signalHandler, true),
+	AbstractThread(signalHandler),
 	_signalHandler(signalHandler)
 {}
 
@@ -145,7 +145,7 @@ void SignalHandler::SignalHandlerThread::run()
 		while (true) {
 			if (hasPendingSignals()) {
 				if (shouldTerminate()) {
-					debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Signal handler termination detected before processing pending signals -> exiting from signal handler thread"));
+					debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Signal handler thread termination detected before processing pending signals -> exiting from signal handler thread"));
 					return;
 				}
 				while (hasPendingSignals()) {
@@ -158,7 +158,7 @@ void SignalHandler::SignalHandlerThread::run()
 				}
 			} else {
 				if (awaitShouldTerminate(_signalHandler.timeout())) {
-					debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Signal handler termination detected after inspecting for pending signals -> exiting from signal handler thread"));
+					debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Signal handler thread termination detected after inspecting for pending signals -> exiting from signal handler thread"));
 					return;
 				}
 			}

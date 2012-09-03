@@ -1,5 +1,5 @@
 #include <isl/common.hxx>
-#include <isl/Thread.hxx>
+#include <isl/AbstractThread.hxx>
 #include <isl/WaitCondition.hxx>
 #include <isl/Exception.hxx>
 #include <isl/Error.hxx>
@@ -11,7 +11,7 @@
 namespace isl
 {
 
-Thread::Thread() :
+AbstractThread::AbstractThread() :
 	_thread(),
 	_isRunning(false),
 	_isRunningRWLock(),
@@ -19,7 +19,7 @@ Thread::Thread() :
 	_awaitStartupCond(0)
 {}
 
-Thread::Thread(bool awaitStartup) :
+AbstractThread::AbstractThread(bool awaitStartup) :
 	_thread(),
 	_isRunning(false),
 	_isRunningRWLock(),
@@ -27,10 +27,10 @@ Thread::Thread(bool awaitStartup) :
 	_awaitStartupCond(0)
 {}
 
-Thread::~Thread()
+AbstractThread::~AbstractThread()
 {}
 
-void Thread::start()
+void AbstractThread::start()
 {
 	if (_awaitStartup) {
 		WaitCondition awaitStartupCond;
@@ -50,7 +50,7 @@ void Thread::start()
 	}
 }
 
-void Thread::join()
+void AbstractThread::join()
 {
 	if (pthread_equal(_thread, pthread_self())) {
 		return;
@@ -60,7 +60,7 @@ void Thread::join()
 	}
 }
 
-bool Thread::join(const Timeout& timeout)
+bool AbstractThread::join(const Timeout& timeout)
 {
 	if (pthread_equal(_thread, pthread_self())) {
 		return true;
@@ -77,15 +77,15 @@ bool Thread::join(const Timeout& timeout)
 	}
 }
 
-bool Thread::isRunning() const
+bool AbstractThread::isRunning() const
 {
 	ReadLocker locker(_isRunningRWLock);
 	return _isRunning;
 }
 
-void * Thread::execute(void * arg)
+void * AbstractThread::execute(void * arg)
 {
-	Thread * threadPtr = reinterpret_cast<Thread *>(arg);
+	AbstractThread * threadPtr = reinterpret_cast<AbstractThread *>(arg);
 	if (threadPtr->_awaitStartup) {
 		MutexLocker locker(threadPtr->_awaitStartupCond->mutex());
 		threadPtr->_awaitStartupCond->wakeAll();

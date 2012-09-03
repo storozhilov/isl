@@ -57,7 +57,7 @@ public:
 	  \param msgAutoPtr Reference to the auto-pointer to the message to push
 	  \return True if the message has been accepted by the queue and no queue overlow has been detected
 	*/
-	bool push(std::auto_ptr<Msg>& msgAutoPtr)
+	/*bool push(std::auto_ptr<Msg>& msgAutoPtr)
 	{
 		if (!msgAutoPtr.get()) {
 			errorLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Attempting to push a zero pointer to message into the message queue"));
@@ -76,7 +76,7 @@ public:
 		msgAutoPtr.release();
 		_queueCond.wakeOne();
 		return true;
-	}
+	}*/
 	//! Pops message from the queue
 	/*!
 	  \param timeout Timeout to wait for the message

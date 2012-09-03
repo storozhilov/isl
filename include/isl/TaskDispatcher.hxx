@@ -2,9 +2,8 @@
 #define ISL__TASK_DISPATCHER__HXX
 
 #include <isl/common.hxx>
-#include <isl/AbstractSubsystem.hxx>
+#include <isl/Subsystem.hxx>
 #include <isl/WaitCondition.hxx>
-#include <isl/Thread.hxx>
 #include <isl/LogMessage.hxx>
 #include <isl/ExceptionLogMessage.hxx>
 #include <deque>
@@ -17,17 +16,17 @@ namespace isl
 {
 
 //! Task dispatcher for executing tasks in the pool of the worker threads
-template <typename Task> class BasicTaskDispatcher : public AbstractSubsystem
+template <typename Task> class BasicTaskDispatcher : public Subsystem
 {
 public:
 	typedef std::list<Task *> TaskList;
 
 	//! WorkerThread thread class
-	class WorkerThread : public SubsystemThread
+	class WorkerThread : public AbstractThread
 	{
 	public:
 		WorkerThread(BasicTaskDispatcher& taskDispatcher, unsigned int id) :
-			SubsystemThread(taskDispatcher, false, true /* TODO Maybe false? */),
+			AbstractThread(taskDispatcher),
 			_taskDispatcher(taskDispatcher),
 			_id(id)
 		{}
@@ -61,10 +60,10 @@ public:
 			debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "WorkerThread has been started"));
 			while (true) {
 				if (shouldTerminate()) {
-					debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Task dispatcher termination has been detected before task pick up -> exiting from the worker thread"));
+					debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Worker thread termination has been detected before task pick up -> exiting from the worker thread"));
 					break;
 				}
-				std::auto_ptr<Task> task;
+				std::auto_ptr<Task> taskAutoPtr;
 				{
 					MutexLocker locker(_taskDispatcher._taskCond.mutex());
 					if (_taskDispatcher._taskQueue.empty()) {
@@ -74,22 +73,22 @@ public:
 						--_taskDispatcher._awaitingWorkersCount;
 						if (!_taskDispatcher._taskQueue.empty()) {
 							// Pick up the next task from the task queue if the task queue is not empty
-							task.reset(_taskDispatcher._taskQueue.back());
+							taskAutoPtr.reset(_taskDispatcher._taskQueue.back());
 							_taskDispatcher._taskQueue.pop_back();
 						}
 					} else {
 						// Pick up the next task from the task queue if the task queue is not empty
-						task.reset(_taskDispatcher._taskQueue.back());
+						taskAutoPtr.reset(_taskDispatcher._taskQueue.back());
 						_taskDispatcher._taskQueue.pop_back();
 					}
 				}
 				if (shouldTerminate()) {
-					debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Task dispatcher termination has been detected after task pick up -> exiting from the worker thread"));
+					debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Worker thread termination has been detected after task pick up -> exiting from the worker thread"));
 					break;
 				}
-				if (task.get()) {
+				if (taskAutoPtr.get()) {
 					try {
-						task->execute(*this);
+						taskAutoPtr->execute(*this);
 					} catch (std::exception& e) {
 						errorLog().log(ExceptionLogMessage(SOURCE_LOCATION_ARGS, e, "Task execution error"));
 					} catch (...) {
@@ -113,8 +112,8 @@ public:
 	  \param workersAmount WorkerThread threads amount
 	  \param maxTaskQueueOverflowSize Max tasks queue overflow
 	*/
-	BasicTaskDispatcher(AbstractSubsystem * owner, size_t workersAmount, size_t maxTaskQueueOverflowSize = 0) :
-		AbstractSubsystem(owner),
+	BasicTaskDispatcher(Subsystem * owner, size_t workersAmount, size_t maxTaskQueueOverflowSize = 0) :
+		Subsystem(owner),
 		_runtimeParamRwLock(),
 		_workersAmount(workersAmount),
 		_maxTaskQueueOverflowSize(maxTaskQueueOverflowSize),
@@ -235,11 +234,11 @@ protected:
 	//! Creating new worker factory method
 	/*!
 	  \param workerId Id for the new worker
-	  \return std::auto_ptr with new worker's pointer
+	  \return Pointer to new worker thread
 	*/
-	virtual std::auto_ptr<WorkerThread> createWorker(unsigned int workerId)
+	virtual WorkerThread * createWorker(unsigned int workerId)
 	{
-		return std::auto_ptr<WorkerThread>(new WorkerThread(*this, workerId));
+		return new WorkerThread(*this, workerId);
 	}
 private:
 	BasicTaskDispatcher();

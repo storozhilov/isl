@@ -57,7 +57,7 @@ public:
 	  \param msgAutoPtr Reference to the auto-pointer to the message to push
 	  \return True if the message has been accepted by the buffer and no buffer overlow has been detected
 	*/
-	bool push(std::auto_ptr<Msg>& msgAutoPtr)
+	/*bool push(std::auto_ptr<Msg>& msgAutoPtr)
 	{
 		if (!msgAutoPtr.get()) {
 			return false;
@@ -73,7 +73,7 @@ public:
 		_buffer.push_front(msgAutoPtr.get());
 		msgAutoPtr.release();
 		return true;
-	}
+	}*/
 	//! Pops message from the buffer
 	/*!
 	  \param bufferSize Pointer to value where buffer size after message fetching should be saved or NULL pointer if not

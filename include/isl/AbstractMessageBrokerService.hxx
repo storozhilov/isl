@@ -50,7 +50,7 @@ public:
 	  \param listeningInputQueueTimeout Listening input queue timeout
 	  \param maxTaskQueueOverflowSize Maximum tasks queue overflow size
 	*/
-	AbstractMessageBrokerService(AbstractSubsystem * owner, size_t maxClients, const isl::Timeout& listeningInputQueueTimeout = isl::Timeout(0, 100),
+	AbstractMessageBrokerService(Subsystem * owner, size_t maxClients, const isl::Timeout& listeningInputQueueTimeout = isl::Timeout(0, 100),
 			size_t maxTaskQueueOverflowSize = 0) :
 		AbstractAsyncTcpService(owner, maxClients, maxTaskQueueOverflowSize),
 		_listeningInputQueueTimeout(listeningInputQueueTimeout),
@@ -176,25 +176,25 @@ protected:
 		//! Shared staff initialization virtual method
 		virtual void init()
 		{
-			_inputQueueAutoPtr = createInputQueue();
-			_outputBusAutoPtr = createOutputBus();
+			_inputQueueAutoPtr.reset(createInputQueue());
+			_outputBusAutoPtr.reset(createOutputBus());
 		}
 	protected:
 		//! Input message queue creation factory method
 		/*!
 		  \return Auto-pointer to the input queue object
 		*/
-		virtual std::auto_ptr<MessageQueueType> createInputQueue()
+		virtual MessageQueueType * createInputQueue()
 		{
-			return std::auto_ptr<MessageQueueType>(new MessageQueueType());
+			return new MessageQueueType();
 		}
 		//! Output message bus creation factory method
 		/*!
 		  \return Auto-pointer to the output bus object
 		*/
-		virtual std::auto_ptr<MessageBusType> createOutputBus()
+		virtual MessageBusType * createOutputBus()
 		{
-			return std::auto_ptr<MessageBusType>(new MessageBusType());
+			return new MessageBusType();
 		}
 	private:
 		std::auto_ptr<MessageQueueType> _inputQueueAutoPtr;
@@ -271,9 +271,9 @@ protected:
 		}
 		//! Receiving message from transport abstract method
 		/*!
-		  \return Auto-pointer to the received message or to 0 if no message have been received
+		  \return Pointer to the received message or to 0 if no message have been received
 		*/
-		virtual std::auto_ptr<Msg> receiveMessage() = 0;
+		virtual Msg * receiveMessage() = 0;
 	private:
 		virtual void execute(TaskDispatcherType::WorkerThread& worker)
 		{
@@ -288,7 +288,7 @@ protected:
 					return;
 				}
 				try {
-					std::auto_ptr<Msg> msgAutoPtr = receiveMessage();
+					std::auto_ptr<Msg> msgAutoPtr(receiveMessage());
 					if (msgAutoPtr.get()) {
 						// Calling on receive message event callback
 						if (!onReceiveMessage(*msgAutoPtr.get())) {
@@ -457,11 +457,11 @@ protected:
 	//! Shared staff creation factory method
 	/*!
 	  \param socket Reference to the client connection socket
-	  \return Auto-pointer to the new shared staff object
+	  \return Pointer to the new shared staff object
 	*/
-	virtual std::auto_ptr<AbstractAsyncTcpService::SharedStaff> createSharedStaff(TcpSocket& socket)
+	virtual AbstractAsyncTcpService::SharedStaff * createSharedStaff(TcpSocket& socket)
 	{
-		return std::auto_ptr<AbstractAsyncTcpService::SharedStaff>(new SharedStaff(socket));
+		return new SharedStaff(socket);
 	}
 private:
 	AbstractMessageBrokerService();

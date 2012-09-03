@@ -1,16 +1,16 @@
 #include <isl/common.hxx>
-#include <isl/AbstractServer.hxx>
+#include <isl/Server.hxx>
 #include <isl/LogMessage.hxx>
 
 namespace isl
 {
 
 /*------------------------------------------------------------------------------
- * AbstractServer
+ * Server
 ------------------------------------------------------------------------------*/
 
-AbstractServer::AbstractServer(int argc, char * argv[]) :
-	AbstractSubsystem(0),
+Server::Server(int argc, char * argv[]) :
+	Subsystem(0),
 	_argv(),
 	_commandsQueue(),
 	_commandsCond()
@@ -21,7 +21,7 @@ AbstractServer::AbstractServer(int argc, char * argv[]) :
 	}
 }
 
-void AbstractServer::run()
+void Server::run()
 {
 	beforeRun();
 	start();
@@ -57,7 +57,7 @@ void AbstractServer::run()
 	}
 }
 
-void AbstractServer::sendCommand(Command cmd)
+void Server::sendCommand(Command cmd)
 {
 	MutexLocker locker(_commandsCond.mutex());
 	if (_commandsQueue.size() >= MaxCommandQueueSize) {

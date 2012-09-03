@@ -1,7 +1,7 @@
 #define LIBISL__DEBUGGING_ON 1
 
 #include <isl/common.hxx>
-#include <isl/AbstractServer.hxx>
+#include <isl/Server.hxx>
 #include <isl/SignalHandler.hxx>
 //#include <isl/AbstractTcpService.hxx>
 #include <isl/AbstractSyncTcpService.hxx>
@@ -109,7 +109,7 @@ private:
 class HttpService : public isl::AbstractSyncTcpService
 {
 public:
-	HttpService(AbstractSubsystem * owner, unsigned int port, size_t maxClients) :
+	HttpService(Subsystem * owner, unsigned int port, size_t maxClients) :
 		AbstractSyncTcpService(owner, maxClients)
 	{
 		addListener(isl::TcpAddrInfo(isl::TcpAddrInfo::IpV4, isl::TcpAddrInfo::WildcardAddress, port));
@@ -183,17 +183,17 @@ private:
 
 	HttpService();
 
-	virtual std::auto_ptr<isl::AbstractSyncTcpService::AbstractTask> createTask(ListenerThread& /*listener*/, isl::TcpSocket& socket)
+	virtual isl::AbstractSyncTcpService::AbstractTask * createTask(ListenerThread& /*listener*/, isl::TcpSocket& socket)
 	{
-		return std::auto_ptr<isl::AbstractSyncTcpService::AbstractTask>(new HttpTask(*this, socket));
+		return new HttpTask(*this, socket);
 	}
 };
 
-class HttpServer : public isl::AbstractServer
+class HttpServer : public isl::Server
 {
 public:
 	HttpServer(int argc, char * argv[]) :
-		isl::AbstractServer(argc, argv),
+		isl::Server(argc, argv),
 		//_startStopMutex(),
 		_signalHandler(this),
 		//_taskDispatcher(this, 10)//,

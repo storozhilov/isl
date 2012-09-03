@@ -19,7 +19,7 @@ public:
 	  \param maxClients Maximum clients amount to serve at the same time
 	  \param maxTaskQueueOverflowSize Maximum tasks queue overflow size
 	*/
-	AbstractSyncTcpService(AbstractSubsystem * owner, size_t maxClients, size_t maxTaskQueueOverflowSize = 0) :
+	AbstractSyncTcpService(Subsystem * owner, size_t maxClients, size_t maxTaskQueueOverflowSize = 0) :
 		AbstractTcpService(owner, maxClients, maxTaskQueueOverflowSize)
 	{}
 
@@ -57,7 +57,7 @@ protected:
 		ListenerThread();
 		ListenerThread(const ListenerThread&);								// No copy
 
-		ListenerThread& operator=(const ListenerThread&);							// No copy
+		ListenerThread& operator=(const ListenerThread&);						// No copy
 
 		virtual void run()
 		{
@@ -74,12 +74,12 @@ protected:
 				debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Server socket has been switched to the listening state"));
 				while (true) {
 					if (shouldTerminate()) {
-						debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Listener thread termination state detected before accepting TCP-connection -> exiting from listener thread"));
+						debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Listener thread termination detected before accepting TCP-connection -> exiting from listener thread"));
 						break;
 					}
 					std::auto_ptr<TcpSocket> socketAutoPtr(serverSocket.accept(listenTimeout()));
 					if (shouldTerminate()) {
-						debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Listener thread termination state detected after accepting TCP-connection -> exiting from listener thread"));
+						debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Listener thread termination detected after accepting TCP-connection -> exiting from listener thread"));
 						break;
 					}
 					if (!socketAutoPtr.get()) {
@@ -132,13 +132,6 @@ protected:
 		{
 			return *_socketAutoPtr.get();
 		}
-	protected:
-		// Returns true if task should be terminated
-		inline bool shouldTerminate() const
-		{
-			AbstractSubsystem::State state = _service.state();
-			return state != AbstractSubsystem::StartingState && state != AbstractSubsystem::RunningState;
-		}
 	private:
 		AbstractTask();
 		AbstractTask(const AbstractTask&);								// No copy
@@ -154,19 +147,19 @@ protected:
 	  \param addrInfo TCP-address info to bind to
 	  \param listenTimeout Timeout to wait for incoming connections
 	  \param backLog Listen backlog
-	  \return Auto-pointer to the new listener object
+	  \return Pointer to new listener
 	*/
-	virtual std::auto_ptr<AbstractListenerThread> createListener(const TcpAddrInfo& addrInfo, const Timeout& listenTimeout, unsigned int backLog)
+	virtual AbstractListenerThread * createListener(const TcpAddrInfo& addrInfo, const Timeout& listenTimeout, unsigned int backLog)
 	{
-		return std::auto_ptr<AbstractListenerThread>(new ListenerThread(*this, addrInfo, listenTimeout, backLog));
+		return new ListenerThread(*this, addrInfo, listenTimeout, backLog);
 	}
 	//! Creating task factory method to override
 	/*!
 	  \param listener Reference to listener thread object
 	  \param socket Reference to the client connection socket
-	  \return Auto-pointer to the new task object
+	  \return Pointer to the new task object
 	*/
-	virtual std::auto_ptr<AbstractTask> createTask(ListenerThread& listener, TcpSocket& socket) = 0;
+	virtual AbstractTask * createTask(ListenerThread& listener, TcpSocket& socket) = 0;
 private:
 	AbstractSyncTcpService();
 	AbstractSyncTcpService(const AbstractSyncTcpService&);						// No copy
