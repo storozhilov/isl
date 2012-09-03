@@ -36,22 +36,22 @@ namespace isl
 
   \section features_section Features
 
-  - C++ wrappers for basic inter-thread synchronization objects (thread, mutex, R/W-lock, conditional variable, etc.) and helper classes;
-  - Tools for common server application tasks (pidfile saving, daemonizing, logging, etc.);
+  - Thread class, C++ wrappers for basic inter-thread synchronization objects (mutex, R/W-lock, conditional variable, etc.) and helper classes;
   - Thread-safe multi-target extensible logging architecture implementation with any kind of targets (stdout, file, syslog, database, etc.)
     and multiple target per log support;
   - <a href="http://en.wikipedia.org/wiki/Active_object">Active object pattern</a> templated extensible implementation;
-  - Hierarchially organized extensible server and it's subsystems abstractions design in accordance with
+  - Hierarchially organized extensible server/subsystem design in accordance with
     <a href="http://en.wikipedia.org/wiki/Composite_pattern">Composite design pattern</a>;
-  - Buffered I/O-device abstraction and it's implementation for TCP/UDP(TODO) sockets with asynchronous data transmission and SSL (TODO) support;
+  - I/O-device abstraction and it's implementation for TCP/UDP(TODO) sockets with asynchronous data transmission and SSL (TODO) support;
   - Extensible UNIX-signal handler subsystem implementation;
   - Extensible design for synchronous (one thread per client connection) and asynchronous (two threads per client connection) TCP-service
     subsystems implementation;
-  - Extensible message queueing functionality implementation, including thread-safe message queue, thread-safe message bus/fan, asynchronous
+  - Message queueing design elements, including thread-safe message queue/bus/fan, asynchronous
     message broker connection subsystem, asynchronous message brocker service subsystem, message routing facilities, etc.;
   - Nanosecond-precision datetime and interval support;
   - Functionally rich HTTP-module with HTTP-message/HTTP-cookie parsers and composers, HTTP-request/HTTP-response stream readers and writers,
     utility methods, etc.
+  - Tools for common server application tasks: pidfile saving, daemonizing;
 
   \section installation_section Installation
 
@@ -108,6 +108,8 @@ namespace isl
   (A.K.A. &quot;FreeBSD License&quot;) terms. It means you can use it in any application/library you want including commercial one
   with minimum restrictions.
  
+  Copyright (c) 2011-2012, <a href="http://storozhilov.com/">Ilya V. Storozhilov</a>. All rights reserved.
+
   \verbatim
   Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:
  
@@ -122,8 +124,6 @@ namespace isl
   LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
   EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
   \endverbatim
-
-  Copyright (c) 2011-2012, <a href="http://storozhilov.com/">Ilya V. Storozhilov</a>. All rights reserved.
 
 */
 
