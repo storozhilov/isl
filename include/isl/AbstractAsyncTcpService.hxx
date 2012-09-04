@@ -29,7 +29,8 @@ public:
 	}
 	//! Sets maximum clients amount
 	/*!
-	  Subsystem's restart needed to actually apply new value
+	  Subsystem's restart needed to completely apply the new value;
+
 	  \param newValue New maximum clients amount
 	*/
 	inline void setMaxClients(size_t newValue)
@@ -48,7 +49,7 @@ protected:
 	public:
 		//! Constructor
 		/*!
-		  \param socketPtr Reference to the client connection socket
+		  \param socket Reference to the client connection socket
 		*/
 		SharedStaff(TcpSocket& socket) :
 			_socketAutoPtr(&socket),
@@ -124,7 +125,7 @@ protected:
 	};
 
 	//! Asynchronous TCP-service listener thread. Feel free to subclass.
-	class ListenerThread : public AbstractListenerThread
+	class ListenerThread : public AbstractTcpService::AbstractListenerThread
 	{
 	public:
 		//! Constructor
@@ -208,6 +209,7 @@ protected:
 	public:
 		//! Constructor
 		/*!
+		  \param service Reference to the asynchronous TCP-service
 		  \param sharedStaff Reference to the shared staff object
 		*/
 		AbstractReceiverTask(AbstractAsyncTcpService& service, SharedStaff& sharedStaff) :
@@ -254,6 +256,7 @@ protected:
 	public:
 		//! Constructor
 		/*!
+		  \param service Reference to the asynchronous TCP-service
 		  \param sharedStaff Reference to the shared staff object
 		*/
 		AbstractSenderTask(AbstractAsyncTcpService& service, SharedStaff& sharedStaff) :

@@ -8,7 +8,7 @@ namespace isl
 
 //! Thread-safe message bus templated class
 /*!
-  \tparam Msg Message class with <tt>Msg * Msg::clone() const</tt> method
+  \tparam Msg Message class
 */
 template <typename Msg> class MessageBus : public MessageProvider<Msg>, public AbstractMessageConsumer<Msg>
 {

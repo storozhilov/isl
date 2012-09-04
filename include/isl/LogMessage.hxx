@@ -10,6 +10,12 @@ namespace isl
 class LogMessage : public AbstractLogMessage
 {
 public:
+	//! Constructs log message
+	/*!
+	  You should use SOURCE_LOCATION_ARGS macro as a value for the first parameter
+
+	  \param msg Message text
+	*/
 	LogMessage(SOURCE_LOCATION_ARGS_DECLARATION, const std::string& msg);
 private:
 	LogMessage();

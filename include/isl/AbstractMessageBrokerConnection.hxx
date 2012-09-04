@@ -39,17 +39,18 @@ namespace isl
   - AbstractMessageBrokerConnection::createReceiverThread() - creates receiver thread object;
   - AbstractMessageBrokerConnection::createSenderThread() - creates sender thread object.
 
-  \tparam Msg Message class with <tt>Msg * Msg::clone() const</tt> method
+  \tparam Msg Message class
+  \tparam Cloner Message cloner class with static <tt>Msg * Cloner::clone(const Msg& msg)</tt> method for cloning the message
 */
-template <typename Msg> class AbstractMessageBrokerConnection : public Subsystem
+template <typename Msg, typename Cloner = CopyMessageCloner<Msg> > class AbstractMessageBrokerConnection : public Subsystem
 {
 public:
-	typedef Msg MessageType;
-	typedef MessageProvider<Msg> MessageProviderType;
-	typedef AbstractMessageConsumer<Msg> AbstractMessageConsumerType;
-	typedef MessageQueue<Msg> MessageQueueType;
-	typedef MessageBuffer<Msg> MessageBufferType;
-	typedef MessageBus<Msg> MessageBusType;
+	typedef Msg MessageType;						//!< Message type
+	typedef MessageProvider<Msg> MessageProviderType;			//!< Message provider type
+	typedef AbstractMessageConsumer<Msg> AbstractMessageConsumerType;	//!< Abstract message consumer type
+	typedef MessageQueue<Msg, Cloner> MessageQueueType;			//!< Message queue type
+	typedef MessageBuffer<Msg, Cloner> MessageBufferType;			//!< Message buffer type
+	typedef MessageBus<Msg> MessageBusType;					//!< Message bus type
 
 	//! Input message queue factory base class
 	class InputQueueFactory
@@ -214,10 +215,7 @@ public:
 	*/
 	void addProvider(MessageProviderType& provider)
 	{
-		StateLocker locker(*this);
-		if (locker.state() != IdlingState) {
-			throw Exception(Error(SOURCE_LOCATION_ARGS, "Message provider could be added while subsystem idling only"));
-		}
+		WriteLocker locker(runtimeParamsRWLock);
 		_providers.push_back(&provider);
 	}
 	//! Removes message provider
@@ -226,10 +224,7 @@ public:
 	*/
 	void removeProvider(MessageProviderType& provider)
 	{
-		StateLocker locker(*this);
-		if (locker.state() != IdlingState) {
-			throw Exception(Error(SOURCE_LOCATION_ARGS, "Message provider  could be removed while subsystem idling only"));
-		}
+		WriteLocker locker(runtimeParamsRWLock);
 		typename ProvidersContainer::iterator pos = std::find(_providers.begin(), _providers.end(), &provider);
 		if (pos == _providers.end()) {
 			errorLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Message provider not found in connection"));
@@ -240,10 +235,7 @@ public:
 	//! Removes all message providers
 	void resetProviders()
 	{
-		StateLocker locker(*this);
-		if (locker.state() != IdlingState) {
-			throw Exception(Error(SOURCE_LOCATION_ARGS, "Message providers could be reset while subsystem idling only"));
-		}
+		WriteLocker locker(runtimeParamsRWLock);
 		_providers.clear();
 	}
 	//! Adds message consumer for providing incoming messages to while running
@@ -252,10 +244,7 @@ public:
 	*/
 	void addConsumer(AbstractMessageConsumerType& consumer)
 	{
-		StateLocker locker(*this);
-		if (locker.state() != IdlingState) {
-			throw Exception(Error(SOURCE_LOCATION_ARGS, "Message consumer could be added while subsystem idling only"));
-		}
+		WriteLocker locker(runtimeParamsRWLock);
 		_consumers.push_back(&consumer);
 	}
 	//! Removes message consumer
@@ -264,10 +253,7 @@ public:
 	*/
 	void removeConsumer(AbstractMessageConsumerType& consumer)
 	{
-		StateLocker locker(*this);
-		if (locker.state() != IdlingState) {
-			throw Exception(Error(SOURCE_LOCATION_ARGS, "Message consumer could be removed while subsystem idling only"));
-		}
+		WriteLocker locker(runtimeParamsRWLock);
 		typename ConsumersContainer::iterator pos = std::find(_consumers.begin(), _consumers.end(), &consumer);
 		if (pos == _consumers.end()) {
 			errorLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Message consumer not found in connection"));
@@ -278,10 +264,7 @@ public:
 	//! Removes all message consumers
 	void resetConsumers()
 	{
-		StateLocker locker(*this);
-		if (locker.state() != IdlingState) {
-			throw Exception(Error(SOURCE_LOCATION_ARGS, "Message consumers could be reset while subsystem idling only"));
-		}
+		WriteLocker locker(runtimeParamsRWLock);
 		_consumers.clear();
 	}
 	//! Sets message broker address
@@ -290,10 +273,7 @@ public:
 	*/
 	void setServerAddr(const TcpAddrInfo& newValue)
 	{
-		StateLocker locker(*this);
-		if (locker.state() != IdlingState) {
-			throw Exception(Error(SOURCE_LOCATION_ARGS, "Server address info could be set while subsystem idling only"));
-		}
+		WriteLocker locker(runtimeParamsRWLock);
 		_serverAddrInfo = newValue;
 	}
 	//! Sends a message to message broker
@@ -319,7 +299,7 @@ public:
 	}
 protected:
 	//! Receiving messages from the network transport and providing them to subscribed consumers abstract thread class
-	class AbstractReceiverThread : public AbstractThread
+	class AbstractReceiverThread : public Subsystem::AbstractThread
 	{
 	public:
 		//! Constructor
@@ -368,7 +348,7 @@ protected:
 		  \param msg Constant reference to the received message
 		  \return True if to proceed with the message or false to discard it
 		*/
-		virtual bool onReceiveMessage(const Msg& /*msg*/)
+		virtual bool onReceiveMessage(const Msg& msg)
 		{
 			std::ostringstream oss;
 			oss << "Message has been received from " << _connection._serverAddrInfo.firstEndpoint().host << ':' <<
@@ -431,13 +411,19 @@ protected:
 		}
 		//! Receiving message from transport abstract method
 		/*!
-		  \return Pointer to the received message or to 0 if no message have been received
+		  \return Auto-pointer to the received message or to 0 if no message have been received
 		*/
-		virtual Msg * receiveMessage() = 0;
+		virtual std::auto_ptr<Msg> receiveMessage() = 0;
 	private:
 		virtual void run()
 		{
 			debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Receiver thread has been started"));
+			// Fetching consumers to provide incoming messages to
+			ConsumersContainer consumers;
+			{
+				ReadLocker locker(_connection.runtimeParamsRWLock);
+				consumers = _connection._consumers;
+			}
 			_connection._socket.open();
 			debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Socket has been opened"));
 			while (true) {
@@ -446,10 +432,10 @@ protected:
 					break;
 				}
 				if (_connection._socket.connected()) {
-					// Receiving message
+					// Receiving message from the device
 					std::auto_ptr<Msg> msgAutoPtr;
 					try {
-						msgAutoPtr(receiveMessage());
+						msgAutoPtr = receiveMessage();
 					} catch (std::exception& e) {
 						onReceiveDataException(&e);
 						_connection._socket.close();
@@ -472,7 +458,7 @@ protected:
 							onProvideMessage(*msgAutoPtr.get(), _connection.outputBus());
 						}
 						// Providing message to all consumers
-						for (typename ConsumersContainer::iterator i = _connection._consumers.begin(); i != _connection._consumers.end(); ++i) {
+						for (typename ConsumersContainer::iterator i = consumers.begin(); i != consumers.end(); ++i) {
 							if ((*i)->push(*msgAutoPtr.get())) {
 								onProvideMessage(*msgAutoPtr.get(), **i);
 							}
@@ -505,7 +491,7 @@ protected:
 		WaitCondition _sleepCond;
 	};
 	//! Consuming messages from message providers subscribed to and sending them to the network transport abstract thread class
-	class AbstractSenderThread : public AbstractThread
+	class AbstractSenderThread : public Subsystem::AbstractThread
 	{
 	public:
 		//! Constructor
@@ -531,7 +517,7 @@ protected:
 		  \param msg Constant reference to the consumed message
 		  \return True if to proceed with the message or false to discard it
 		*/
-		virtual bool onConsumeMessage(const Msg& /*msg*/)
+		virtual bool onConsumeMessage(const Msg& msg)
 		{
 			debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Message has been consumed from the input message queue"));
 			return true;
@@ -540,9 +526,9 @@ protected:
 		/*!
 		  Default implementation records an entry to the ISL's debug log
 
-		  \param Constant reference to the sent message
+		  \param msg Constant reference to the message has been sent
 		*/
-		virtual void onSendMessage(const Msg& /*msg*/)
+		virtual void onSendMessage(const Msg& msg)
 		{
 			std::ostringstream oss;
 			oss << "Message has been sent to " << _connection._serverAddrInfo.firstEndpoint().host << ':'
@@ -580,9 +566,15 @@ protected:
 			debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Sender thread has been started"));
 			std::auto_ptr<Msg> currentMessageAutoPtr;
 			bool sendingMessage = false;
+			// Fetching providers to subscribe to
+			ProvidersContainer providers;
+			{
+				ReadLocker locker(_connection.runtimeParamsRWLock);
+				providers = _connection._providers;
+			}
 			// Susbcribing input message queue to the providers
 			typename MessageProviderType::SubscriberListReleaser subscriberListReleaser;
-			for (typename ProvidersContainer::iterator i = _connection._providers.begin(); i != _connection._providers.end(); ++i) {
+			for (typename ProvidersContainer::iterator i = providers.begin(); i != providers.end(); ++i) {
 				std::auto_ptr<typename MessageProviderType::Subscriber> subscriberAutoPtr(new typename MessageProviderType::Subscriber(**i, _connection.inputQueue()));
 				subscriberListReleaser.addSubscriber(subscriberAutoPtr.get());
 				subscriberAutoPtr.release();

@@ -26,7 +26,7 @@ public:
 	{
 	public:
 		WorkerThread(BasicTaskDispatcher& taskDispatcher, unsigned int id) :
-			AbstractThread(taskDispatcher),
+			AbstractThread(taskDispatcher, true, false /* No auto-stop workers - see BasicTaskDispatcher::beforeStop() event handler */),
 			_taskDispatcher(taskDispatcher),
 			_id(id)
 		{}
@@ -114,7 +114,6 @@ public:
 	*/
 	BasicTaskDispatcher(Subsystem * owner, size_t workersAmount, size_t maxTaskQueueOverflowSize = 0) :
 		Subsystem(owner),
-		_runtimeParamRwLock(),
 		_workersAmount(workersAmount),
 		_maxTaskQueueOverflowSize(maxTaskQueueOverflowSize),
 		_taskCond(),
@@ -130,36 +129,38 @@ public:
 		}
 	}
 	
-	//! Thread-safely returns workers amount
+	//! Returns workers amount
 	inline size_t workersAmount() const
 	{
-		ReadLocker locker(_runtimeParamRwLock);
+		ReadLocker locker(runtimeParamsRWLock);
 		return _workersAmount;
 	}
-	//! Thread-safely sets the new workers count.
+	//! Sets new workers count.
 	/*!
-	  Subsystem's restart needed to actually apply new value
+	  Subsystem's restart needed to completely apply the new value;
+
 	  \param newValue New workers amount
 	*/
 	inline void setWorkersAmount(size_t newValue)
 	{
-		WriteLocker locker(_runtimeParamRwLock);
+		WriteLocker locker(runtimeParamsRWLock);
 		_workersAmount = newValue;
 	}
 	//! Thread-safely returns maximum task queue overflow size.
 	inline size_t maxTaskQueueOverflowSize() const
 	{
-		ReadLocker locker(_runtimeParamRwLock);
+		MutexLocker locker(_taskCond.mutex());
 		return _maxTaskQueueOverflowSize;
 	}
 	//! Thread-safely sets the new maximum task queue overflow size.
 	/*!
 	  Changes will take place on the next task performing operation
+
 	  \param newValue New maximum task queue overflow size
 	*/
 	inline void setMaxTaskQueueOverflowSize(size_t newValue)
 	{
-		WriteLocker locker(_runtimeParamRwLock);
+		MutexLocker locker(_taskCond.mutex());
 		_maxTaskQueueOverflowSize = newValue;
 	}
 	//! Performs a task
@@ -170,17 +171,18 @@ public:
 	{
 		size_t awaitingWorkersCount;
 		size_t taskQueueSize;
-		size_t currentMaxTaskQueueOverflowSize = maxTaskQueueOverflowSize();
+		size_t currentMaxTaskQueueOverflowSize;
 		bool taskPerformed = false;
 		{
 			MutexLocker locker(_taskCond.mutex());
 			awaitingWorkersCount = _awaitingWorkersCount;
 			taskQueueSize = _taskQueue.size();
-			if ((awaitingWorkersCount + currentMaxTaskQueueOverflowSize) >= (taskQueueSize + 1)) {
+			if ((awaitingWorkersCount + _maxTaskQueueOverflowSize) >= (taskQueueSize + 1)) {
 				_taskQueue.push_front(task);
 				_taskCond.wakeOne();
 				taskPerformed = true;
 			}
+			currentMaxTaskQueueOverflowSize = _maxTaskQueueOverflowSize;
 		}
 		std::ostringstream oss;
 		oss << "Total workers: " << _workers.size() << ", workers awaiting: " << awaitingWorkersCount << ", tasks in pool: " << (taskQueueSize + 1) <<
@@ -205,19 +207,20 @@ public:
 		}
 		size_t awaitingWorkersCount;
 		size_t taskQueueSize;
-		size_t currentMaxTaskQueueOverflowSize = maxTaskQueueOverflowSize();
+		size_t currentMaxTaskQueueOverflowSize;
 		bool tasksPerformed = false;
 		{
 			MutexLocker locker(_taskCond.mutex());
 			awaitingWorkersCount = _awaitingWorkersCount;
 			taskQueueSize = _taskQueue.size();
-			if ((awaitingWorkersCount + currentMaxTaskQueueOverflowSize) >= (taskQueueSize + tasksCount)) {
+			if ((awaitingWorkersCount + _maxTaskQueueOverflowSize) >= (taskQueueSize + tasksCount)) {
 				for (typename TaskList::const_iterator i = taskList.begin(); i != taskList.end(); ++i) {
 					_taskQueue.push_front(*i);
 				}
 				_taskCond.wakeAll();
 				tasksPerformed = true;
 			}
+			currentMaxTaskQueueOverflowSize = _maxTaskQueueOverflowSize;
 		}
 		std::ostringstream oss;
 		oss << "Total workers: " << _workers.size() << ", workers awaiting: " << awaitingWorkersCount << ", tasks to execute: " << tasksCount <<
@@ -280,8 +283,13 @@ private:
 			for (typename WorkerList::iterator i = _workers.begin(); i != _workers.end(); ++i) {
 				(*i)->setShouldTerminate(true);
 			}
-			MutexLocker locker(_taskCond.mutex());
-			_taskCond.wakeAll();
+			{
+				MutexLocker locker(_taskCond.mutex());
+				_taskCond.wakeAll();
+			}
+			for (typename WorkerList::iterator i = _workers.begin(); i != _workers.end(); ++i) {
+				(*i)->join();
+			}
 		}
 	}
 	virtual void afterStop()
@@ -292,10 +300,9 @@ private:
 		debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Task dispatcher has been stopped"));
 	}
 
-	mutable ReadWriteLock _runtimeParamRwLock;
 	size_t _workersAmount;
 	size_t _maxTaskQueueOverflowSize;
-	WaitCondition _taskCond;
+	mutable WaitCondition _taskCond;
 	size_t _awaitingWorkersCount;
 	TaskQueue _taskQueue;
 	WorkerList _workers;

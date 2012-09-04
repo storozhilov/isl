@@ -7,10 +7,6 @@ DebugLog::DebugLog() :
 	Log()
 {}
 
-DebugLog::DebugLog(const std::string& prefix) :
-	Log(prefix)
-{}
-
 DebugLog::DebugLog(const std::string& prefix, bool composeSourceLocation) :
 	Log(prefix, composeSourceLocation)
 {}

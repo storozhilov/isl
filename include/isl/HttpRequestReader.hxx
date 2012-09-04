@@ -22,6 +22,7 @@ namespace isl
 class HttpRequestReader
 {
 public:
+	//! Class constants
 	enum Constants {
 		DefaultMaxBodySize = ISL__HTTP_REQUEST_READER_DEFAULT_MAX_BODY_SIZE,
 		DefaultBufferSize = ISL__HTTP_REQUEST_READER_DEFAULT_BUFFER_SIZE,

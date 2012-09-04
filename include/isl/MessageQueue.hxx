@@ -12,9 +12,10 @@ namespace isl
 
 //! Thread-safe message queue templated class
 /*!
-  \tparam Msg Message class with <tt>Msg * Msg::clone() const</tt> method
+  \tparam Msg Message class
+  \tparam Cloner Message cloner class with static <tt>Msg * Cloner::clone(const Msg& msg)</tt> method for cloning the message
 */
-template <typename Msg> class MessageQueue : public AbstractMessageConsumer<Msg>
+template <typename Msg, typename Cloner = CopyMessageCloner<Msg> > class MessageQueue : public AbstractMessageConsumer<Msg>
 {
 public:
 	typedef Msg MessageType;
@@ -51,32 +52,6 @@ public:
 	{
 		return _maxSize;
 	}
-	//! Pushes message to the queue
-	/*!
-	  This method does not clone the message.
-	  \param msgAutoPtr Reference to the auto-pointer to the message to push
-	  \return True if the message has been accepted by the queue and no queue overlow has been detected
-	*/
-	/*bool push(std::auto_ptr<Msg>& msgAutoPtr)
-	{
-		if (!msgAutoPtr.get()) {
-			errorLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Attempting to push a zero pointer to message into the message queue"));
-			return false;
-		}
-		MutexLocker locker(_queueCond.mutex());
-		if (_queue.size() >= _maxSize) {
-			errorLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Maximum size of queue has been exceeded"));
-			return false;
-		}
-		if (!isAccepting(*msgAutoPtr.get(), _queue.size())) {
-			debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Message has been rejected by queue's filter"));
-			return false;
-		}
-		_queue.push_front(msgAutoPtr.get());
-		msgAutoPtr.release();
-		_queueCond.wakeOne();
-		return true;
-	}*/
 	//! Pops message from the queue
 	/*!
 	  \param timeout Timeout to wait for the message
@@ -156,7 +131,7 @@ public:
 	/*!
 	  \param timeout Timeout to wait for the messages
 	  \param queueSize Pointer to value where queue size should be saved or NULL pointer if not
-	  \return True ia messages appeared in the queue
+	  \return True if messages appeared in the queue
 	*/
 	bool await(const Timeout& timeout = Timeout::defaultTimeout(), size_t * queueSize = 0)
 	{
@@ -203,17 +178,18 @@ public:
 	virtual bool push(const Msg& msg)
 	{
 		MutexLocker locker(_queueCond.mutex());
-		if (_queue.size() >= _maxSize) {
-			errorLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Maximum size of queue has been exceeded"));
-			return false;
-		}
 		if (!isAccepting(msg, _queue.size())) {
 			debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Message has been rejected by queue's filter"));
 			return false;
 		}
-		std::auto_ptr<Msg> clonedMsgAutoPtr(msg.clone());
+		if (_queue.size() >= _maxSize) {
+			errorLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Maximum size of queue has been exceeded"));
+			return false;
+		}
+		//std::auto_ptr<Msg> clonedMsgAutoPtr(msg.clone());
+		std::auto_ptr<Msg> clonedMsgAutoPtr(Cloner::clone(msg));
 		if (!clonedMsgAutoPtr.get()) {
-			errorLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Message cloning method returns null pointer"));
+			errorLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Message cloner returns null pointer"));
 			return false;
 		}
 		_queue.push_front(clonedMsgAutoPtr.get());

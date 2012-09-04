@@ -11,6 +11,12 @@ namespace isl
 class ErrorLogMessage : public AbstractLogMessage
 {
 public:
+	//! Constructs error log message
+	/*!
+	  You should use SOURCE_LOCATION_ARGS macro as a value for the first parameter
+
+	  \param err Constant reference to the error object
+	*/
 	ErrorLogMessage(SOURCE_LOCATION_ARGS_DECLARATION, const AbstractError& err);
 private:
 	ErrorLogMessage();

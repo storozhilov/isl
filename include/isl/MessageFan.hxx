@@ -8,7 +8,7 @@ namespace isl
 
 //! Thread-safe message fanout templated class
 /*!
-  \tparam Msg Message class with <tt>Msg * Msg::clone() const</tt> method
+  \tparam Msg Message class
 */
 template <typename Msg> class MessageFan : public MessageProvider<Msg>, public AbstractMessageConsumer<Msg>
 {

@@ -30,7 +30,8 @@ public:
 	}
 	//! Sets maximum clients amount
 	/*!
-	  Subsystem's restart needed to actually apply new value
+	  Subsystem's restart needed to completely apply the new value;
+
 	  \param newValue New maximum clients amount
 	*/
 	inline void setMaxClients(size_t newValue)
@@ -39,7 +40,7 @@ public:
 	}
 protected:
 	//! Synchronous TCP-service listener thread. Feel free to subclass.
-	class ListenerThread : public AbstractListenerThread
+	class ListenerThread : public AbstractTcpService::AbstractListenerThread
 	{
 	public:
 		//! Constructor
@@ -115,6 +116,7 @@ protected:
 	public:
 		//! Constructor
 		/*!
+		  \param service Reference to the asynchronous TCP-service
 		  \param socket Reference to the client connection socket
 		*/
 		AbstractTask(AbstractSyncTcpService& service, TcpSocket& socket) :

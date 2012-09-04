@@ -17,9 +17,15 @@ class AbstractLogTarget;
 class Log
 {
 public:
+	//! Default constructor
 	Log();
-	Log(const std::string& prefix);
-	Log(const std::string& prefix, bool composeSourceLocation);
+	//! Constructs log
+	/*!
+	  \param prefix Log prefix wich is to be printed to log target
+	  \param composeSourceLocation Print source location to log target if TRUE
+	*/
+	Log(const std::string& prefix, bool composeSourceLocation = true);
+	//! Destructor
 	virtual ~Log();
 
 	//! Connects target to log
@@ -28,7 +34,10 @@ public:
 	void disconnectTarget(const AbstractLogTarget& target);
 	//! Disconnects all targets from the log
 	void disconnectTargets();
-	//! Logs message
+	//! Logs a message
+	/*!
+	  \param msg Constant reference to the message to log
+	*/
 	void log(const AbstractLogMessage& msg);
 	//! Returns log prefix
 	inline const std::string& prefix() const

@@ -58,7 +58,7 @@ public:
 	*/
 	inline void resetListeners()
 	{
-		WriteLocker locker(_listenerConfigsRwLock);
+		WriteLocker locker(runtimeParamsRWLock);
 		_listenerConfigs.clear();
 	}
 	//! Thread-safely returns maximum task queue overflow size.
@@ -76,11 +76,11 @@ public:
 		_taskDispatcher.setMaxTaskQueueOverflowSize(newValue);
 	}
 protected:
-	typedef AbstractTask AbstractTaskType;
-	typedef BasicTaskDispatcher<AbstractTaskType> TaskDispatcherType;
+	typedef AbstractTask AbstractTaskType;					//!< Abstract task type
+	typedef BasicTaskDispatcher<AbstractTaskType> TaskDispatcherType;	//!< Task dispatcher type
 
 	//! Base class for TCP-listener thread
-	class AbstractListenerThread : public AbstractThread
+	class AbstractListenerThread : public Subsystem::AbstractThread
 	{
 	public:
 		//! Constructor
@@ -198,7 +198,6 @@ private:
 
 	unsigned int _lastListenerConfigId;
 	ListenerConfigs _listenerConfigs;
-	ReadWriteLock _listenerConfigsRwLock;
 	Listeners _listeners;
 	TaskDispatcherType _taskDispatcher;
 };

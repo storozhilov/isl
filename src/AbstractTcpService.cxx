@@ -11,7 +11,6 @@ AbstractTcpService::AbstractTcpService(Subsystem * owner, size_t workersAmount, 
 	Subsystem(owner),
 	_lastListenerConfigId(0),
 	_listenerConfigs(),
-	_listenerConfigsRwLock(),
 	_listeners(),
 	_taskDispatcher(this, workersAmount, maxTaskQueueOverflowSize)
 {}
@@ -24,14 +23,14 @@ AbstractTcpService::~AbstractTcpService()
 unsigned int AbstractTcpService::addListener(const TcpAddrInfo& addrInfo, const Timeout& listenTimeout, unsigned int backLog)
 {
 	ListenerConfig newListenerConf(addrInfo, listenTimeout, backLog);
-	WriteLocker locker(_listenerConfigsRwLock);
+	WriteLocker locker(runtimeParamsRWLock);
 	_listenerConfigs.insert(ListenerConfigs::value_type(++_lastListenerConfigId, newListenerConf));
 	return _lastListenerConfigId;
 }
 
 void AbstractTcpService::updateListener(unsigned int id, const TcpAddrInfo& addrInfo, const Timeout& listenTimeout, unsigned int backLog)
 {
-	WriteLocker locker(_listenerConfigsRwLock);
+	WriteLocker locker(runtimeParamsRWLock);
 	ListenerConfigs::iterator pos = _listenerConfigs.find(id);
 	if (pos == _listenerConfigs.end()) {
 		std::ostringstream oss;
@@ -46,7 +45,7 @@ void AbstractTcpService::updateListener(unsigned int id, const TcpAddrInfo& addr
 
 void AbstractTcpService::removeListener(unsigned int id)
 {
-	WriteLocker locker(_listenerConfigsRwLock);
+	WriteLocker locker(runtimeParamsRWLock);
 	ListenerConfigs::iterator pos = _listenerConfigs.find(id);
 	if (pos == _listenerConfigs.end()) {
 		std::ostringstream oss;
@@ -61,7 +60,7 @@ void AbstractTcpService::beforeStart()
 {
 	debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Creating listeners"));
 	{
-		ReadLocker locker(_listenerConfigsRwLock);
+		ReadLocker locker(runtimeParamsRWLock);
 		for (ListenerConfigs::const_iterator i = _listenerConfigs.begin(); i != _listenerConfigs.end(); ++i) {
 			std::auto_ptr<AbstractListenerThread> newListenerAutoPtr(createListener(i->second.addrInfo, i->second.listenTimeout, i->second.backLog));
 			_listeners.push_back(newListenerAutoPtr.get());

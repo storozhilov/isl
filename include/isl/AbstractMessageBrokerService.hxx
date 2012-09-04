@@ -31,17 +31,18 @@ namespace isl
   - AbstractAsyncTcpService::createReceiverTask() - creates receiver task object;
   - AbstractAsyncTcpService::createSenderTask() - creates sender task object.
 
-  \tparam Msg Message class with <tt>Msg * Msg::clone() const</tt> method
+  \tparam Msg Message class
+  \tparam Cloner Message cloner class with static <tt>Msg * Cloner::clone(const Msg& msg)</tt> method for cloning the message
 */
-template <typename Msg> class AbstractMessageBrokerService : public AbstractAsyncTcpService
+template <typename Msg, typename Cloner = CopyMessageCloner<Msg> > class AbstractMessageBrokerService : public AbstractAsyncTcpService
 {
 public:
-	typedef Msg MessageType;
-	typedef MessageProvider<Msg> MessageProviderType;
-	typedef AbstractMessageConsumer<Msg> AbstractMessageConsumerType;
-	typedef MessageQueue<Msg> MessageQueueType;
-	typedef MessageBuffer<Msg> MessageBufferType;
-	typedef MessageBus<Msg> MessageBusType;
+	typedef Msg MessageType;						//!< Message type
+	typedef MessageProvider<Msg> MessageProviderType;			//!< Message provider type
+	typedef AbstractMessageConsumer<Msg> AbstractMessageConsumerType;	//!< Abstract message consumer type
+	typedef MessageQueue<Msg, Cloner> MessageQueueType;			//!< Message queue type
+	typedef MessageBuffer<Msg, Cloner> MessageBufferType;			//!< Message buffer type
+	typedef MessageBus<Msg> MessageBusType;					//!< Message bus type
 
 	//! Constructor
 	/*!
@@ -63,10 +64,7 @@ public:
 	*/
 	void addProvider(MessageProviderType& provider)
 	{
-		StateLocker locker(*this);
-		if (locker.state() != IdlingState) {
-			throw Exception(Error(SOURCE_LOCATION_ARGS, "Message provider could be added while subsystem idling only"));
-		}
+		WriteLocker locker(runtimeParamsRWLock);
 		_providers.push_back(&provider);
 	}
 	//! Removes message provider
@@ -75,10 +73,7 @@ public:
 	*/
 	void removeProvider(MessageProviderType& provider)
 	{
-		StateLocker locker(*this);
-		if (locker.state() != IdlingState) {
-			throw Exception(Error(SOURCE_LOCATION_ARGS, "Message provider could be removed while subsystem idling only"));
-		}
+		WriteLocker locker(runtimeParamsRWLock);
 		typename ProvidersContainer::iterator pos = std::find(_providers.begin(), _providers.end(), &provider);
 		if (pos == _providers.end()) {
 			errorLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Message provider not found"));
@@ -87,12 +82,9 @@ public:
 		_providers.erase(pos);
 	}
 	//! Removes all message providers
-	void resetProviders()
+	inline void resetProviders()
 	{
-		StateLocker locker(*this);
-		if (locker.state() != IdlingState) {
-			throw Exception(Error(SOURCE_LOCATION_ARGS, "Message providers could be reset while subsystem idling only"));
-		}
+		WriteLocker locker(runtimeParamsRWLock);
 		_providers.clear();
 	}
 	//! Adds message consumer for providing incoming messages to while running
@@ -101,10 +93,7 @@ public:
 	*/
 	void addConsumer(AbstractMessageConsumerType& consumer)
 	{
-		StateLocker locker(*this);
-		if (locker.state() != IdlingState) {
-			throw Exception(Error(SOURCE_LOCATION_ARGS, "Message consumer could be added while subsystem idling only"));
-		}
+		WriteLocker locker(runtimeParamsRWLock);
 		_consumers.push_back(&consumer);
 	}
 	//! Removes message consumer
@@ -113,10 +102,7 @@ public:
 	*/
 	void removeConsumer(AbstractMessageConsumerType& consumer)
 	{
-		StateLocker locker(*this);
-		if (locker.state() != IdlingState) {
-			throw Exception(Error(SOURCE_LOCATION_ARGS, "Message consumer  could be removed while subsystem idling only"));
-		}
+		WriteLocker locker(runtimeParamsRWLock);
 		typename ConsumersContainer::iterator pos = std::find(_consumers.begin(), _consumers.end(), &consumer);
 		if (pos == _consumers.end()) {
 			errorLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Message consumer not found"));
@@ -127,10 +113,7 @@ public:
 	//! Removes all message consumers
 	void resetConsumers()
 	{
-		StateLocker locker(*this);
-		if (locker.state() != IdlingState) {
-			throw Exception(Error(SOURCE_LOCATION_ARGS, "Message consumers could be reset while subsystem idling only"));
-		}
+		WriteLocker locker(runtimeParamsRWLock);
 		_consumers.clear();
 	}
 protected:
@@ -199,6 +182,9 @@ protected:
 	private:
 		std::auto_ptr<MessageQueueType> _inputQueueAutoPtr;
 		std::auto_ptr<MessageBusType> _outputBusAutoPtr;
+
+		friend class AbstractReceiverTask;
+		friend class AbstractSenderTask;
 	};
 	//! Receiver task object abstract class
 	class AbstractReceiverTask : public AbstractAsyncTcpService::AbstractReceiverTask
@@ -227,7 +213,7 @@ protected:
 		  \param msg Constant reference to the received message
 		  \return True if to proceed with the message or false to discard it
 		*/
-		virtual bool onReceiveMessage(const Msg& /*msg*/)
+		virtual bool onReceiveMessage(const Msg& msg)
 		{
 			std::ostringstream oss;
 			oss << "Message has been received from the " << socket().remoteAddr().firstEndpoint().host << ':' << socket().remoteAddr().firstEndpoint().port << " client";
@@ -271,13 +257,19 @@ protected:
 		}
 		//! Receiving message from transport abstract method
 		/*!
-		  \return Pointer to the received message or to 0 if no message have been received
+		  \return Auto-pointer to the received message or to 0 if no message have been received
 		*/
-		virtual Msg * receiveMessage() = 0;
+		virtual std::auto_ptr<Msg> receiveMessage() = 0;
 	private:
 		virtual void execute(TaskDispatcherType::WorkerThread& worker)
 		{
 			isl::debugLog().log(isl::LogMessage(SOURCE_LOCATION_ARGS, "Receiver task execution has been started"));
+			// Fetching consumers to provide incoming messages to
+			ConsumersContainer consumers;
+			{
+				ReadLocker locker(_service.runtimeParamsRWLock);
+				consumers = _service._consumers;
+			}
 			while (true) {
 				if (shouldTerminate(worker)) {
 					isl::debugLog().log(isl::LogMessage(SOURCE_LOCATION_ARGS, "Client service termination has been detected -> exiting from receiver task execution"));
@@ -287,7 +279,35 @@ protected:
 					isl::debugLog().log(isl::LogMessage(SOURCE_LOCATION_ARGS, "Client connection socket is not connected -> exiting from receiver task execution"));
 					return;
 				}
+				// Reading message from the device
+				std::auto_ptr<Msg> msgAutoPtr;
 				try {
+					msgAutoPtr = receiveMessage();
+				} catch (std::exception& e) {
+					onReceiveDataException(&e);
+					return;
+				} catch (...) {
+					onReceiveDataException();
+					return;
+				}
+				if (msgAutoPtr.get()) {
+					// Calling on receive message event callback
+					if (!onReceiveMessage(*msgAutoPtr.get())) {
+						debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Message has been rejected by the on receive event handler"));
+						continue;
+					}
+					// Providing message to the internal output bus
+					if (_sharedStaff.outputBus().push(*msgAutoPtr.get())) {
+						onProvideMessage(*msgAutoPtr.get(), _sharedStaff.outputBus());
+					}
+					// Providing message to all consumers
+					for (typename ConsumersContainer::iterator i = consumers.begin(); i != consumers.end(); ++i) {
+						if ((*i)->push(*msgAutoPtr.get())) {
+							onProvideMessage(*msgAutoPtr.get(), **i);
+						}
+					}
+				}
+				/*try {
 					std::auto_ptr<Msg> msgAutoPtr(receiveMessage());
 					if (msgAutoPtr.get()) {
 						// Calling on receive message event callback
@@ -300,7 +320,8 @@ protected:
 							onProvideMessage(*msgAutoPtr.get(), _sharedStaff.outputBus());
 						}
 						// Providing message to all consumers
-						for (typename ConsumersContainer::iterator i = _service._consumers.begin(); i != _service._consumers.end(); ++i) {
+						//for (typename ConsumersContainer::iterator i = _service._consumers.begin(); i != _service._consumers.end(); ++i) {
+						for (typename ConsumersContainer::iterator i = consumers.begin(); i != consumers.end(); ++i) {
 							if ((*i)->push(*msgAutoPtr.get())) {
 								onProvideMessage(*msgAutoPtr.get(), **i);
 							}
@@ -312,7 +333,7 @@ protected:
 				} catch (...) {
 					onReceiveDataException();
 					return;
-				}
+				}*/
 			}
 		}
 
@@ -348,7 +369,7 @@ protected:
 		  \param msg Constant reference to the consumed message
 		  \return True if to proceed with the message or false to discard it
 		*/
-		virtual bool onConsumeMessage(const Msg& /*msg*/)
+		virtual bool onConsumeMessage(const Msg& msg)
 		{
 			debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Message has been fetched from the consume buffer"));
 			return true;
@@ -357,9 +378,9 @@ protected:
 		/*!
 		  Default implementation records an entry to the ISL's debug log
 
-		  \param Constant reference to the sent message
+		  \param msg Constant reference to the message has been sent
 		*/
-		virtual void onSendMessage(const Msg& /*msg*/)
+		virtual void onSendMessage(const Msg& msg)
 		{
 			std::ostringstream oss;
 			oss << "Message has been sent to " << socket().remoteAddr().firstEndpoint().host << ':' << socket().remoteAddr().firstEndpoint().port << " client";
@@ -396,9 +417,15 @@ protected:
 			isl::debugLog().log(isl::LogMessage(SOURCE_LOCATION_ARGS, "Sender task execution has been started"));
 			std::auto_ptr<Msg> currentMessageAutoPtr;
 			bool sendingMessage = false;
+			// Fetching providers to subscribe to
+			ProvidersContainer providers;
+			{
+				ReadLocker locker(_service.runtimeParamsRWLock);
+				providers = _service._providers;
+			}
 			// Susbcribing input message queue to the providers
 			typename MessageProviderType::SubscriberListReleaser subscriberListReleaser;
-			for (typename ProvidersContainer::iterator i = _service._providers.begin(); i != _service._providers.end(); ++i) {
+			for (typename ProvidersContainer::iterator i = providers.begin(); i != providers.end(); ++i) {
 				std::auto_ptr<typename MessageProviderType::Subscriber> subscriberAutoPtr(new typename MessageProviderType::Subscriber(**i, inputQueue()));
 				subscriberListReleaser.addSubscriber(subscriberAutoPtr.get());
 				subscriberAutoPtr.release();

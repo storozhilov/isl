@@ -165,6 +165,7 @@ public:
 	*/
 	bool flush(const Timeout& timeout = Timeout());
 protected:
+	//! HTTP-message first line composition method
 	virtual std::string composeFirstLine() const = 0;
 private:
 	HttpMessageStreamWriter();

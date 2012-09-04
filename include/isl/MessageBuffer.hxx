@@ -14,9 +14,10 @@ namespace isl
   This class should be used in the same thread only, cause it's not thread safe. Use it as target consumer to fetch all messages
   from the message queue - see MessageQueue::popAll() method.
 
-  \tparam Msg Message class with <tt>Msg * Msg::clone() const</tt> method
+  \tparam Msg Message class
+  \tparam Cloner Message cloner class with static <tt>Msg * Cloner::clone(const Msg& msg)</tt> method for cloning the message
 */
-template <typename Msg> class MessageBuffer : public AbstractMessageConsumer<Msg>
+template <typename Msg, typename Cloner = CopyMessageCloner<Msg> > class MessageBuffer : public AbstractMessageConsumer<Msg>
 {
 public:
 	typedef Msg MessageType;
@@ -51,29 +52,6 @@ public:
 	{
 		return _maxSize;
 	}
-	//! Pushes message to the buffer
-	/*!
-	  This method does not clone the message.
-	  \param msgAutoPtr Reference to the auto-pointer to the message to push
-	  \return True if the message has been accepted by the buffer and no buffer overlow has been detected
-	*/
-	/*bool push(std::auto_ptr<Msg>& msgAutoPtr)
-	{
-		if (!msgAutoPtr.get()) {
-			return false;
-		}
-		if (_buffer.size() >= _maxSize) {
-			errorLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Maximum size of buffer has been exceeded"));
-			return false;
-		}
-		if (!isAccepting(*msgAutoPtr.get(), _buffer.size())) {
-			debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Message has been rejected by buffer's filter"));
-			return false;
-		}
-		_buffer.push_front(msgAutoPtr.get());
-		msgAutoPtr.release();
-		return true;
-	}*/
 	//! Pops message from the buffer
 	/*!
 	  \param bufferSize Pointer to value where buffer size after message fetching should be saved or NULL pointer if not
@@ -142,15 +120,22 @@ public:
 	*/
 	virtual bool push(const Msg& msg)
 	{
-		if (_buffer.size() >= _maxSize) {
-			errorLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Maximum size of buffer has been exceeded"));
-			return false;
-		}
 		if (!isAccepting(msg, _buffer.size())) {
 			debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Message has been rejected by buffer's filter"));
 			return false;
 		}
-		_buffer.push_front(msg.clone());
+		if (_buffer.size() >= _maxSize) {
+			errorLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Maximum size of buffer has been exceeded"));
+			return false;
+		}
+		//_buffer.push_front(msg.clone());
+		std::auto_ptr<Msg> clonedMsgAutoPtr(Cloner::clone(msg));
+		if (!clonedMsgAutoPtr.get()) {
+			errorLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Message cloner returns null pointer"));
+			return false;
+		}
+		_buffer.push_front(clonedMsgAutoPtr.get());
+		clonedMsgAutoPtr.release();
 		return true;
 	}
 protected:

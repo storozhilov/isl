@@ -34,7 +34,7 @@ public:
 	//! Constructs datetime from the string using supplied format
 	/*!
 	    \param str String to parse
-	    \param format Datetime format (see man strftime) including '%f' for nanoseconds
+	    \param fmt Datetime format (see man strftime) including '%f' for nanoseconds
 	*/
 	DateTime(const std::string& str, const std::string& fmt = std::string(DefaultFormat));
 
@@ -107,8 +107,8 @@ public:
 	}
 	//! Sets datetime from the string using supplied format
 	/*!
-	    \param str String to parse
-	    \param format Datetime format (see man strftime) including '%f' for nanoseconds
+	  \param str String to parse
+	  \param fmt Datetime format (see man strftime) including '%f' for nanoseconds
 	  \return TRUE if the new datetime value is not NULL datetime
 	*/
 	bool set(const std::string& str, const std::string& fmt = std::string(DefaultFormat));

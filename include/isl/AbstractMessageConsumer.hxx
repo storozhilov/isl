@@ -1,17 +1,47 @@
-#ifndef ISL__ABSTRACT_MESSAGE_RECEIVER__HXX
-#define ISL__ABSTRACT_MESSAGE_RECEIVER__HXX
+#ifndef ISL__ABSTRACT_MESSAGE_CONSUMER__HXX
+#define ISL__ABSTRACT_MESSAGE_CONSUMER__HXX
 
 namespace isl
 {
 
+//! Message cloner, which calls copying constructor for cloning
+template <typename Msg> class CopyMessageCloner
+{
+public:
+	//! Clones the message
+	/*!
+	  \param msg Constant reference to the message to clone
+	  \return Pointer to the copy of the message
+	*/
+	static Msg * clone(const Msg& msg)
+	{
+		return new Msg(msg);
+	}
+};
+
+//! Message cloner, which calls <tt>Msg * Msg::clone() const</tt> method for cloning
+template <typename Msg> class CloneMessageCloner
+{
+public:
+	//! Clones the message
+	/*!
+	  \param msg Constant reference to the message to clone
+	  \return Pointer to the copy of the message
+	*/
+	static Msg * clone(const Msg& msg)
+	{
+		return msg.clone();
+	}
+};
+
 //! Thread-safe message consumer templated class
 /*!
-  \tparam Msg Message class with <tt>Msg * Msg::clone() const</tt> method
+  \tparam Msg Message class
 */
 template <typename Msg> class AbstractMessageConsumer
 {
 public:
-	typedef Msg MessageType;
+	typedef Msg MessageType;				//!< Message type
 
 	//! Constructor
 	AbstractMessageConsumer()

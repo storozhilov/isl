@@ -19,7 +19,6 @@ SignalHandler::SignalHandler(Subsystem * owner, const SignalSet& signalSet, cons
 	_initialSignalMask(),
 	_blockedSignals(signalSet),
 	_timeout(timeout),
-	_timeoutRWLock(),
 	_signalHandlerThread(*this)
 {}
 
@@ -141,6 +140,7 @@ int SignalHandler::SignalHandlerThread::extractPendingSignal() const
 void SignalHandler::SignalHandlerThread::run()
 {
 	debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Signal handler thread has been started"));
+	Timeout awaitTimeout = _signalHandler.timeout();
 	try {
 		while (true) {
 			if (hasPendingSignals()) {
@@ -157,7 +157,7 @@ void SignalHandler::SignalHandlerThread::run()
 					_signalHandler.onSignal(pendingSignal);
 				}
 			} else {
-				if (awaitShouldTerminate(_signalHandler.timeout())) {
+				if (awaitShouldTerminate(awaitTimeout)) {
 					debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Signal handler thread termination detected after inspecting for pending signals -> exiting from signal handler thread"));
 					return;
 				}

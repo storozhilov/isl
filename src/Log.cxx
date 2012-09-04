@@ -10,11 +10,6 @@ Log::Log() :
 	_copmposeSourceLocation(false)
 {}
 
-Log::Log(const std::string& prefix) :
-	_prefix(prefix),
-	_copmposeSourceLocation(false)
-{}
-
 Log::Log(const std::string& prefix, bool composeSourceLocation) :
 	_prefix(prefix),
 	_copmposeSourceLocation(composeSourceLocation)

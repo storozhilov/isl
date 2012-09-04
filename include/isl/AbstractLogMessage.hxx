@@ -11,7 +11,12 @@ namespace isl
 class AbstractLogMessage
 {
 public:
+	//! Constructs log message
+	/*!
+	  You should use SOURCE_LOCATION_ARGS macro as a value for the first parameter
+	*/
 	AbstractLogMessage(SOURCE_LOCATION_ARGS_DECLARATION);
+	//! Destructor
 	virtual ~AbstractLogMessage();
 
 	//! Returns log message timestamp

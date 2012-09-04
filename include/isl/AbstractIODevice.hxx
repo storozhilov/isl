@@ -50,12 +50,17 @@ protected:
 	virtual size_t readImplementation(char * buffer, size_t bufferSize, const Timeout& timeout) = 0;
 	//! Writing to I/O device abstract method
 	virtual size_t writeImplementation(const char * buffer, size_t bufferSize, const Timeout& timeout) = 0;
-
-	bool _isOpen;
+	//! Sets is open flag to the new value
+	inline void setIsOpen(bool newValue)
+	{
+		_isOpen = newValue;
+	}
 private:
 	AbstractIODevice(const AbstractIODevice&);							// No copy
 
 	AbstractIODevice& operator=(const AbstractIODevice&);						// No copy
+
+	bool _isOpen;
 };
 
 } // namespace isl

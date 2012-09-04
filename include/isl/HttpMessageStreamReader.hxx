@@ -26,6 +26,7 @@ namespace isl
 class HttpMessageStreamReader
 {
 public:
+	//! Class constants
 	enum Constants {
 		DefaultBufferSize = ISL__HTTP_MESSAGE_STREAM_READER_DEFAULT_BUFFER_SIZE,
 		DefaultMaxHeaderNameLength = ISL__HTTP_MESSAGE_STREAM_READER_DEFAULT_MAX_HEADER_NAME_LENGTH,
@@ -65,7 +66,9 @@ public:
 	//! Constructs reader
 	/*!
 	  \param device Reference to the I/O-device to fetch data from
-	  \param bufferSize Data reading buffer size
+	  \param bufferSize Data reading buffer size,
+	  \param maxHeaderNameLength Maximum header name length
+	  \param maxHeaderValueLength Maximum header value length
 	*/
 	HttpMessageStreamReader(AbstractIODevice& device, size_t bufferSize = DefaultBufferSize,
 			size_t maxHeaderNameLength = DefaultMaxHeaderNameLength,
@@ -159,20 +162,39 @@ protected:
 		_errorAutoPtr.reset(error.clone());
 	}
 
+	//! Returns TRUE is the character is allowed in the first token of the HTTP-message
+	/*!
+	  \param ch Character to inspect for
+	*/
 	virtual bool isAllowedInFirstToken(char ch) const = 0;
+	//! Appends character to the first token of the HTTP-message
+	/*!
+	  \param ch Character to append
+	*/
 	virtual void appendToFirstToken(char ch) = 0;
+	//! Returns TRUE is the character is allowed in the second token of the HTTP-message
+	/*!
+	  \param ch Character to inspect for
+	*/
 	virtual bool isAllowedInSecondToken(char ch) const = 0;
+	//! Appends character to the second token of the HTTP-message
+	/*!
+	  \param ch Character to append
+	*/
 	virtual void appendToSecondToken(char ch) = 0;
+	//! Returns TRUE is the character is allowed in the third token of the HTTP-message
+	/*!
+	  \param ch Character to inspect for
+	*/
 	virtual bool isAllowedInThirdToken(char ch) const = 0;
+	//! Appends character to the third token of the HTTP-message
+	/*!
+	  \param ch Character to append
+	*/
 	virtual void appendToThirdToken(char ch) = 0;
 private:
 	HttpMessageStreamReader();
 
-	/*enum PrivateConstants {
-		DefaultMaxHeaderNameLength = 256,
-		DefaultMaxHeaderValueLength = 4096
-	};*/
-	
 	//! Parsing next character method
 	/*!
 	  \param ch Next character to parse

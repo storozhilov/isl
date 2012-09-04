@@ -21,36 +21,56 @@ namespace isl
 class Subsystem
 {
 public:
-	//! Subsystem state constants
-	enum State {
-		IdlingState,		//!< Subsystem is idling
-		StartingState,		//!< Subsystem is starting up
-		RunningState,		//!< Subsystem is running
-		StoppingState		//!< Subsystem is shutting down
-	};
+	//! Constructs a new subsystem
+	/*!
+	  \param owner The owner subsystem of the new subsystem
+	*/
+	Subsystem(Subsystem * owner);
+	//! Destructor
+	virtual ~Subsystem();
+	//! Returns an owner of the subsystem
+	inline Subsystem * owner() const
+	{
+		return _owner;
+	}
+	//! Asynchronously starts subsystem
+	void start();
+	//! Synchronously stops subsystem
+	void stop();
 protected:
-	//! Subsystem-aware abstract thread with is controlled by it's subsystem
+	//! Subsystem-aware abstract thread
 	class AbstractThread : public ::isl::AbstractThread
 	{
 	public:
 		//! Constructs subsystem-aware thread
 		/*!
 		  \param subsystem Reference to subsystem object new thread is controlled by
-		  \param autoStop Thread will be terminated on subsytem's stop operation if TRUE
+		  \param autoStart TRUE if thread should be automatically started on subsystem's start operation
+		  \param autoStop Thread will be terminated and joined to on subsytem's stop operation if TRUE or you should do it yourself in some other thread otherwise
 		  \param awaitStartup Await for thread to be started
 		*/
-		AbstractThread(Subsystem& subsystem, bool autoStop = true, bool awaitStartup = false);
+		AbstractThread(Subsystem& subsystem, bool autoStart = true, bool autoStop = true, bool awaitStartup = false);
+		//! Destructor
 		virtual ~AbstractThread();
 		//! Returns reference to subsystem object
 		inline Subsystem& subsystem() const
 		{
 			return _subsystem;
 		}
+		//! Returns TRUE if thread should be automatically started on subsystem's start operation
+		inline bool autoStart() const
+		{
+			return _autoStart;
+		}
+		//! Returns TRUE if the thread will be terminated and joined to on subsytem's stop operation
 		inline bool autoStop() const
 		{
 			return _autoStop;
 		}
 		//! Returns TRUE if the thread should be terminated due to it's subsystem state
+		/*!
+		  This method should be periodically called from the AbstractThread::run() to terminate thread execution when needed.
+		*/
 		bool shouldTerminate();
 		//! Awaiting for thread termination method
 		/*!
@@ -65,67 +85,26 @@ protected:
 		void setShouldTerminate(bool newValue);
 	private:
 		Subsystem& _subsystem;
+		bool _autoStart;
 		bool _autoStop;
 		bool _shouldTerminate;
 		WaitCondition _shouldTerminateCond;
 	};
-	//! State operations utility class
-	class StateLocker
+	//! Start/stop operations locker utility class
+	class StartStopLocker
 	{
 	public:
-		StateLocker(Subsystem& subsystem) :
-			_subsystem(subsystem),
-			_locker(subsystem._stateCond.mutex())
+		StartStopLocker(Subsystem& subsystem) :
+			_locker(subsystem._startStopMutex)
 		{}
-
-		inline State state() const
-		{
-			return _subsystem._state;
-		}
-		inline State setState(State newState)
-		{
-			State oldState = _subsystem._state;
-			_subsystem.setStateUnsafe(newState);
-			return oldState;
-		}
-		inline bool awaitStateChange(const Timeout& timeout)
-		{
-			return _subsystem._stateCond.wait(timeout);
-		}
 	private:
-		StateLocker();
-		StateLocker(const StateLocker&);
+		StartStopLocker();
+		StartStopLocker(const StartStopLocker&);
 
-		StateLocker& operator=(const StateLocker&);
+		StartStopLocker& operator=(const StartStopLocker&);
 
-		Subsystem& _subsystem;
 		MutexLocker _locker;
 	};
-
-public:
-	//! Constructs a new subsystem
-	/*!
-	  \param owner The owner subsystem of the new subsystem
-	*/
-	Subsystem(Subsystem * owner);
-	//! Destructor
-	virtual ~Subsystem();
-	//! Returns an owner of the subsystem
-	inline Subsystem * owner() const
-	{
-		return _owner;
-	}
-	//! Thread-safely returns subsystem's state
-	inline State state() const
-	{
-		MutexLocker locker(_stateCond.mutex());
-		return _state;
-	}
-	//! Asynchronously starts subsystem
-	void start();
-	//! Synchronously stops subsystem
-	void stop();
-protected:
 	//! Before start event handler
 	virtual void beforeStart()
 	{}
@@ -142,6 +121,13 @@ protected:
 	//! After stop event handler
 	virtual void afterStop()
 	{}
+	//! Subsystem's runtime parameters R/W-lock
+	/*!
+	  Use it for thread-safely locking of any of your subsystem's runtime parameter.
+	  This memeber has been introduced in order to save system resources by using the same
+	  R/W-lock for all runtime parameters of the subsystem.
+	*/
+	mutable ReadWriteLock runtimeParamsRWLock;
 private:
 	Subsystem();
 	Subsystem(const Subsystem&);							// No copy
@@ -151,13 +137,6 @@ private:
 	typedef std::list<Subsystem *> Children;
 	typedef std::list<AbstractThread *> Threads;
 
-	inline void setStateUnsafe(State newState)
-	{
-		if (_state != newState) {
-			_state = newState;
-			_stateCond.wakeAll();
-		}
-	}
 	void registerChild(Subsystem * child);
 	void unregisterChild(Subsystem * child);
 	void registerThread(AbstractThread * thread);
@@ -166,8 +145,7 @@ private:
 	Subsystem * _owner;
 	Children _children;
 	Threads _threads;
-	State _state;
-	mutable WaitCondition _stateCond;
+	Mutex _startStopMutex;
 };
 
 } // namespace isl

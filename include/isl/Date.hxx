@@ -57,7 +57,6 @@ public:
 	  If an invalid data has been passed it constructs NULL date.
 
 	  \param bdts UNIX break-down time structure
-	  \param nanoSecond Nanoseconds
 	*/
 	Date(const struct tm& bdts) :
 		_dayNumber(0),
@@ -87,7 +86,7 @@ public:
 	  If an invalid data has been passed it constructs NULL date.
 
 	  \param str String to parse
-	  \param format Date format (see man strftime)
+	  \param fmt Date format (see man strftime)
 	*/
 	Date(const std::string& str, const std::string& fmt = std::string(DefaultFormat)) :
 		_dayNumber(0),
@@ -182,7 +181,6 @@ public:
 	//! Sets date from the UNIX break-down time structure
 	/*!
 	  \param bdts UNIX break-down time structure
-	  \param nanoSecond Nanoseconds
 	  \return TRUE if the new time value in not NULL date
 	*/
 	inline bool set(const struct tm& bdts)
@@ -202,7 +200,7 @@ public:
 	//! Sets date from the string using supplied format
 	/*!
 	  \param str String to parse
-	  \param format Date format (see man strftime)
+	  \param fmt Date format (see man strftime)
 	  \return TRUE if the new time value is not NULL date
 	*/
 	bool set(const std::string& str, const std::string& fmt = std::string(DefaultFormat));

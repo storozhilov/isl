@@ -15,8 +15,9 @@ class AbstractError
 public:
 	//! Constructs an object
 	/*!
-	    \param SOURCE_LOCATION_ARGS_DECLARATION 'SOURCE_LOCATION_ARGS' macro should be placed here while constructor call
-	    \param info Optional info about an error
+	  You should use SOURCE_LOCATION_ARGS macro as a value for the first parameter
+
+	  \param info Optional info about an error
 	*/
 	AbstractError(SOURCE_LOCATION_ARGS_DECLARATION, const std::string& info = std::string());
 	//! Destructor

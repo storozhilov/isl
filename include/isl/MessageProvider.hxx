@@ -14,7 +14,7 @@ namespace isl
 
 //! Thread-safe message provider templated class
 /*!
-  \tparam Msg Message class with <tt>Msg * Msg::clone() const</tt> method
+  \tparam Msg Message class
 */
 template <typename Msg> class MessageProvider
 {
@@ -55,7 +55,7 @@ public:
 		MessageProvider& _provider;
 		AbstractMessageConsumerType& _consumer;
 	};
-	//! Releases subscribers in destructor (TODO Remove it)
+	//! Releases subscribers in destructor
 	class SubscriberListReleaser
 	{
 	public:
@@ -83,7 +83,7 @@ public:
 	MessageProvider() :
 		_maxConsumersAmount(DefaultMaxConsumersAmount),
 		_consumers(),
-		_subscribersRwLock()
+		_consumersRwLock()
 	{}
 	//! Constructor
 	/*!
@@ -92,14 +92,14 @@ public:
 	MessageProvider(size_t maxConsumersAmount) :
 		_maxConsumersAmount(maxConsumersAmount),
 		_consumers(),
-		_subscribersRwLock()
+		_consumersRwLock()
 	{}
 	virtual ~MessageProvider()
 	{}
 	//! Subscribes consumer to the provider
 	void subscribe(AbstractMessageConsumerType& consumer)
 	{
-		WriteLocker locker(_subscribersRwLock);
+		WriteLocker locker(_consumersRwLock);
 		if (_consumers.find(&consumer) != _consumers.end()) {
 			errorLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Message consumer has been already subscribed to message provider"));
 			return;
@@ -115,7 +115,7 @@ public:
 	//! Unsubscribes consumer from the provider
 	void unsubscribe(AbstractMessageConsumerType& consumer)
 	{
-		WriteLocker locker(_subscribersRwLock);
+		WriteLocker locker(_consumersRwLock);
 		typename ConsumersContainer::iterator pos = _consumers.find(&consumer);
 		if (pos == _consumers.end()) {
 			errorLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Message consumer have not been subscribed to message provider"));
@@ -131,7 +131,7 @@ protected:
 	*/
 	void provideToAll(const Msg& msg)
 	{
-		ReadLocker locker(_subscribersRwLock);
+		ReadLocker locker(_consumersRwLock);
 		for (typename ConsumersContainer::iterator i = _consumers.begin(); i != _consumers.end(); ++i) {
 			(*i)->push(msg);
 		}
@@ -142,7 +142,7 @@ protected:
 	*/
 	void provideToOne(const Msg& msg)
 	{
-		ReadLocker locker(_subscribersRwLock);
+		ReadLocker locker(_consumersRwLock);
 		for (typename ConsumersContainer::iterator i = _consumers.begin(); i != _consumers.end(); ++i) {
 			if ((*i)->push(msg)) {
 				break;
@@ -154,7 +154,7 @@ private:
 
 	size_t _maxConsumersAmount;
 	ConsumersContainer _consumers;
-	ReadWriteLock _subscribersRwLock;
+	ReadWriteLock _consumersRwLock;
 };
 
 

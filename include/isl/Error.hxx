@@ -10,6 +10,12 @@ namespace isl
 class Error : public AbstractError
 {
 public:
+	//! Constructs an error
+	/*!
+	  You should use SOURCE_LOCATION_ARGS macro as a value for the first parameter
+
+	  \param msg Error message
+	*/
 	Error(SOURCE_LOCATION_ARGS_DECLARATION, const std::string& msg) :
 		AbstractError(SOURCE_LOCATION_ARGS_PASSTHRU),
 		_msg(msg)

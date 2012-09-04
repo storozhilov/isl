@@ -24,16 +24,21 @@ public:
 	  \param timeout Awaiting for signal timeout
 	*/
 	SignalHandler(Subsystem * owner, const SignalSet& signalSet = SignalSet(3, SIGHUP, SIGINT, SIGTERM), const Timeout& timeout = Timeout::defaultTimeout());
-	//! Returns sleepeing timeout
+	//! Returns awaiting for signal timeout
 	inline Timeout timeout() const
 	{
-		ReadLocker locker(_timeoutRWLock);
+		ReadLocker locker(runtimeParamsRWLock);
 		return _timeout;
 	}
-	//! Sets sleepeing timeout
+	//! Sets awaiting for signal timeout
+	/*!
+	  Subsystem's restart needed to completely apply the new value;
+
+	  \param newTimeout New awaiting for signal timeout
+	*/
 	inline void setTimeout(const Timeout& newTimeout)
 	{
-		WriteLocker locker(_timeoutRWLock);
+		ReadLocker locker(runtimeParamsRWLock);
 		_timeout = newTimeout;
 	}
 protected:
@@ -76,7 +81,6 @@ private:
 	sigset_t _initialSignalMask;
 	SignalSet _blockedSignals;
 	Timeout _timeout;
-	mutable ReadWriteLock _timeoutRWLock;
 	SignalHandlerThread _signalHandlerThread;
 };
 

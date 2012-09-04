@@ -8,11 +8,11 @@ namespace isl
 //------------------------------------------------------------------------------
 
 Subsystem::Subsystem(Subsystem * owner) :
+	runtimeParamsRWLock(),
 	_owner(owner),
 	_children(),
 	_threads(),
-	_state(IdlingState),
-	_stateCond()
+	_startStopMutex()
 {
 	if (_owner) {
 		_owner->registerChild(this);
@@ -32,25 +32,18 @@ Subsystem::~Subsystem()
 
 void Subsystem::start()
 {
-	MutexLocker locker(_stateCond.mutex());
-	if (_state != IdlingState) {
-		throw Exception(Error(SOURCE_LOCATION_ARGS, "Subsystem is not idling before start"));
-	}
-	setStateUnsafe(StartingState);
+	MutexLocker locker(_startStopMutex);
 	beforeStart();
 	startImpl();
 	afterStart();
-	setStateUnsafe(RunningState);
 }
 
 void Subsystem::stop()
 {
-	MutexLocker locker(_stateCond.mutex());
-	setStateUnsafe(StoppingState);
+	MutexLocker locker(_startStopMutex);
 	beforeStop();
 	stopImpl();
 	afterStop();
-	setStateUnsafe(IdlingState);
 }
 
 void Subsystem::startImpl()
@@ -62,7 +55,9 @@ void Subsystem::startImpl()
 	// Starting threads
 	for (Threads::iterator i = _threads.begin(); i != _threads.end(); ++i) {
 		(*i)->setShouldTerminate(false);
-		(*i)->start();
+		if ((*i)->autoStart()) {
+			(*i)->start();
+		}
 	}
 }
 
@@ -72,8 +67,8 @@ void Subsystem::stopImpl()
 	for (Threads::iterator i = _threads.begin(); i != _threads.end(); ++i) {
 		if ((*i)->autoStop()) {
 			(*i)->setShouldTerminate(true);
+			(*i)->join();
 		}
-		(*i)->join();
 	}
 	// Stopping chldren subsystems
 	for (Children::iterator i = _children.begin(); i != _children.end(); ++i) {
@@ -119,9 +114,10 @@ void Subsystem::unregisterThread(Subsystem::AbstractThread * thread)
 // Subsystem::AbstractThread
 //------------------------------------------------------------------------------
 
-Subsystem::AbstractThread::AbstractThread(Subsystem& subsystem, bool autoStop, bool awaitStartup) :
+Subsystem::AbstractThread::AbstractThread(Subsystem& subsystem, bool autoStart, bool autoStop, bool awaitStartup) :
 	::isl::AbstractThread(awaitStartup),
 	_subsystem(subsystem),
+	_autoStart(autoStart),
 	_autoStop(autoStop),
 	_shouldTerminate(false),
 	_shouldTerminateCond()

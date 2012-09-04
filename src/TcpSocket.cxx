@@ -43,7 +43,7 @@ TcpSocket::TcpSocket(int descriptor) :
 	_connectedRwLock()
 {
 	fetchPeersData();
-	_isOpen = true;
+	setIsOpen(true);
 	_connected = true;
 }
 

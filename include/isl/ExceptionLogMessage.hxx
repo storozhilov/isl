@@ -10,6 +10,13 @@ namespace isl
 class ExceptionLogMessage : public AbstractLogMessage
 {
 public:
+	//! Constructs exception log message
+	/*!
+	  You should use SOURCE_LOCATION_ARGS macro as a value for the first parameter
+
+	  \param expt Constant reference to the exception object
+	  \param contextInfo User info
+	*/
 	ExceptionLogMessage(SOURCE_LOCATION_ARGS_DECLARATION, const std::exception& expt, const std::string& contextInfo = std::string());
 private:
 	ExceptionLogMessage();
