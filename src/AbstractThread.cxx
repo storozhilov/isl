@@ -1,5 +1,6 @@
 #include <isl/common.hxx>
 #include <isl/AbstractThread.hxx>
+#include <isl/ReadWriteLock.hxx>
 #include <isl/WaitCondition.hxx>
 #include <isl/Exception.hxx>
 #include <isl/Error.hxx>
@@ -11,20 +12,13 @@
 namespace isl
 {
 
-AbstractThread::AbstractThread() :
+AbstractThread::AbstractThread(bool isTrackable, bool awaitStartup) :
 	_thread(),
-	_isRunning(false),
-	_isRunningRWLock(),
-	_awaitStartup(false),
-	_awaitStartupCond(0)
-{}
-
-AbstractThread::AbstractThread(bool awaitStartup) :
-	_thread(),
-	_isRunning(false),
-	_isRunningRWLock(),
+	_isTrackable(isTrackable),
 	_awaitStartup(awaitStartup),
-	_awaitStartupCond(0)
+	_isRunning(false),
+	_isRunningRWLockAutoPtr(isTrackable ? new ReadWriteLock() : 0),
+	_awaitStartupCondAutoPtr(awaitStartup ? new WaitCondition() : 0)
 {}
 
 AbstractThread::~AbstractThread()
@@ -33,16 +27,11 @@ AbstractThread::~AbstractThread()
 void AbstractThread::start()
 {
 	if (_awaitStartup) {
-		WaitCondition awaitStartupCond;
-		_awaitStartupCond = &awaitStartupCond;
-		{
-			MutexLocker locker(awaitStartupCond.mutex());
-			if (int errorCode = pthread_create(&_thread, NULL, execute, this)) {
-				throw Exception(SystemCallError(SOURCE_LOCATION_ARGS, SystemCallError::PThreadCreate, errorCode));
-			}
-			awaitStartupCond.wait();
+		MutexLocker locker(_awaitStartupCondAutoPtr->mutex());
+		if (int errorCode = pthread_create(&_thread, NULL, execute, this)) {
+			throw Exception(SystemCallError(SOURCE_LOCATION_ARGS, SystemCallError::PThreadCreate, errorCode));
 		}
-		_awaitStartupCond = 0;
+		_awaitStartupCondAutoPtr->wait();
 	} else {
 		if (int errorCode = pthread_create(&_thread, NULL, execute, this)) {
 			throw Exception(SystemCallError(SOURCE_LOCATION_ARGS, SystemCallError::PThreadCreate, errorCode));
@@ -79,7 +68,10 @@ bool AbstractThread::join(const Timeout& timeout)
 
 bool AbstractThread::isRunning() const
 {
-	ReadLocker locker(_isRunningRWLock);
+	if (!_isTrackable) {
+		throw Exception(Error(SOURCE_LOCATION_ARGS, "Thread is not trackable"));
+	}
+	ReadLocker locker(*_isRunningRWLockAutoPtr.get());
 	return _isRunning;
 }
 
@@ -87,11 +79,11 @@ void * AbstractThread::execute(void * arg)
 {
 	AbstractThread * threadPtr = reinterpret_cast<AbstractThread *>(arg);
 	if (threadPtr->_awaitStartup) {
-		MutexLocker locker(threadPtr->_awaitStartupCond->mutex());
-		threadPtr->_awaitStartupCond->wakeAll();
+		MutexLocker locker(threadPtr->_awaitStartupCondAutoPtr->mutex());
+		threadPtr->_awaitStartupCondAutoPtr->wakeOne();
 	}
-	{
-		WriteLocker locker(threadPtr->_isRunningRWLock);
+	if (threadPtr->_isTrackable) {
+		WriteLocker locker(*threadPtr->_isRunningRWLockAutoPtr.get());
 		if (threadPtr->_isRunning) {
 			throw Exception(Error(SOURCE_LOCATION_ARGS, "Thread is already running"));
 		}
@@ -104,8 +96,10 @@ void * AbstractThread::execute(void * arg)
 	} catch (...) {
 		errorLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Thread execution unknown error"));
 	}
-	WriteLocker locker(threadPtr->_isRunningRWLock);
-	threadPtr->_isRunning = false;
+	if (threadPtr->_isTrackable) {
+		WriteLocker locker(*threadPtr->_isRunningRWLockAutoPtr.get());
+		threadPtr->_isRunning = false;
+	}
 	return 0;
 }
 

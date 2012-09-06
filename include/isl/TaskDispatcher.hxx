@@ -16,6 +16,11 @@ namespace isl
 {
 
 //! Task dispatcher for executing tasks in the pool of the worker threads
+/*!
+  This is an <a href="http://en.wikipedia.org/wiki/Active_object">Active object pattern</a> templated extensible implementation.
+  Thread creation operation is quite expensive one, so it's reasonable to pre-create pool of worker threads which are
+  waiting on condition variable for incoming tasks to execute.
+*/
 template <typename Task> class BasicTaskDispatcher : public Subsystem
 {
 public:

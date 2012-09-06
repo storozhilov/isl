@@ -12,7 +12,9 @@ namespace isl
 {
 
 //! Base class for HTTP-message stream writers
-// TODO setCookie(...) method
+/*!
+  TODO <tt>setCookie(...)</tt> method
+*/
 class HttpMessageStreamWriter
 {
 public:
@@ -92,22 +94,24 @@ public:
 	  If string is empty this method does nothing and returns true.
 	  \param str STL string to send
 	  \param timeout I/O timeout
+	  \param bytesWrittenToDevice Pointer to memory location where number of bytes have been sent to the device is to be put
 	  \return TRUE if all data has been send to peer or FALSE if the I/O timeout has been expired and flush() call is needed to complete an operation
 	*/
-	inline bool writeChunk(const std::string& str, const Timeout& timeout = Timeout())
+	inline bool writeChunk(const std::string& str, const Timeout& timeout = Timeout::defaultTimeout(), size_t * bytesWrittenToDevice = 0)
 	{
-		return writeChunk(str.data(), str.length(), timeout);
+		return writeChunk(str.data(), str.length(), timeout, bytesWrittenToDevice);
 	}
 	//! Sends chunked encoded NULL-terminated string
 	/*!
 	  If string is empty this method does nothing and returns true.
 	  \param str NULL-terminated string to send
 	  \param timeout I/O timeout
+	  \param bytesWrittenToDevice Pointer to memory location where number of bytes have been sent to the device is to be put
 	  \return TRUE if all data has been send to peer or FALSE if the I/O timeout has been expired and flush() call is needed to complete an operation
 	*/
-	inline bool writeChunk(const char * str, const Timeout& timeout = Timeout())
+	inline bool writeChunk(const char * str, const Timeout& timeout = Timeout::defaultTimeout(), size_t * bytesWrittenToDevice = 0)
 	{
-		return writeChunk(str, strlen(str), timeout);
+		return writeChunk(str, strlen(str), timeout, bytesWrittenToDevice);
 	}
 	//! Sends chunked encoded buffer
 	/*!
@@ -115,55 +119,67 @@ public:
 	  \param buffer Buffer to send
 	  \param bufferSize Buffer size
 	  \param timeout I/O timeout
+	  \param bytesWrittenToDevice Pointer to memory location where number of bytes have been sent to the device is to be put
 	  \return TRUE if all data has been send to peer or FALSE if the I/O timeout has been expired and flush() call is needed to complete an operation
 	*/
-	bool writeChunk(const char * buffer, size_t bufferSize, const Timeout& timeout = Timeout());
+	bool writeChunk(const char * buffer, size_t bufferSize, const Timeout& timeout = Timeout::defaultTimeout(), size_t * bytesWrittenToDevice = 0);
 	//! Sends unencoded STL string and finalizes HTTP-message
 	/*!
 	  \param str STL string to send
 	  \param timeout I/O timeout
+	  \param bytesWrittenToDevice Pointer to memory location where number of bytes have been sent to the device is to be put
 	  \return TRUE if all data has been send to peer or FALSE if the I/O timeout has been expired and flush() call is needed to complete an operation
 	*/
-	inline bool writeOnce(const std::string& str, const Timeout& timeout = Timeout())
+	inline bool writeOnce(const std::string& str, const Timeout& timeout = Timeout::defaultTimeout(), size_t * bytesWrittenToDevice = 0)
 	{
-		return writeOnce(str.data(), str.length(), timeout);
+		return writeOnce(str.data(), str.length(), timeout, bytesWrittenToDevice);
 	}
 	//! Sends unencoded NULL-terminated string and finalizes HTTP-message
 	/*!
 	  \param str NULL-terminated string to send
 	  \param timeout I/O timeout
+	  \param bytesWrittenToDevice Pointer to memory location where number of bytes have been sent to the device is to be put
 	  \return TRUE if all data has been send to peer or FALSE if the I/O timeout has been expired and flush() call is needed to complete an operation
 	*/
-	inline bool writeOnce(const char * str, const Timeout& timeout = Timeout())
+	inline bool writeOnce(const char * str, const Timeout& timeout = Timeout::defaultTimeout(), size_t * bytesWrittenToDevice = 0)
 	{
-		return writeOnce(str, strlen(str), timeout);
+		return writeOnce(str, strlen(str), timeout, bytesWrittenToDevice);
 	}
 	//! Sends unencoded buffer and finalizes HTTP-message
 	/*!
 	  \param buffer Buffer to send
 	  \param bufferSize Buffer size
 	  \param timeout I/O timeout
+	  \param bytesWrittenToDevice Pointer to memory location where number of bytes have been sent to the device is to be put
 	  \return TRUE if all data has been send to peer or FALSE if the I/O timeout has been expired and flush() call is needed to complete an operation
 	*/
-	bool writeOnce(const char * buffer, size_t bufferSize, const Timeout& timeout = Timeout());
+	bool writeOnce(const char * buffer, size_t bufferSize, const Timeout& timeout = Timeout::defaultTimeout(), size_t * bytesWrittenToDevice = 0);
 	//! Sends bodyless HTTP-message
-	inline bool writeBodyless(const Timeout& timeout = Timeout())
+	/*!
+	  \param timeout I/O timeout
+	  \param bytesWrittenToDevice Pointer to memory location where number of bytes have been sent to the device is to be put
+	  \return TRUE if all data has been send to peer or FALSE if the I/O timeout has been expired and flush() call is needed to complete an operation
+	*/
+	inline bool writeBodyless(const Timeout& timeout = Timeout::defaultTimeout(), size_t * bytesWrittenToDevice = 0)
 	{
-		return writeOnce(0, 0, timeout);
+		return writeOnce(0, 0, timeout, bytesWrittenToDevice);
 	}
 	//! Sends last (empty) chunk and the trailer of the HTTP-message
 	/*!
 	  NOTE: If no chunks where sent to client before, this call behaves the same as writeBodyless()
+
 	  \param timeout I/O timeout
+	  \param bytesWrittenToDevice Pointer to memory location where number of bytes have been sent to the device is to be put
 	  \return TRUE if all data has been send to peer or FALSE if the I/O timeout has been expired and flush() call is needed to complete an operation
 	*/
-	bool finalize(const Timeout& timeout = Timeout());
+	bool finalize(const Timeout& timeout = Timeout::defaultTimeout(), size_t * bytesWrittenToDevice = 0);
 	//! Sends all unsent data
 	/*!
 	  \param timeout I/O timeout
+	  \param bytesWrittenToDevice Pointer to memory location where number of bytes have been sent to the device is to be put
 	  \return TRUE if all data has been send to peer or FALSE if the I/O timeout has been expired and flush() call is needed to complete an operation
 	*/
-	bool flush(const Timeout& timeout = Timeout());
+	bool flush(const Timeout& timeout = Timeout::defaultTimeout(), size_t * bytesWrittenToDevice = 0);
 protected:
 	//! HTTP-message first line composition method
 	virtual std::string composeFirstLine() const = 0;

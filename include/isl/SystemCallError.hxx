@@ -87,6 +87,8 @@ public:
 	};
 	//! Constructs an object from recognized function id
 	/*
+	  You should use SOURCE_LOCATION_ARGS macro as a value for the first parameter
+
 	   \param func Function id
 	   \param errnum Errno value
 	   \param info User info
@@ -99,6 +101,8 @@ public:
 	{}
 	//! Constructs an object from arbitrary function name
 	/*
+	  You should use SOURCE_LOCATION_ARGS macro as a value for the first parameter
+
 	   \param func Function name
 	   \param errnum Errno value
 	   \param info User info

@@ -1,12 +1,12 @@
 #ifndef ISL__ABSTRACT_THREAD__HXX
 #define ISL__ABSTRACT_THREAD__HXX
 
-#include <isl/ReadWriteLock.hxx>
 #include <pthread.h>
 
 namespace isl
 {
 
+class ReadWriteLock;
 class WaitCondition;
 
 //! Thread abstract base class
@@ -14,13 +14,23 @@ class AbstractThread
 {
 public:
 	//! Constructs a thread
-	AbstractThread();
-	//! Constructs a thread with await startup flag
 	/*!
-	  \param awaitStartup If TRUE, then the launching thread will wait until new thread is started
+	  \param isTrackable If TRUE isRunning() method could be used for inspecting if the thread is running for the cost of R/W-lock
+	  \param awaitStartup If TRUE, then launching thread will wait until new thread is started for the cost of condition variable and mutex
 	*/
-	AbstractThread(bool awaitStartup);
+	AbstractThread(bool isTrackable = false, bool awaitStartup = false);
+	//! Destructor
 	virtual ~AbstractThread();
+	//! Inspects if the thread is trackable
+	inline bool isTrackable() const
+	{
+		return _isTrackable;
+	}
+	//! Inspects if the launching thread will wait until new thread is started
+	inline bool awaitStartup() const
+	{
+		return _awaitStartup;
+	}
 	//! Start thread execution
 	void start();
 	//! Join a thread and wait for it's termination
@@ -43,11 +53,11 @@ private:
 	static void * execute(void * arg);
 
 	pthread_t _thread;
+	const bool _isTrackable;
+	const bool _awaitStartup;
 	bool _isRunning;
-	mutable ReadWriteLock _isRunningRWLock;
-	bool _awaitStartup;
-	WaitCondition * _awaitStartupCond;
-
+	mutable std::auto_ptr<ReadWriteLock> _isRunningRWLockAutoPtr;
+	std::auto_ptr<WaitCondition> _awaitStartupCondAutoPtr;
 };
 
 } // namespace isl

@@ -178,12 +178,12 @@ protected:
 					debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, msg.str()));
 					std::auto_ptr<SharedStaff> sharedStaffAutoPtr(_service.createSharedStaff(*socketAutoPtr.get()));
 					socketAutoPtr.release();
-					std::auto_ptr<AbstractTaskType> receiverTaskAutoPtr(_service.createReceiverTask(*this, *sharedStaffAutoPtr.get()));
+					std::auto_ptr<AbstractTask> receiverTaskAutoPtr(_service.createReceiverTask(*this, *sharedStaffAutoPtr.get()));
 					SharedStaff * sharedStaffPtr = sharedStaffAutoPtr.get();
 					sharedStaffAutoPtr.release();
-					std::auto_ptr<AbstractTaskType> senderTaskAutoPtr(_service.createSenderTask(*this, *sharedStaffPtr));
+					std::auto_ptr<AbstractTask> senderTaskAutoPtr(_service.createSenderTask(*this, *sharedStaffPtr));
 					sharedStaffPtr->init();
-					std::list<AbstractTaskType *> taskList;
+					std::list<AbstractTask *> taskList;
 					taskList.push_back(receiverTaskAutoPtr.get());
 					taskList.push_back(senderTaskAutoPtr.get());
 					if (taskDispatcher().perform(taskList)) {
@@ -204,7 +204,7 @@ protected:
 		AbstractAsyncTcpService& _service;
 	};
 	//! Base class for asynchronous TCP-service receiver task
-	class AbstractReceiverTask : public AbstractTaskType
+	class AbstractReceiverTask : public AbstractTask
 	{
 	public:
 		//! Constructor
@@ -213,7 +213,7 @@ protected:
 		  \param sharedStaff Reference to the shared staff object
 		*/
 		AbstractReceiverTask(AbstractAsyncTcpService& service, SharedStaff& sharedStaff) :
-			AbstractTaskType(),
+			AbstractTask(),
 			_service(service),
 			_sharedStaffPtr(&sharedStaff)
 		{
@@ -251,7 +251,7 @@ protected:
 		SharedStaff * _sharedStaffPtr;
 	};
 	//! Base class for asynchronous TCP-service sender task
-	class AbstractSenderTask : public AbstractTaskType
+	class AbstractSenderTask : public AbstractTask
 	{
 	public:
 		//! Constructor
@@ -260,7 +260,7 @@ protected:
 		  \param sharedStaff Reference to the shared staff object
 		*/
 		AbstractSenderTask(AbstractAsyncTcpService& service, SharedStaff& sharedStaff) :
-			AbstractTaskType(),
+			AbstractTask(),
 			_service(service),
 			_sharedStaffPtr(&sharedStaff)
 		{

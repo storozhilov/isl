@@ -114,8 +114,8 @@ void Subsystem::unregisterThread(Subsystem::AbstractThread * thread)
 // Subsystem::AbstractThread
 //------------------------------------------------------------------------------
 
-Subsystem::AbstractThread::AbstractThread(Subsystem& subsystem, bool autoStart, bool autoStop, bool awaitStartup) :
-	::isl::AbstractThread(awaitStartup),
+Subsystem::AbstractThread::AbstractThread(Subsystem& subsystem, bool autoStart, bool autoStop, bool isTrackable, bool awaitStartup) :
+	::isl::AbstractThread(isTrackable, awaitStartup),
 	_subsystem(subsystem),
 	_autoStart(autoStart),
 	_autoStop(autoStop),

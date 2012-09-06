@@ -76,8 +76,7 @@ public:
 		_taskDispatcher.setMaxTaskQueueOverflowSize(newValue);
 	}
 protected:
-	typedef AbstractTask AbstractTaskType;					//!< Abstract task type
-	typedef BasicTaskDispatcher<AbstractTaskType> TaskDispatcherType;	//!< Task dispatcher type
+	typedef BasicTaskDispatcher<AbstractTask> TaskDispatcherType;		//!< Task dispatcher type
 
 	//! Base class for TCP-listener thread
 	class AbstractListenerThread : public Subsystem::AbstractThread

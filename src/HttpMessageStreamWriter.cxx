@@ -84,8 +84,11 @@ void HttpMessageStreamWriter::removeHeaderField(const std::string &fieldName)
 	_header.erase(range.first, range.second);
 }
 
-bool HttpMessageStreamWriter::writeChunk(const char * buffer, size_t bufferSize, const Timeout& timeout)
+bool HttpMessageStreamWriter::writeChunk(const char * buffer, size_t bufferSize, const Timeout& timeout, size_t * bytesWrittenToDevice)
 {
+	if (bytesWrittenToDevice) {
+		*bytesWrittenToDevice = 0;
+	}
 	if (needFlush()) {
 		throw Exception(Error(SOURCE_LOCATION_ARGS, "Could not send data - flush needed"));
 	}
@@ -115,6 +118,9 @@ bool HttpMessageStreamWriter::writeChunk(const char * buffer, size_t bufferSize,
 	if (!_transmissionStarted && (_sendBufferBytesSent > 0)) {
 		_transmissionStarted = true;
 	}
+	if (bytesWrittenToDevice) {
+		*bytesWrittenToDevice = _sendBufferBytesSent;
+	}
 	if (_sendBufferBytesSent >= _sendBuffer.size()) {
 		_sendBuffer.clear();
 		_sendBufferBytesSent = 0;
@@ -124,8 +130,11 @@ bool HttpMessageStreamWriter::writeChunk(const char * buffer, size_t bufferSize,
 	}
 }
 
-bool HttpMessageStreamWriter::writeOnce(const char * buffer, size_t bufferSize, const Timeout& timeout)
+bool HttpMessageStreamWriter::writeOnce(const char * buffer, size_t bufferSize, const Timeout& timeout, size_t * bytesWrittenToDevice)
 {
+	if (bytesWrittenToDevice) {
+		*bytesWrittenToDevice = 0;
+	}
 	if (_chunkedHeaderComposed) {
 		throw Exception(Error(SOURCE_LOCATION_ARGS, "Could not send unencoded data while chunked encoding"));
 	}
@@ -153,6 +162,9 @@ bool HttpMessageStreamWriter::writeOnce(const char * buffer, size_t bufferSize, 
 	if (!_transmissionStarted && (_sendBufferBytesSent > 0)) {
 		_transmissionStarted = true;
 	}
+	if (bytesWrittenToDevice) {
+		*bytesWrittenToDevice = _sendBufferBytesSent;
+	}
 	if (_sendBufferBytesSent >= _sendBuffer.size()) {
 		_sendBuffer.clear();
 		_sendBufferBytesSent = 0;
@@ -163,8 +175,11 @@ bool HttpMessageStreamWriter::writeOnce(const char * buffer, size_t bufferSize, 
 	}
 }
 
-bool HttpMessageStreamWriter::finalize(const Timeout& timeout)
+bool HttpMessageStreamWriter::finalize(const Timeout& timeout, size_t * bytesWrittenToDevice)
 {
+	if (bytesWrittenToDevice) {
+		*bytesWrittenToDevice = 0;
+	}
 	if (needFlush()) {
 		throw Exception(Error(SOURCE_LOCATION_ARGS, "Could not finalize HTTP-request - flush needed"));
 	}
@@ -187,6 +202,9 @@ bool HttpMessageStreamWriter::finalize(const Timeout& timeout)
 	if (!_transmissionStarted && (_sendBufferBytesSent > 0)) {
 		_transmissionStarted = true;
 	}
+	if (bytesWrittenToDevice) {
+		*bytesWrittenToDevice = _sendBufferBytesSent;
+	}
 	if (_sendBufferBytesSent >= _sendBuffer.size()) {
 		reset();
 		return true;
@@ -197,14 +215,20 @@ bool HttpMessageStreamWriter::finalize(const Timeout& timeout)
 	reset();
 }
 
-bool HttpMessageStreamWriter::flush(const Timeout& timeout)
+bool HttpMessageStreamWriter::flush(const Timeout& timeout, size_t * bytesWrittenToDevice)
 {
+	if (bytesWrittenToDevice) {
+		*bytesWrittenToDevice = 0;
+	}
 	if (!needFlush()) {
 		return true;
 	}
 	size_t bytesSent = _device.write(_sendBuffer.data() + _sendBufferBytesSent, _sendBuffer.size() - _sendBufferBytesSent, timeout);
 	if (!_transmissionStarted && (bytesSent > 0)) {
 		_transmissionStarted = true;
+	}
+	if (bytesWrittenToDevice) {
+		*bytesWrittenToDevice = bytesSent;
 	}
 	_sendBufferBytesSent += bytesSent;
 	if (_sendBufferBytesSent >= _sendBuffer.size()) {

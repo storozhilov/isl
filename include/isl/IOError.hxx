@@ -17,6 +17,8 @@ public:
 	};
 	//! Constructs I/O error
 	/*!
+	  You should use SOURCE_LOCATION_ARGS macro as a value for the first parameter
+
 	  \param type Error type
 	  \param info User info
 	*/

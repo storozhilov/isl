@@ -91,7 +91,7 @@ protected:
 					msg << "TCP-connection has been received from " << socketAutoPtr.get()->remoteAddr().firstEndpoint().host << ':' <<
 						socketAutoPtr.get()->remoteAddr().firstEndpoint().port;
 					debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, msg.str()));
-					std::auto_ptr<AbstractTaskType> taskAutoPtr(_service.createTask(*this, *socketAutoPtr.get()));
+					std::auto_ptr<AbstractTask> taskAutoPtr(_service.createTask(*this, *socketAutoPtr.get()));
 					socketAutoPtr.release();
 					if (taskDispatcher().perform(taskAutoPtr.get())) {
 						taskAutoPtr.release();
@@ -111,7 +111,7 @@ protected:
 	};
 
 	//! Base class for synchronous TCP-service task
-	class AbstractTask : public AbstractTaskType
+	class AbstractTask : public ::isl::AbstractTask
 	{
 	public:
 		//! Constructor
@@ -120,7 +120,7 @@ protected:
 		  \param socket Reference to the client connection socket
 		*/
 		AbstractTask(AbstractSyncTcpService& service, TcpSocket& socket) :
-			AbstractTaskType(),
+			::isl::AbstractTask(),
 			_service(service),
 			_socketAutoPtr(&socket)
 		{}

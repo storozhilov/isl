@@ -221,7 +221,7 @@ public:
 	{
 		return _canonicalName;
 	}
-	//! Returns a pointer to the 'struct addreinfo' structure
+	//! Returns a pointer to the 'const struct addreinfo' structure
 	const struct addrinfo * addrinfo() const
 	{
 		return _addrinfo;

@@ -47,9 +47,10 @@ protected:
 		  \param subsystem Reference to subsystem object new thread is controlled by
 		  \param autoStart TRUE if thread should be automatically started on subsystem's start operation
 		  \param autoStop Thread will be terminated and joined to on subsytem's stop operation if TRUE or you should do it yourself in some other thread otherwise
-		  \param awaitStartup Await for thread to be started
+		  \param isTrackable If TRUE isRunning() method could be used for inspecting if the thread is running for the cost of R/W-lock
+		  \param awaitStartup If TRUE, then launching thread will wait until new thread is started for the cost of condition variable and mutex
 		*/
-		AbstractThread(Subsystem& subsystem, bool autoStart = true, bool autoStop = true, bool awaitStartup = false);
+		AbstractThread(Subsystem& subsystem, bool autoStart = true, bool autoStop = true, bool isTrackable = false, bool awaitStartup = false);
 		//! Destructor
 		virtual ~AbstractThread();
 		//! Returns reference to subsystem object

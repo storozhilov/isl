@@ -239,6 +239,7 @@ protected:
 		//! On receive data from transport exception event handler
 		/*!
 		  Default implementation records an entry to the ISL's error log
+		  TODO Make it return boolean
 
 		  \param e Pointer to std::exception instance or 0 if exception is unknown
 		*/
