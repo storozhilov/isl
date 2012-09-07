@@ -7,6 +7,9 @@ namespace isl
 {
 
 //! HTTP-request stream writer
+/*!
+  TODO <tt>setCookie(...)</tt> method
+*/
 class HttpRequestStreamWriter : public HttpMessageStreamWriter
 {
 public:

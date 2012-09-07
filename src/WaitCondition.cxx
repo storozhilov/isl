@@ -8,13 +8,20 @@
 namespace isl
 {
 
-/*------------------------------------------------------------------------------
- * WaitCondition
-------------------------------------------------------------------------------*/
-
 WaitCondition::WaitCondition() :
 	_cond(),
-	_mutex()
+	_providedMutexPtr(),
+	_internalMutexAutoPtr(new Mutex())
+{
+	if (int errorCode = pthread_cond_init(&_cond, NULL)) {
+		throw Exception(SystemCallError(SOURCE_LOCATION_ARGS, SystemCallError::PThreadCondInit, errorCode));
+	}
+}
+
+WaitCondition::WaitCondition(Mutex& mutex) :
+	_cond(),
+	_providedMutexPtr(&mutex),
+	_internalMutexAutoPtr()
 {
 	if (int errorCode = pthread_cond_init(&_cond, NULL)) {
 		throw Exception(SystemCallError(SOURCE_LOCATION_ARGS, SystemCallError::PThreadCondInit, errorCode));
@@ -28,14 +35,9 @@ WaitCondition::~WaitCondition()
 	}
 }
 
-Mutex& WaitCondition::mutex()
-{
-	return _mutex;
-}
-
 void WaitCondition::wait()
 {
-	if (int errorCode = pthread_cond_wait(&_cond, &(_mutex._mutex))) {
+	if (int errorCode = pthread_cond_wait(&_cond, &(mutex()._mutex))) {
 		throw Exception(SystemCallError(SOURCE_LOCATION_ARGS, SystemCallError::PThreadCondWait, errorCode));
 	}
 }
@@ -46,7 +48,7 @@ bool WaitCondition::wait(const Timeout& timeout, Timeout * timeoutLeft)
 		return false;
 	}
 	timespec timeoutLimit = timeout.limit();
-	int errorCode = pthread_cond_timedwait(&_cond, &(_mutex._mutex), &timeoutLimit);
+	int errorCode = pthread_cond_timedwait(&_cond, &(mutex()._mutex), &timeoutLimit);
 	switch (errorCode) {
 		case 0:
 			if (timeoutLeft) {
@@ -78,4 +80,3 @@ void WaitCondition::wakeAll()
 }
 
 } // namespace isl
-

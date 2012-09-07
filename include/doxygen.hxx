@@ -50,8 +50,9 @@ namespace isl
     message broker connection subsystem, asynchronous message brocker service subsystem, message routing facilities, etc.;
   - Nanosecond-precision datetime and interval support;
   - Functionally rich HTTP-module with HTTP-message/HTTP-cookie parsers and composers, HTTP-request/HTTP-response stream readers and writers,
-    utility methods, etc.
-  - Tools for common server application tasks: pidfile saving, daemonizing;
+    utility methods, etc.;
+  - SCADA module for device management applications development;
+  - Tools for common server application tasks: pidfile saving, daemonizing.
 
   \section installation_section Installation
 

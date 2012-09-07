@@ -10,7 +10,7 @@ namespace isl
 
 //! HTTP-response stream writer
 /*!
-  TODO setCookie() method
+  TODO <tt>setCookie(...)</tt> method
 */
 class HttpResponseStreamWriter : public HttpMessageStreamWriter
 {

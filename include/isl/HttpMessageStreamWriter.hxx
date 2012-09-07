@@ -12,9 +12,6 @@ namespace isl
 {
 
 //! Base class for HTTP-message stream writers
-/*!
-  TODO <tt>setCookie(...)</tt> method
-*/
 class HttpMessageStreamWriter
 {
 public:

@@ -8,6 +8,10 @@
 
 import os
 
+AddOption('--build-scada',
+		dest = 'build-scada',
+		action = 'store_true',
+		help = 'Build SCADA module (depends on libmodbus, http://libmodbus.org/) (the same as if \'ISL_BUILD_SCADA\' environment variable is set to \'yes\')')
 AddOption('--build-examples',
 		dest = 'build-examples',
 		action = 'store_true',
@@ -21,11 +25,12 @@ AddOption('--log-debugging',
 		action = 'store_true',
 		help = 'Turn on ISL logging subsystem debugging to stdouts (the same as if \'ISL_LOG_DEBUGGING\' environment variable is set to \'yes\')')
 
-
+sconscriptTargets = ['src/SConscript']
 if GetOption('build-examples') or os.environ.get('ISL_BUILD_EXAMPLES', '').upper() == 'YES':
-	SConscript(['src/SConscript', 'examples/Test/SConscript', 'examples/HttpServer/SConscript', 'examples/HttpCopy/SConscript'])
-else:
-	SConscript(['src/SConscript'])
+	sconscriptTargets.extend(['examples/Test/SConscript', 'examples/HttpServer/SConscript', 'examples/HttpCopy/SConscript'])
+if GetOption('build-scada') or os.environ.get('ISL_BUILD_SCADA', '').upper() == 'YES':
+	sconscriptTargets.append('modules/scada/SConscript')
+SConscript(sconscriptTargets)
 
 # Uninstall section
 env = Environment()
