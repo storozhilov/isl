@@ -2,15 +2,12 @@
 #define ISL__HTTP_REQUEST_STREAM_READER__HXX
 
 #include <isl/HttpMessageStreamReader.hxx>
-#include <isl/HttpRequestCookieParser.hxx>
+#include <isl/Error.hxx>
 
 namespace isl
 {
 
 //! HTTP-request stream reader
-/*!
-  TODO Fetch cookies method
-*/
 class HttpRequestStreamReader : public HttpMessageStreamReader
 {
 public:

@@ -23,14 +23,15 @@ HttpRequestReader::HttpRequestReader(AbstractIODevice& device, size_t maxBodySiz
 const Http::RequestCookies& HttpRequestReader::cookies() const
 {
 	if (!_cookiesExtracted) {
-		for (Http::Params::const_iterator i = _streamReader.header().begin(); i != _streamReader.header().end(); ++i) {
+		/*for (Http::Params::const_iterator i = _streamReader.header().begin(); i != _streamReader.header().end(); ++i) {
 			if (i->first != "Cookie") {
 				continue;
 			}
 			HttpRequestCookieParser cookieParser;
 			Http::RequestCookies cookies = cookieParser.parse(i->second);
 			_cookies.insert(cookies.begin(), cookies.end());
-		}
+		}*/
+		Http::grabCookies(_streamReader.header(), _cookies);
 		_cookiesExtracted = true;
 	}
 	return _cookies;

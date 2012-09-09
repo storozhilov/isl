@@ -104,6 +104,18 @@ public:
 		}
 		return result;
 	}
+	//! Extracts HTTP-request cookies from the HTTP header
+	/*!
+	  \param header Header to extract cookies from
+	  \param cookies Container to store the result
+	*/
+	static void grabCookies(const Params& header, RequestCookies& cookies);
+	//! Extracts HTTP-response cookies from the HTTP header
+	/*!
+	  \param header Header to extract cookies from
+	  \param cookies Container to store the result
+	*/
+	static void grabCookies(const Params& header, ResponseCookies& cookies);
 
 	inline static bool isText(unsigned char ch)
 	{

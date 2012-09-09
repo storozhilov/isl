@@ -5,11 +5,15 @@
 #include <isl/Error.hxx>
 #include <string>
 #include <sstream>
+#include <memory>
 
 namespace isl
 {
 
 //! HTTP-request cookie parser
+/*!
+  Parses HTTP-header value for cookies according to <a href="http://www.ietf.org/rfc/rfc2965.txt">RFC 2965</a>.
+*/
 class HttpRequestCookieParser
 {
 public:
@@ -38,8 +42,7 @@ public:
 		_composerState(AwaitingVersion),
 		_pos(0),
 		_curChar(0),
-		_isBad(false),
-		_error(),
+		_errorAutoPtr(),
 		_cookieName(),
 		_cookieValue(),
 		_cookieVersion(),
@@ -72,22 +75,26 @@ public:
 	//! Returns TRUE if parsing error has been detected
 	inline bool isBad() const
 	{
-		return _isBad;
+		//return _isBad;
+		return _errorAutoPtr.get();
 	}
-	//! Returns parser error
-	inline std::string error() const
+	//! Returns a pointer to parsing error or 0 if no error occured
+	inline AbstractError * error() const
 	{
-		return _error;
+		return _errorAutoPtr.get();
 	}
 	//! Resets parser to it's initial state
 	void reset();
-	//! Parses cookie header value for qookies
-	Http::RequestCookies parse(const std::string& headerValue);
+	//! Parses cookie header value for cookies
+	/*!
+	  \param headerValue HTTP-header value
+	  \param cookies Reference to cookies container to store result in
+	*/
+	void parse(const std::string& headerValue, Http::RequestCookies& cookies);
 private:
-	inline void setIsBad(const std::string& errorMsg)
+	inline void setIsBad(const AbstractError& err)
 	{
-		_isBad = true;
-		_error = errorMsg;
+		_errorAutoPtr.reset(err.clone());
 	}
 	void appendAttribute(Http::RequestCookies& parsedCookies, bool endOfCookieDetected);
 	void appendCookie(Http::RequestCookies& parsedCookies);
@@ -96,8 +103,7 @@ private:
 	ComposerState _composerState;
 	size_t _pos;
 	char _curChar;
-	bool _isBad;
-	std::string _error;
+	std::auto_ptr<AbstractError> _errorAutoPtr;
 	std::string _cookieName;
 	std::string _cookieValue;
 	std::string _cookieVersion;

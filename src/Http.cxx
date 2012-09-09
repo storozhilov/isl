@@ -1,5 +1,6 @@
 #include <isl/Http.hxx>
 #include <isl/String.hxx>
+#include <isl/HttpRequestCookieParser.hxx>
 #include <iomanip>
 
 namespace isl
@@ -69,6 +70,25 @@ std::string Http::composeParams(const Http::Params& params)
 		paramsStr.append(String::encodePercent(i->second));
 	}
 	return paramsStr;
+}
+
+void Http::grabCookies(const Params& header, RequestCookies& cookies)
+{
+	cookies.clear();
+	for (Params::const_iterator i = header.begin(); i != header.end(); ++i) {
+		if (i->first != "Cookie") {
+			continue;
+		}
+		HttpRequestCookieParser cookieParser;
+		RequestCookies curCookies;
+		cookieParser.parse(i->second, curCookies);
+		cookies.insert(curCookies.begin(), curCookies.end());
+	}
+}
+
+void Http::grabCookies(const Params& header, ResponseCookies& cookies)
+{
+	// TODO
 }
 
 } // namespace isl

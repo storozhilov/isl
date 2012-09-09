@@ -7,9 +7,6 @@ namespace isl
 {
 
 //! HTTP-response stream reader
-/*!
-  TODO Fetch cookies method
-*/
 class HttpResponseStreamReader : public HttpMessageStreamReader
 {
 public:
