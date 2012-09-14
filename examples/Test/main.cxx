@@ -63,7 +63,7 @@ void testTimeout()
 
 void testTime()
 {
-	isl::Time t1(0, 0, 1, 1);
+	/*isl::Time t1(0, 0, 1, 1);
 	std::cout << "t1 = " << t1.toString() << std::endl;
 	isl::Time t2 = t1.addNanoSeconds(-2000000002);
 	std::cout << "t2 = " << t2.toString() << std::endl;
@@ -81,7 +81,7 @@ void testTime()
 	isl::Time t8("10:11:12.1p");
 	std::cout << "t8 = " << t8.toString() << std::endl;
 	isl::Time t9("10:11:12.p");
-	std::cout << "t9 = " << t9.toString() << std::endl;
+	std::cout << "t9 = " << t9.toString() << std::endl;*/
 }
 
 void testDateTime()

@@ -20,6 +20,8 @@ namespace isl
   This is an <a href="http://en.wikipedia.org/wiki/Active_object">Active object pattern</a> templated extensible implementation.
   Thread creation operation is quite expensive one, so it's reasonable to pre-create pool of worker threads which are
   waiting on condition variable for incoming tasks to execute.
+
+  TODO Introduce a <tt>bool Task::autoDelete()</tt> member.
 */
 template <typename Task> class BasicTaskDispatcher : public Subsystem
 {

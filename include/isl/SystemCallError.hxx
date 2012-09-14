@@ -80,6 +80,7 @@ public:
 		StrPTime,
 		GetTimeOfDay,
 		ClockGetTime,
+		MkTime,
 		// System calls
 		Fork,
 		GetPid,
@@ -258,6 +259,8 @@ protected:
 				return "gettimeofday(2)";
 			case ClockGetTime:
 				return "clock_gettime(2)";
+			case MkTime:
+				return "mktime(3)";
 			// System calls
 			case Fork:
 				return "fork(2)";

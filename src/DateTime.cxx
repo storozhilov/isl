@@ -5,9 +5,10 @@
 #include <isl/LogMessage.hxx>
 #include <sys/time.h>
 #include <errno.h>
+#include <math.h>
 #include <iomanip>
 
-#include <iostream>
+//#include <iostream>
 
 namespace isl
 {
@@ -15,91 +16,55 @@ namespace isl
 const char * DateTime::DefaultFormat = "%Y-%m-%d %H:%M:%S.%f";
 
 DateTime::DateTime() :
-	_date(),
-	_time()
+	BasicDateTime(),
+	_isNull(true),
+	_ts(emptyTimeSpec()),
+	_bdts(emptyBdts())
 {}
 
-DateTime::DateTime(const Date& date, const Time& time) :
-	_date(),
-	_time()
+DateTime::DateTime(int year, int month, int day, int hour, int minute, int second, int nanoSec, const TimeZone& tz) :
+	BasicDateTime(),
+	_isNull(true),
+	_ts(emptyTimeSpec()),
+	_bdts(emptyBdts())
 {
-	set(date, time);
+	set(year, month, day, hour, minute, second, nanoSec, tz);
 }
 
-DateTime::DateTime(time_t secondsFromEpoch, bool isLocalTime, int nanoSecond) :
-	_date(),
-	_time()
+DateTime::DateTime(const struct tm& bdts, int nanoSec) :
+	BasicDateTime(),
+	_isNull(true),
+	_ts(emptyTimeSpec()),
+	_bdts(emptyBdts())
 {
-	set(secondsFromEpoch, isLocalTime, nanoSecond);
+	set(bdts, nanoSec);
 }
 
-DateTime::DateTime(const struct tm& bdts, unsigned int nanoSecond) :
-	_date(),
-	_time()
+DateTime::DateTime(time_t gmtSec, int nanoSec, const TimeZone& tz) :
+	BasicDateTime(),
+	_isNull(true),
+	_ts(emptyTimeSpec()),
+	_bdts(emptyBdts())
 {
-	set(bdts, nanoSecond);
+	set(gmtSec, nanoSec, tz);
 }
 
-DateTime::DateTime(const std::string& str, const std::string& fmt) :
-	_date(),
-	_time()
+DateTime::DateTime(const struct timespec& ts, const TimeZone& tz) :
+	BasicDateTime(),
+	_isNull(true),
+	_ts(emptyTimeSpec()),
+	_bdts(emptyBdts())
 {
-	set(str, fmt);
+	set(ts, tz);
 }
 
-bool DateTime::set(const std::string& str, const std::string& fmt)
+DateTime::DateTime(const std::string& str, const std::string& fmt, const TimeZone& tz) :
+	BasicDateTime(),
+	_isNull(true),
+	_ts(emptyTimeSpec()),
+	_bdts(emptyBdts())
 {
-	struct tm bdts;
-	int nanoSecond;
-	if (DateTime::str2bdts(str, fmt, bdts, nanoSecond)) {
-		return set(bdts, nanoSecond);
-	} else {
-		reset();
-		return false;
-	}
-}
-
-DateTime DateTime::addSeconds(long int nSeconds) const
-{
-	if (isNull() || (nSeconds == 0)) {
-		return *this;
-	}
-	// TODO !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-	return DateTime();
-	//return addMSeconds(static_cast<long>(nseconds) * 1000);*/
-}
-
-DateTime DateTime::addNanoSeconds(long int nNanoSeconds) const
-{
-	if (isNull() || (nNanoSeconds == 0)) {
-		return *this;
-	}
-	// TODO !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-	return DateTime();
-	
-	/*Date resultDate(_date);
-	Time resultTime(_time);
-	resultTime._second += (resultTime._nanoSecond + nNanoSeconds) / 1000000000;
-	resultTime._nanoSecond = (resultTime._nanoSecond + nNanoSeconds) % 1000000000;
-	if (resultTime._nanoSecond < 0) {
-		--resultTime._second;
-		resultTime._nanoSecond += 1000000000;
-	}
-	if (resultTime._second >= Time::SecondsPerDay) {
-		resultDate = resultDate.addDays(resultTime._second / Time::SecondsPerDay);
-		resultTime._second %= Time::SecondsPerDay;
-	} else if (resultTime._second < 0) {
-		// TODO !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-	}
-	return DateTime(resultDate, resultTime);*/
-
-	/*int ndays;
-	if (nmseconds < 0) {
-		ndays = ((nmseconds + _time._nanosecond) < 0) ? (nmseconds + _time._nanosecond) / Time::MillisecondsPerDay - 1 : 0;
-	} else {
-		ndays = (nmseconds + _time._nanosecond) / Time::MillisecondsPerDay;
-	}
-	return DateTime(_date.addDays(ndays), _time.addMSeconds(nmseconds));*/
+	set(str, fmt, tz);
 }
 
 std::string DateTime::toString(const std::string& format) const
@@ -108,102 +73,185 @@ std::string DateTime::toString(const std::string& format) const
 		return "[null datetime]";
 	}
 	std::string result;
-	if (!DateTime::bdts2str(toBdts(), _time._nanoSecond, format, result)) {
+	if (!DateTime::bdts2str(_bdts, nanoSecond(), format, result)) {
 		result.assign("[invalid datetime format]");
 	}
 	return result;
 }
 
-struct tm DateTime::toBdts() const
+void DateTime::reset()
 {
-	struct tm bdts;
-	memset(&bdts, 0, sizeof(struct tm));
-	bdts.tm_sec = _time.second();
-	bdts.tm_min = _time.minute();
-	bdts.tm_hour = _time.hour();
-	bdts.tm_gmtoff = _time._gmtOffset;
-	bdts.tm_mday = _date.day();
-	bdts.tm_mon = _date.month() - 1;
-	bdts.tm_year = _date.year() - 1900;
-	bdts.tm_wday = _date.dayOfWeek(false) - 1;
-	bdts.tm_yday = _date.dayOfYear() - 1;
-	return bdts;
+	_isNull = true;
+	resetTimeSpec(_ts);
+	resetBdts(_bdts);
 }
 
-bool DateTime::str2bdts(const std::string& str, const std::string& fmt, struct tm& bdts, int& nanoSecond)
+bool DateTime::set(int year, int month, int day, int hour, int minute, int second, int nanoSec, const TimeZone& tz)
 {
-	memset(&bdts, 0, sizeof(struct tm));
-	nanoSecond = 0;
-	size_t fmtStartPos = 0;
-	const char * strPtr = str.c_str();
-	size_t nanoSecondFmtPos;
-	do {
-		nanoSecondFmtPos = fmt.find("%f", fmtStartPos);
-		std::string fmtPart = fmt.substr(fmtStartPos, nanoSecondFmtPos == std::string::npos ? std::string::npos : nanoSecondFmtPos - fmtStartPos);
-		strPtr = strptime(strPtr, fmtPart.c_str(), &bdts);
-		if (!strPtr) {
-			std::ostringstream msg;
-			msg << "Error parsing \"" << str << "\" string using \"" << fmt << "\" format with strptime(3) system call";
-			debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, msg.str()));
-			return false;
-		}
-		if (nanoSecondFmtPos != std::string::npos) {
-			nanoSecond = 0;
-			for (unsigned int i = 0; i < 9; ++i) {
-				if (*strPtr == '\0') {
-					// End of the string encountered
-					if (i == 0) {
-						std::ostringstream msg;
-						msg << "Error parsing \"" << str << "\" string using \"" << fmt << "\" format: premature end of nanoseconds value";
-						debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, msg.str()));
-						return false;
-					} else {
-						return true;
-					}
-				} else if (*strPtr < '0' || *strPtr > '9') {
-					// Not digit encountered
-					if (i == 0) {
-						std::ostringstream msg;
-						msg << "Error parsing \"" << str << "\" string using \"" << fmt << "\" format: premature end of nanoseconds value";
-						debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, msg.str()));
-						return false;
-					} else {
-						break;
-					}
-				}
-				nanoSecond = nanoSecond * 10 + *strPtr - '0';
-				++strPtr;
-			}
-			fmtStartPos = nanoSecondFmtPos + 2;
-		}
-	} while (nanoSecondFmtPos != std::string::npos && fmtStartPos < fmt.length());
-	return true;
-}
-
-bool DateTime::bdts2str(const struct tm& bdts, int nanoSecond, const std::string& fmt, std::string& str)
-{
-	str.clear();
-	char buf[FormatBufferSize];
-	size_t len = strftime(buf, FormatBufferSize, fmt.c_str(), &bdts);
-	if (len <= 0) {
-		std::ostringstream msg;
-		msg << "Error formatting datetime value string using \"" << fmt << "\" format with strftime(3) system call";
-		debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, msg.str()));
+	if (!isValidDate(year, month, day) || !isValidTime(hour, minute, second, nanoSec)) {
+		reset();
 		return false;
 	}
-	str.assign(buf, len);
-	// Substituting nanoseconds if needed
-	size_t nanoSecondPlaceholderPos = str.find("%f");
-	if (nanoSecondPlaceholderPos != std::string::npos) {
-		std::ostringstream oss;
-		oss << std::setfill('0') << std::setw(9) << nanoSecond;
-		while (nanoSecondPlaceholderPos != std::string::npos) {
-			str.replace(nanoSecondPlaceholderPos, 2, oss.str());
-			nanoSecondPlaceholderPos = str.find("%f");
-		}
+	struct tm bdts = emptyBdts();
+	bdts.tm_sec = second;
+	bdts.tm_min = minute;
+	bdts.tm_hour = hour;
+	bdts.tm_mday = day;
+	bdts.tm_mon = month - 1;
+	bdts.tm_year = year - 1900;
+	time_t localSecond = mktime(&bdts);
+	if (localSecond < 0) {
+		reset();
+		throw Exception(SystemCallError(SOURCE_LOCATION_ARGS, SystemCallError::MkTime, errno, "Error converting UNIX breakdown time struct to local time"));
 	}
+	TimeZone ltz = TimeZone::local();
+	time_t gmtSec = localSecond + ltz.gmtOffset() + (ltz.isDst() ? SecondsPerHour : 0) -
+		tz.gmtOffset() - (tz.isDst() ? SecondsPerHour : 0);
+	//time_t gmtSec = localSecond - ltz.gmtOffset() - (ltz.isDst() ? SecondsPerHour : 0) +
+	//	tz.gmtOffset() + (tz.isDst() ? SecondsPerHour : 0);
+	return set(gmtSec, nanoSec, tz);
+}
+
+bool DateTime::set(time_t gmtSec, int nanoSec, const TimeZone& tz)
+{
+	if (nanoSec < 0 || nanoSec >= 1000000000) {
+		reset();
+		return false;
+	}
+	if (tz == TimeZone::local()) {
+		if (!localtime_r(&gmtSec, &_bdts)) {
+			reset();
+			throw Exception(SystemCallError(SOURCE_LOCATION_ARGS, SystemCallError::LocalTimeR, errno, "Error converting time_t to local time"));
+		}
+	} else if (tz == TimeZone::gmt()) {
+		if (!gmtime_r(&gmtSec, &_bdts)) {
+			reset();
+			throw Exception(SystemCallError(SOURCE_LOCATION_ARGS, SystemCallError::GMTimeR, errno, "Error converting time_t to GMT time"));
+		}
+	} else {
+		//time_t localSecond = gmtSec - tz.gmtOffset() - (tz.isDst() ? SecondsPerHour : 0);
+		time_t localSecond = gmtSec + tz.gmtOffset() + (tz.isDst() ? SecondsPerHour : 0);
+		if (!gmtime_r(&localSecond, &_bdts)) {
+			reset();
+			throw Exception(SystemCallError(SOURCE_LOCATION_ARGS, SystemCallError::GMTimeR, errno, "Error converting time_t to GMT time"));
+		}
+		tz.apply(_bdts);
+	}
+	_isNull = false;
+	_ts.tv_sec = gmtSec;
+	_ts.tv_nsec = nanoSec;
 	return true;
+}
+
+bool DateTime::set(const std::string& str, const std::string& fmt, const TimeZone& tz)
+{
+	struct tm bdts;
+	int nanoSec;
+	if (DateTime::str2bdts(str, fmt, bdts, nanoSec)) {
+		tz.apply(bdts);
+		return set(bdts, nanoSec);
+	} else {
+		reset();
+		return false;
+	}
+}
+
+DateTime DateTime::operator+(const Timeout& rhs) const
+{
+	return isNull() ?
+		DateTime() :
+		DateTime(gmtSecond() + rhs.seconds() + (nanoSecond() + rhs.nanoSeconds()) / 1000000000L,
+				(nanoSecond() + rhs.nanoSeconds()) % 1000000000L, tz());
+}
+
+Timeout DateTime::operator-(const DateTime& rhs) const
+{
+	if (isNull() || rhs.isNull()) {
+		return Timeout();
+	}
+	const DateTime& greaterValue = (*this >= rhs) ? *this : rhs;
+	const DateTime& lowerValue = (*this >= rhs) ? rhs : *this;
+	time_t timeoutSeconds = greaterValue.gmtSecond() - lowerValue.gmtSecond();
+	long int timeoutNanoSeconds = greaterValue.nanoSecond() - lowerValue.nanoSecond();
+	if (timeoutNanoSeconds < 0) {
+		--timeoutSeconds;
+		timeoutNanoSeconds += 1000000000L;
+	}
+	return Timeout(timeoutSeconds, timeoutNanoSeconds);
+}
+
+DateTime DateTime::operator-(const Timeout& rhs) const
+{
+	time_t gmtSec = gmtSecond() - rhs.seconds();
+	long int nanoSec = nanoSecond() - rhs.nanoSeconds();
+	if (nanoSec < 0) {
+		--gmtSec;
+		nanoSec += 1000000000L;
+	}
+	return DateTime(gmtSec, nanoSec, tz());
+}
+
+DateTime& DateTime::operator+=(const Timeout& rhs)
+{
+	if (!isNull()) {
+		set(gmtSecond() + rhs.seconds() + (nanoSecond() + rhs.nanoSeconds()) / 1000000000L,
+				(nanoSecond() + rhs.nanoSeconds()) % 1000000000L, tz());
+	}
+	return *this;
+}
+
+DateTime& DateTime::operator-=(const Timeout& rhs)
+{
+	time_t newGmtSecond = gmtSecond() - rhs.seconds();
+	long int newNanoSecond = nanoSecond() - rhs.nanoSeconds();
+	if (newNanoSecond < 0) {
+		--newGmtSecond;
+		newNanoSecond += 1000000000L;
+	}
+	set(newGmtSecond, newNanoSecond, tz());
+	return *this;
+}
+
+DateTime DateTime::now(const TimeZone& tz)
+{
+	timespec ts;
+	if (clock_gettime(CLOCK_REALTIME, &ts) != 0) {
+		throw Exception(SystemCallError(SOURCE_LOCATION_ARGS, SystemCallError::ClockGetTime, errno, "Fetching current time error"));
+	}
+	return DateTime(ts.tv_sec, ts.tv_nsec, tz);
+}
+
+size_t DateTime::expirationsInFrame(const DateTime& startedFrom, const DateTime& finishedBefore, const Timeout& interval)
+{
+	if (startedFrom >= finishedBefore || interval.isZero() || (interval >= Timeout(SecondsPerDay))) {
+		return 0;
+	}
+	struct timespec sf = startedFrom.timeSpec();
+	sf.tv_sec %= SecondsPerDay;
+	struct timespec fb = finishedBefore.timeSpec();
+	fb.tv_sec %= SecondsPerDay;
+	if (sf >= fb) {
+		fb.tv_sec += SecondsPerDay;
+	}
+	//std::clog << "sf = {" << sf.tv_sec << ", " << sf.tv_nsec << "}, fb = {" << fb.tv_sec << ", " << fb.tv_nsec << "}" << std::endl;
+	struct timespec ts = emptyTimeSpec();
+	size_t expirationsAmount = 0;
+	size_t cyclesAmount = 0;
+	while (ts < fb) {
+		if (ts >= sf) {
+			//std::clog << "Expiration found: {" << ts.tv_sec << ", " << ts.tv_nsec << "}" << std::endl;
+			++expirationsAmount;
+		}
+		ts.tv_sec += interval.seconds();
+		ts.tv_nsec += interval.nanoSeconds();
+		if (ts.tv_nsec > 999999999L) {
+			ts.tv_sec += ts.tv_nsec / 1000000000L;
+			ts.tv_nsec %= 1000000000L;
+		}
+		++cyclesAmount;
+	}
+	//std::clog << "expirationsAmount = " << expirationsAmount << std::endl;
+	return expirationsAmount;
 }
 
 } // namespace isl
-

@@ -47,10 +47,11 @@ namespace isl
   - Extensible design for synchronous (one thread per client connection) and asynchronous (two threads per client connection) TCP-service
     subsystems implementation;
   - Message queueing design elements, including thread-safe message queue/bus/fan, asynchronous
-    message broker connection subsystem, asynchronous message brocker service subsystem, message routing facilities, etc.;
-  - Nanosecond-precision datetime and interval support;
+    message broker connection subsystem, asynchronous message broker service subsystem, message routing facilities, etc.;
   - Functionally rich HTTP-module with HTTP-message/HTTP-cookie parsers and composers, HTTP-request/HTTP-response stream readers and writers,
     utility methods, etc.;
+  - High-precision extensible timer subsystem to execute tasks periodically;
+  - Nanosecond-precision datetime and interval support;
   - SCADA module for device management applications development;
   - Tools for common server application tasks: pidfile saving, daemonizing.
 

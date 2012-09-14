@@ -1,14 +1,23 @@
 #ifndef ISL__DATE_TIME__HXX
 #define ISL__DATE_TIME__HXX
 
-#include <isl/Date.hxx>
-#include <isl/Time.hxx>
+#include <isl/TimeZone.hxx>
+#include <isl/Timeout.hxx>
 
 namespace isl
 {
 
 //! Nanosecond-precision datetime
-class DateTime
+/*!
+  UNIX datetime API is quite tricky and little difficult to use so I've invented another wheel,
+  but this one has a relatively simple design. Basically, this is <tt>timespec</tt> value
+  (GMT-second from Epoch and nanosecond) which has been broken down in <tt>struct tm</tt>
+  UNIX breakdown time structure with partucular timezone applied to. This class is something
+  like a wrapper for the libc datetime functions set to make them usable from C++.
+
+  \sa TimeZone, Timeout
+*/
+class DateTime : public BasicDateTime
 {
 public:
 	//! Default datetime format
@@ -16,169 +25,181 @@ public:
 
 	//! Constructs NULL datetime
 	DateTime();
-	//! Constructs datetime from the date & time values
-	DateTime(const Date& date, const Time& time);
-	//! Constructs datetime from the time_t value
+	//! Constructs datetime value
 	/*!
-	  \param secondsFromEpoch Seconds from the Epoch (1970-01-01)
-	  \param isLocalTime Does the time_t value should be treated as local time or GMT one
-	  \param nanoSecond Nanoseconds
+	  \param year Year (there is no zero year)
+	  \param month Month (1-12)
+	  \param day Day of month (1-28/29/30/31)
+	  \param hour Hour (0-23)
+	  \param minute Minute (0-59)
+	  \param second Second (0-59)
+	  \param nanoSec Nanosecond (0-999999999)
+	  \param tz Timezone
 	*/
-	DateTime(time_t secondsFromEpoch, bool isLocalTime, int nanoSecond = 0);
-	//! Constructs datetime from the UNIX break-down time structure
+	DateTime(int year, int month, int day, int hour, int minute, int second, int nanoSec = 0, const TimeZone& tz = TimeZone::local());
+	//! Constructs datetime value from UNIX breakdown time structure
 	/*!
-	  \param bdts UNIX break-down time structure
-	  \param nanoSecond Nanoseconds
+	  \param bdts UNIX breakdown time structure
+	  \param nanoSec Nanosecond
 	*/
-	DateTime(const struct tm& bdts, unsigned int nanoSecond = 0);
-	//! Constructs datetime from the string using supplied format
+	DateTime(const struct tm& bdts, int nanoSec = 0);
+	//! Constructs datetime value from GMT-seconds from Epoch
 	/*!
-	    \param str String to parse
-	    \param fmt Datetime format (see man strftime) including '%f' for nanoseconds
+	  \param gmtSec GMT-seconds from Epoch
+	  \param nanoSec Nanosecond
+	  \param tz Timezone
 	*/
-	DateTime(const std::string& str, const std::string& fmt = std::string(DefaultFormat));
+	DateTime(time_t gmtSec, int nanoSec = 0, const TimeZone& tz = TimeZone::local());
+	//! Constructs datetime value from POSIX.1b datetime representation
+	/*!
+	  \param ts POSIX.1b datetime representation
+	  \param tz Timezone
+	  \return TRUE if no error occured
+	*/
+	DateTime(const struct timespec& ts, const TimeZone& tz = TimeZone::local());
+	//! Constructs datetime value from the string using supplied format
+	/*!
+	  \param str String to parse
+	  \param fmt Datetime format (see man strftime) including '\%f' for nanoseconds
+	  \param tz Timezone for the date value
+	  \return TRUE if the new datetime value is not NULL datetime
+	*/
+	DateTime(const std::string& str, const std::string& fmt = std::string(DefaultFormat), const TimeZone& tz = TimeZone::local());
 
-	//! Inspects for NULL time
+	//! Inspects datetime for NULL time
 	inline bool isNull() const
 	{
-		return _date.isNull() || _time.isNull();
+		return _isNull;
 	}
-	//! Returns date part of the datetime
-	inline const Date& date() const
+	//! Returns a GMT-second for datetime value
+	inline time_t gmtSecond() const
 	{
-		return _date;
+		return _ts.tv_sec;
 	}
-	//! Returns time part of the datetime
-	inline const Time& time() const
+	//! Returns year
+	inline int year() const
 	{
-		return _time;
+		return isNull() ? 0 : _bdts.tm_year + 1900;
 	}
-	//! Sets date part of the datetime
-	inline void setDate(const Date& d)
+	//! Returns month (1-12)
+	inline int month() const
 	{
-		_date = d;
-		if (_date.isNull() || _time.isNull()) {
-			reset();
-		}
+		return isNull() ? 0 : _bdts.tm_mon + 1;
 	}
-	//! Sets time part of the datetime
-	inline void setTime(const Time& t)
+	//! Returns day of month (1-28/29/30/31)
+	inline int day() const
 	{
-		_time = t;
-		if (_date.isNull() || _time.isNull()) {
-			reset();
-		}
+		return isNull() ? 0 : _bdts.tm_mday;
 	}
+	//! Returns day of week (1-7, 1 is Sunday)
+	inline int dayOfWeek() const
+	{
+		return isNull() ? 0 : _bdts.tm_wday + 1;
+	}
+	//! Returns day of year
+	inline int dayOfYear() const
+	{
+		return isNull() ? 0 : _bdts.tm_yday + 1;
+	}
+	//! Returns hour
+	inline int hour() const
+	{
+		return isNull() ? 0 : _bdts.tm_hour;
+	}
+	//! Returns minute
+	inline int minute() const
+	{
+		return isNull() ? 0 : _bdts.tm_min;
+	}
+	//! Returns second
+	inline int second() const
+	{
+		return isNull() ? 0 : _bdts.tm_sec;
+	}
+	//! Returns 
+	inline int nanoSecond() const
+	{
+		return isNull() ? 0 : _ts.tv_nsec;
+	}
+	//! Returns timezone
+	inline TimeZone tz() const
+	{
+		return isNull() ? TimeZone() : TimeZone(_bdts);
+	}
+	//! Returns UNIX break-down time structure representation of the datetime value
+	/*!
+	  \return UNIX break-down time structure representation of the datetime value
+	*/
+	inline const struct tm& bdts() const
+	{
+		return _bdts;
+	}
+	//! Returns POSIX.1b representation of the datetime value
+	/*!
+	  \return POSIX.1b representation for datetime
+	*/
+	inline const struct timespec& timeSpec() const
+	{
+		return _ts;
+	}
+	//! Formats datetime value with given format
+	/*!
+	    \param format Datetime format (see man strftime) including '\%f' for nanoseconds
+	    \return Formatted datetime value
+	*/
+	std::string toString(const std::string& format = std::string(DefaultFormat)) const;
+	//! Resets datetime value to the NULL one
+	void reset();
 	//! Sets datetime value
 	/*!
-	  \param d Date
-	  \param t Time
-	  \return TRUE if the new datetime value is not NULL datetime
+	  \param year Year (there is no zero year)
+	  \param month Month (1-12)
+	  \param day Day of month (1-28/29/30/31)
+	  \param hour Hour (0-23)
+	  \param minute Minute (0-59)
+	  \param second Second (0-59)
+	  \param nanoSec Nanosecond (0-999999999)
+	  \param tz Timezone
+	  \return TRUE if no error occured
 	*/
-	inline bool set(const Date& d, const Time& t)
-	{
-		_date = d;
-		_time = t;
-		if (_date.isNull() || _time.isNull()) {
-			reset();
-		}
-		return !isNull();
-	}
-	//! Sets datetime from the time_t value
+	bool set(int year, int month, int day, int hour, int minute, int second, int nanoSec = 0, const TimeZone& tz = TimeZone::local());
+	//! Sets datetime value from UNIX breakdown time structure
 	/*!
-	  \param secondsFromEpoch Seconds from the Epoch (1970-01-01)
-	  \param isLocalTime Does the time_t value should be treated as local time or GMT one
-	  \param nanoSecond Nanoseconds
-	  \return TRUE if the new datetime value is not NULL datetime
+	  \param bdts UNIX breakdown time structure,
+	  \param nanoSec Nanosecond
+	  \return TRUE if no error occured
 	*/
-	inline bool set(time_t secondsFromEpoch, bool isLocalTime, int nanoSecond = 0)
+	inline bool set(const struct tm& bdts, int nanoSec = 0)
 	{
-		return set(Date(secondsFromEpoch, isLocalTime), Time(secondsFromEpoch, isLocalTime, nanoSecond));
+		return set(bdts.tm_year + 1900, bdts.tm_mon + 1, bdts.tm_mday, bdts.tm_hour, bdts.tm_min, bdts.tm_sec, nanoSec, TimeZone(bdts));
 	}
-	//! Sets datetime value from the UNIX break-down time structure
+	//! Sets datetime value from GMT-seconds from Epoch
 	/*!
-	  \param bdts UNIX break-down time structure
-	  \param nanoSecond Nanoseconds
-	  \return TRUE if the new datetime value is not NULL datetime
+	  \param gmtSec GMT-seconds from Epoch
+	  \param nanoSec Nanosecond
+	  \param tz Timezone
+	  \return TRUE if no error occured
 	*/
-	inline bool set(const struct tm& bdts, unsigned int nanoSecond = 0)
+	bool set(time_t gmtSec, int nanoSec = 0, const TimeZone& tz = TimeZone::local());
+	//! Sets datetime value from POSIX.1b datetime representation
+	/*!
+	  \param ts POSIX.1b datetime representation
+	  \param tz Timezone
+	  \return TRUE if no error occured
+	*/
+	inline bool set(const struct timespec& ts, const TimeZone& tz = TimeZone::local())
 	{
-		return set(Date(bdts), Time(bdts, nanoSecond));
+		return set(ts.tv_sec, ts.tv_nsec, tz);
 	}
 	//! Sets datetime from the string using supplied format
 	/*!
 	  \param str String to parse
-	  \param fmt Datetime format (see man strftime) including '%f' for nanoseconds
+	  \param fmt Datetime format (see man strftime) including '\%f' for nanoseconds
+	  \param tz Timezone for the date value
 	  \return TRUE if the new datetime value is not NULL datetime
 	*/
-	bool set(const std::string& str, const std::string& fmt = std::string(DefaultFormat));
-	//! Sets NULL datetime
-	inline void reset()
-	{
-		_date.reset();
-		_time.reset();
-	}
-	//! Returns copy of the object with added passed number of years
-	/*!
-	    \param nYears Number of years to add to the date
-	*/
-	inline DateTime addYears(int nYears) const
-	{
-		if (isNull() || (nYears == 0)) {
-			return *this;
-		}
-		return DateTime(_date.addYears(nYears), _time);
-	}
-	//! Returns copy of the object with added passed number of months
-	/*!
-	    \param nMonths Number of months to add to the date
-	*/
-	inline DateTime addMonths(int nMonths) const
-	{
-		if (isNull() || (nMonths == 0)) {
-			return *this;
-		}
-		return DateTime(_date.addMonths(nMonths), _time);
-	}
-	//! Returns copy of the object with added passed number of days
-	/*!
-	    \param nDays Number of day to add to the date
-	*/
-	inline DateTime addDays(int nDays) const
-	{
-		if (isNull() || (nDays == 0)) {
-			return *this;
-		}
-		return DateTime(_date.addDays(nDays), _time);
-	}
-	//! Returns copy of the object with added passed number of hours
-	inline DateTime addHours(int nHours) const
-	{
-		return addSeconds(static_cast<long>(nHours) * Time::SecondsPerHour);
-	}
-	//! Returns copy of the object with added passed number of minutes
-	inline DateTime addMinutes(int nMinutes) const
-	{
-		return addSeconds(static_cast<long int>(nMinutes) * Time::SecondsPerMinute);
-	}
-	//! Returns copy of the object with added passed number of seconds
-	DateTime addSeconds(long int nSeconds) const;
-	//! Returns copy of the object with added passed number of nanoseconds
-	DateTime addNanoSeconds(long int nNanoSeconds) const;
-	//! Formats datetime value with given format
-	/*!
-	    \param format Datetime format (see man strftime) including '%f' for nanoseconds
-	    \return Formatted datetime value
-	*/
-	std::string toString(const std::string& format = std::string(DefaultFormat)) const;
-	//! Converts datetime value to UNIX break-down time structure
-	struct tm toBdts() const;
-	//! Returns seconds since Epoch
-	inline time_t toSecondsFromEpoch() const
-	{
-		return _date.toSecondsFromEpoch() + _time.toSecondsFromEpoch();
-	}
-	//! Comparence operator
+	bool set(const std::string& str, const std::string& fmt = std::string(DefaultFormat), const TimeZone& tz = TimeZone::local());
+	//! Comparison operator
 	/*!
 	  \param rhs Another datetime value to compare with
 	*/
@@ -189,7 +210,7 @@ public:
 		}
 		return isEqualsTo(rhs);
 	}
-	//! Comparence operator
+	//! Comparison operator
 	/*!
 	  \param rhs Another datetime value to compare with
 	*/
@@ -200,7 +221,7 @@ public:
 		}
 		return !isEqualsTo(rhs);
 	}
-	//! Comparence operator
+	//! Comparison operator
 	/*!
 	  \param rhs Another datetime value to compare with
 	*/
@@ -211,7 +232,7 @@ public:
 		}
 		return isLessThen(rhs);
 	}
-	//! Comparence operator
+	//! Comparison operator
 	/*!
 	  \param rhs Another datetime value to compare with
 	*/
@@ -222,7 +243,7 @@ public:
 		}
 		return !rhs.isLessThen(*this);
 	}
-	//! Comparence operator
+	//! Comparison operator
 	/*!
 	  \param rhs Another datetime value to compare with
 	*/
@@ -233,7 +254,7 @@ public:
 		}
 		return rhs.isLessThen(*this);
 	}
-	//! Comparence operator
+	//! Comparison operator
 	/*!
 	  \param rhs Another datetime value to compare with
 	*/
@@ -244,34 +265,72 @@ public:
 		}
 		return !isLessThen(rhs);
 	}
-	
-	//! Returns current datetime value for local time
-	inline static DateTime now()
+	//! Addition operator
+	/*!
+	  \param rhs Timeout to be added
+	  \return new datetime value with added timeout
+	*/
+	DateTime operator+(const Timeout& rhs) const;
+	//! Datetime subtraction operator
+	/*!
+	  \param rhs Timeout to be subtracted
+	  \return Timeout between this value and passed one
+	*/
+	Timeout operator-(const DateTime& rhs) const;
+	//! Timeout subtraction operator
+	/*!
+	  \param rhs Timeout to be subtracted
+	  \return New datetime value with subtracted timeout
+	*/
+	DateTime operator-(const Timeout& rhs) const;
+	//! Increment operator
+	/*!
+	  \param rhs Timeout to be added
+	  \return Reference to the datetime object
+	*/
+	DateTime& operator+=(const Timeout& rhs);
+	//! Decrement operator
+	/*!
+	  \param rhs Timeout to be subtracted
+	  \return Reference to the datetime object
+	*/
+	DateTime& operator-=(const Timeout& rhs);
+	//! Returns current datetime
+	/*!
+	  \param tz Timezone of the result
+	  \return Current datetime
+	*/
+	static DateTime now(const TimeZone& tz = TimeZone::local());
+	//! Returns time limit (current timestamp plus timeout) as DateTime value
+	inline static DateTime limit(const Timeout& timeout)
 	{
-		return DateTime(Date::now(), Time::now());
+		return DateTime(timeout.limit());
 	}
+	//! Returns an amount of interval expirations during the time frame
+	/*!
+	  Use this method in periodic job execution.
+
+	  TODO Use big integer handling algorithms from Donald Knuth to avoid cycle an 24-hour interval limitation!
+
+	  \param startedFrom Left boundary of the timeframe (included)
+	  \param finishedBefore Right boundary of the timeframe (excluded)
+	  \param interval Time interval
+	*/
+	static size_t expirationsInFrame(const DateTime& startedFrom, const DateTime& finishedBefore, const Timeout& interval);
 private:
-	enum Consts {
-		FormatBufferSize = 4096
-	};
 
 	inline bool isEqualsTo(const DateTime& rhs) const
 	{
-		return ((_date == rhs._date) && (_time == rhs._time));
+		return ((gmtSecond() == rhs.gmtSecond()) && (nanoSecond() == rhs.nanoSecond()));
 	}
 	inline bool isLessThen(const DateTime& rhs) const
 	{
-		return _date < rhs._date || (_date == rhs._date && _time < rhs._time);
+		return gmtSecond() < rhs.gmtSecond() || (gmtSecond() == rhs.gmtSecond() && nanoSecond() < rhs.nanoSecond());
 	}
 
-	static bool str2bdts(const std::string& str, const std::string& fmt, struct tm& bdts, int& nanoSecond);
-	static bool bdts2str(const struct tm& bdts, int nanoSecond, const std::string& fmt, std::string& str);
-
-	Date _date;
-	Time _time;
-
-	friend class Time;
-	friend class Date;
+	bool _isNull;
+	struct timespec _ts;
+	struct tm _bdts;
 };
 
 } // namespace isl

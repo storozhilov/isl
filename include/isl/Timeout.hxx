@@ -1,115 +1,132 @@
 #ifndef ISL__TIMEOUT__HXX
 #define ISL__TIMEOUT__HXX
 
-#include <time.h>
+#include <isl/BasicDateTime.hxx>
 
 namespace isl
 {
 
-#ifndef ISL__DEFAULT_TIMEOUT_SECONDS
-#define ISL__DEFAULT_TIMEOUT_SECONDS 0
-#endif
-#ifndef ISL__DEFAULT_TIMEOUT_NANO_SECONDS
-#define ISL__DEFAULT_TIMEOUT_NANO_SECONDS 100000000				// 100 milliseconds
-#endif
-
 //! Time interval representation class
 /*!
-  TODO Addition, subtraction, icreasing and decreasing operators.
-  TODO Negative timeout support???
+  \sa DateTime
 */
-class Timeout
+class Timeout : public BasicDateTime
 {
 public:
 	//! Constructs timeout from seconds and nanoseconds
 	/*!
-	  \param seconds Seconds amount
-	  \param nanoSeconds Nanoseconds amount
+	  If either seconds or nanoseconds are negative it will create a zero timeout.
+	  If nanoseconds is more than 999999999 it will append an appropriate amount of
+	  seconds to the result and normalize nanoseconds.
+
+	  \param secs Seconds amount
+	  \param nsecs Nanoseconds amount
 	*/
-	Timeout(unsigned long int seconds = 0, unsigned long int nanoSeconds = 0) :
-		_seconds(seconds + nanoSeconds / 1000000000L),
-		_nanoSeconds(nanoSeconds % 1000000000L)
+	Timeout(time_t secs = 0, long int nsecs = 0) :
+		BasicDateTime(),
+		_ts(initialTimeSpec(secs, nsecs))
 	{}
-	//! Constructs timeout from the as libc timespec structure
+	//! Constructs timeout from the POSIX.1b structure
 	/*!
-	  \param interval Libc timespec structure
+	  \param ts Libc timespec structure
 	*/
-	Timeout(const timespec& interval) :
-		_seconds(interval.tv_sec + interval.tv_nsec / 1000000000),
-		_nanoSeconds(interval.tv_nsec % 1000000000)
+	Timeout(const struct timespec& ts) :
+		BasicDateTime(),
+		_ts(initialTimeSpec(ts.tv_sec, ts.tv_nsec))
 	{}
 	//! Returns seconds of the timeout
-	inline unsigned int seconds() const
+	inline time_t seconds() const
 	{
-		return _seconds;
+		return _ts.tv_sec;
 	}
-	//! Returns nanoseconds of the timeout
-	inline unsigned int nanoSeconds() const
+	//! Returns nanoseconds of the timeout (0-999999999)
+	inline long int nanoSeconds() const
 	{
-		return _nanoSeconds;
+		return _ts.tv_nsec;
 	}
-	//! Returns libc timespec structure representation of the timeout
-	timespec timeSpec() const
+	//! Returns POSIX.1b representation of the timeout
+	inline const struct timespec& timeSpec() const
 	{
-		timespec result;
-		result.tv_sec = _seconds;
-		result.tv_nsec = _nanoSeconds;
-		return result;
+		return _ts;
 	}
-	//! Returns time limit (current timestamp plus timeout) as libc timespec structure
-	timespec limit() const
-	{
-		timespec now;
-		clock_gettime(CLOCK_REALTIME, &now);
-		timespec result;
-		result.tv_nsec = (now.tv_nsec + _nanoSeconds) % 1000000000;
-		result.tv_sec = now.tv_sec + _seconds + (now.tv_nsec + _nanoSeconds) / 1000000000;
-		return result;
-	}
+	//! Returns time limit (current timestamp plus timeout) as POSIX.1b structure
+	struct timespec limit() const;
 	//! Returns TRUE if the timeout is holding zero values
 	inline bool isZero() const
 	{
-		return (_seconds == 0) && (_nanoSeconds == 0);
+		return (seconds() == 0) && (nanoSeconds() == 0);
 	}
 	//! Resets timeout to zero value
 	inline void reset()
 	{
-		_seconds = 0;
-		_nanoSeconds = 0;
+		resetTimeSpec(_ts);
 	}
-	//! Returns a default timeout
-	inline static Timeout defaultTimeout()
-	{
-		return Timeout(ISL__DEFAULT_TIMEOUT_SECONDS, ISL__DEFAULT_TIMEOUT_NANO_SECONDS);
-	}
-	//! Returns a timeout which is left to the time limit
+	//! Comparison operator
 	/*!
-	  \param limit Time limit as libc timespec structure
+	  \param rhs Another timeout to compare with
+	*/
+	inline bool operator==(const Timeout& rhs) const
+	{
+		return seconds() == rhs.seconds() && nanoSeconds() == rhs.nanoSeconds();
+	}
+	//! Comparison operator
+	/*!
+	  \param rhs Another timeout to compare with
+	*/
+	inline bool operator!=(const Timeout& rhs) const
+	{
+		return !operator==(rhs);
+	}
+	//! Comparison operator
+	/*!
+	  \param rhs Another timeout to compare with
+	*/
+	inline bool operator<(const Timeout& rhs) const
+	{
+		return seconds() < rhs.seconds() || (seconds() == rhs.seconds() && nanoSeconds() < rhs.nanoSeconds());
+	}
+	//! Comparison operator
+	/*!
+	  \param rhs Another timeout to compare with
+	*/
+	inline bool operator<=(const Timeout& rhs) const
+	{
+		return operator<(rhs) || operator==(rhs);
+	}
+	//! Comparison operator
+	/*!
+	  \param rhs Another timeout to compare with
+	*/
+	inline bool operator>(const Timeout& rhs) const
+	{
+		return seconds() > rhs.seconds() || (seconds() == rhs.seconds() && nanoSeconds() > rhs.nanoSeconds());
+	}
+	//! Comparison operator
+	/*!
+	  \param rhs Another timeout to compare with
+	*/
+	inline bool operator>=(const Timeout& rhs) const
+	{
+		return operator>(rhs) || operator==(rhs);
+	}
+	//! Returns a default ISL timeout
+	/*!
+	  You can tune up default ISL timeout properties by defining <tt>ISL__DEFAULT_TIMEOUT_SECONDS</tt> and
+	  <tt>ISL__DEFAULT_TIMEOUT_NANO_SECONDS</tt> macros during it's build.
+	*/
+	static Timeout defaultTimeout();
+	//! Returns a timeout which is left from now to the time limit
+	/*!
+	  \param limit Time limit as POSIX.1b structure
 	  \return Timeout left to the time limit
 	*/
-	static Timeout leftToLimit(const timespec& limit)
-	{
-		timespec now;
-		clock_gettime(CLOCK_REALTIME, &now);
-		if (now.tv_sec > limit.tv_sec || (now.tv_sec == limit.tv_sec && now.tv_nsec >= limit.tv_nsec)) {
-			// Time has been elapsed
-			return Timeout();
-		} else {
-			return Timeout(
-				limit.tv_nsec >= now.tv_nsec ? limit.tv_sec - now.tv_sec : limit.tv_sec - now.tv_sec - 1,
-				limit.tv_nsec >= now.tv_nsec ? limit.tv_nsec - now.tv_nsec : limit.tv_nsec + 1000000000 - now.tv_nsec
-			);
-		}
-	}
+	static Timeout leftToLimit(const struct timespec& limit);
 private:
-	unsigned long int _seconds;
-	unsigned long int _nanoSeconds;
-};
+	static struct timespec initialTimeSpec(time_t secs, long int nsecs);
 
-//! Alias for the Timeout class
-typedef Timeout Interval;
+	struct timespec _ts;
+};
 
 } // namespace isl
 
 #endif
-

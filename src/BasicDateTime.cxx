@@ -1,0 +1,204 @@
+#include <isl/BasicDateTime.hxx>
+#include <isl/common.hxx>
+#include <isl/LogMessage.hxx>
+#include <string.h>
+#include <stdlib.h>
+
+namespace isl
+{
+
+const int BasicDateTime::_monthDays[] = { 0, 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31 };
+
+struct tm BasicDateTime::emptyBdts()
+{
+	struct tm bdts;
+	resetBdts(bdts);
+	return bdts;
+}
+
+void BasicDateTime::resetBdts(struct tm& bdts)
+{
+	memset(&bdts, 0, sizeof(bdts));
+}
+
+struct timespec BasicDateTime::emptyTimeSpec()
+{
+	struct timespec ts;
+	resetTimeSpec(ts);
+	return ts;
+}
+
+void BasicDateTime::resetTimeSpec(struct timespec& ts)
+{
+	ts.tv_sec = 0;
+	ts.tv_nsec = 0;
+}
+
+bool BasicDateTime::isLeapYear(int year)
+{
+	if (year < 1582) {
+		return (abs(year) % 4 == 0);
+	} else {
+		return ((year % 4 == 0 && year % 100 != 0) || year % 400 == 0);
+	}
+}
+bool BasicDateTime::isValidDate(int year, int month, int day)
+{
+	if (year == 0) {
+		return false;
+	}
+	// Passage from Julian to Gregorian calendar
+	if (year == 1582 && month == 10 && day > 4 && day < 15) {
+		return false;
+	}
+	return (day > 0 && month > 0 && month <= 12) &&
+		(day <= _monthDays[month] || (day == 29 && month == 2 && isLeapYear(year)));
+}
+
+bool BasicDateTime::str2bdts(const std::string& str, const std::string& fmt, struct tm& bdts, int& nanoSecond)
+{
+	memset(&bdts, 0, sizeof(struct tm));
+	nanoSecond = 0;
+	size_t fmtStartPos = 0;
+	const char * strPtr = str.c_str();
+	size_t nanoSecondFmtPos;
+	do {
+		nanoSecondFmtPos = fmt.find("%f", fmtStartPos);
+		std::string fmtPart = fmt.substr(fmtStartPos, nanoSecondFmtPos == std::string::npos ? std::string::npos : nanoSecondFmtPos - fmtStartPos);
+		strPtr = strptime(strPtr, fmtPart.c_str(), &bdts);
+		if (!strPtr) {
+			std::ostringstream msg;
+			msg << "Error parsing \"" << str << "\" string using \"" << fmt << "\" format with strptime(3) system call";
+			debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, msg.str()));
+			return false;
+		}
+		if (nanoSecondFmtPos != std::string::npos) {
+			nanoSecond = 0;
+			for (unsigned int i = 0; i < 9; ++i) {
+				if (*strPtr == '\0') {
+					// End of the string encountered
+					if (i == 0) {
+						std::ostringstream msg;
+						msg << "Error parsing \"" << str << "\" string using \"" << fmt << "\" format: premature end of nanoseconds value";
+						debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, msg.str()));
+						return false;
+					} else {
+						return true;
+					}
+				} else if (*strPtr < '0' || *strPtr > '9') {
+					// Not digit encountered
+					if (i == 0) {
+						std::ostringstream msg;
+						msg << "Error parsing \"" << str << "\" string using \"" << fmt << "\" format: premature end of nanoseconds value";
+						debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, msg.str()));
+						return false;
+					} else {
+						break;
+					}
+				}
+				nanoSecond = nanoSecond * 10 + *strPtr - '0';
+				++strPtr;
+			}
+			fmtStartPos = nanoSecondFmtPos + 2;
+		}
+	} while (nanoSecondFmtPos != std::string::npos && fmtStartPos < fmt.length());
+	return true;
+}
+
+bool BasicDateTime::bdts2str(const struct tm& bdts, int nanoSecond, const std::string& fmt, std::string& str)
+{
+	str.clear();
+	char buf[FormatBufferSize];
+	size_t len = strftime(buf, FormatBufferSize, fmt.c_str(), &bdts);
+	if (len <= 0) {
+		std::ostringstream msg;
+		msg << "Error formatting datetime value string using \"" << fmt << "\" format with strftime(3) system call";
+		debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, msg.str()));
+		return false;
+	}
+	str.assign(buf, len);
+	// Substituting nanoseconds if needed
+	size_t nanoSecondPlaceholderPos = str.find("%f");
+	if (nanoSecondPlaceholderPos != std::string::npos) {
+		std::ostringstream oss;
+		oss << std::setfill('0') << std::setw(9) << nanoSecond;
+		while (nanoSecondPlaceholderPos != std::string::npos) {
+			str.replace(nanoSecondPlaceholderPos, 2, oss.str());
+			nanoSecondPlaceholderPos = str.find("%f");
+		}
+	}
+	return true;
+}
+
+struct timespec now()
+{
+	timespec ts;
+	if (clock_gettime(CLOCK_REALTIME, &ts) != 0) {
+		throw Exception(SystemCallError(SOURCE_LOCATION_ARGS, SystemCallError::ClockGetTime, errno, "Fetching current time error"));
+	}
+	return ts;
+}
+
+bool operator==(const struct timespec& lhs, const struct timespec& rhs)
+{
+	return lhs.tv_sec == rhs.tv_sec && lhs.tv_nsec == rhs.tv_nsec;
+}
+
+bool operator!=(const struct timespec& lhs, const struct timespec& rhs)
+{
+	return !operator==(lhs, rhs);
+}
+
+bool operator<(const struct timespec& lhs, const struct timespec& rhs)
+{
+	return lhs.tv_sec < rhs.tv_sec || (lhs.tv_sec == rhs.tv_sec && lhs.tv_nsec < rhs.tv_nsec);
+}
+
+bool operator<=(const struct timespec& lhs, const struct timespec& rhs)
+{
+	return operator<(lhs, rhs) || operator==(lhs, rhs);
+}
+
+bool operator>(const struct timespec& lhs, const struct timespec& rhs)
+{
+	return lhs.tv_sec > rhs.tv_sec || (lhs.tv_sec == rhs.tv_sec && lhs.tv_nsec > rhs.tv_nsec);
+}
+
+bool operator>=(const struct timespec& lhs, const struct timespec& rhs)
+{
+	return operator>(lhs, rhs) || operator==(lhs, rhs);
+}
+
+struct timespec operator+(const struct timespec& lhs, const struct timespec& rhs)
+{
+	struct timespec ts;
+	ts.tv_sec = lhs.tv_sec + rhs.tv_sec + (lhs.tv_nsec + rhs.tv_nsec) / 1000000000L;
+	ts.tv_nsec = (lhs.tv_nsec + rhs.tv_nsec) % 1000000000L;
+	return ts;
+}
+
+struct timespec& operator+=(struct timespec& lhs, const struct timespec& rhs)
+{
+	lhs = lhs + rhs;
+	return lhs;
+}
+
+struct timespec operator-(const struct timespec& lhs, const struct timespec& rhs)
+{
+	struct timespec ts;
+	ts.tv_sec = lhs.tv_sec - rhs.tv_sec;
+	ts.tv_nsec = lhs.tv_nsec - rhs.tv_nsec;
+	if (ts.tv_nsec < 0) {
+		--ts.tv_sec;
+		ts.tv_nsec += 1000000000L;
+	}
+	return ts;
+}
+
+struct timespec& operator-=(struct timespec& lhs, const struct timespec& rhs)
+{
+	lhs = lhs - rhs;
+	return lhs;
+}
+
+} // namespace isl

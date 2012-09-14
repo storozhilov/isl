@@ -16,6 +16,10 @@ AddOption('--build-examples',
 		dest = 'build-examples',
 		action = 'store_true',
 		help = 'Build ISL examples of use (the same as if \'ISL_BUILD_EXAMPLES\' environment variable is set to \'yes\')')
+AddOption('--build-tests',
+		dest = 'build-tests',
+		action = 'store_true',
+		help = 'Build ISL tests (the same as if \'ISL_BUILD_TESTS\' environment variable is set to \'yes\')')
 AddOption('--core-debugging',
 		dest = 'core-debugging',
 		action = 'store_true',
@@ -26,10 +30,12 @@ AddOption('--log-debugging',
 		help = 'Turn on ISL logging subsystem debugging to stdouts (the same as if \'ISL_LOG_DEBUGGING\' environment variable is set to \'yes\')')
 
 sconscriptTargets = ['src/SConscript']
-if GetOption('build-examples') or os.environ.get('ISL_BUILD_EXAMPLES', '').upper() == 'YES':
-	sconscriptTargets.extend(['examples/Test/SConscript', 'examples/HttpServer/SConscript', 'examples/HttpCopy/SConscript'])
 if GetOption('build-scada') or os.environ.get('ISL_BUILD_SCADA', '').upper() == 'YES':
 	sconscriptTargets.append('modules/scada/SConscript')
+if GetOption('build-examples') or os.environ.get('ISL_BUILD_EXAMPLES', '').upper() == 'YES':
+	sconscriptTargets.extend(['examples/Test/SConscript', 'examples/HttpServer/SConscript', 'examples/HttpCopy/SConscript'])
+if GetOption('build-tests') or os.environ.get('ISL_BUILD_TESTS', '').upper() == 'YES':
+	sconscriptTargets.append('tests/SConscript')
 SConscript(sconscriptTargets)
 
 # Uninstall section

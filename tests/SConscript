@@ -1,0 +1,13 @@
+import os
+
+env = Environment(
+CCFLAGS = ['-g', '-Wall'],
+CPPPATH = '../include',
+LIBPATH = '../lib',
+LIBS = ['isl', 'pthread', 'rt']
+)
+env.Append(ENV = {'PATH' : os.environ['PATH']})
+
+datetimeTestBuilder = env.Program('datetime/datetime', Glob('datetime/main.cxx'))
+timerTestBuilder = env.Program('timer/timer', Glob('timer/main.cxx'))
+Default([datetimeTestBuilder, timerTestBuilder])
