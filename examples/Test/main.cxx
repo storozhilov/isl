@@ -11,8 +11,6 @@
 #include <isl/Http.hxx>
 #include <isl/FileLogTarget.hxx>
 #include <isl/DateTime.hxx>
-#include <isl/Time.hxx>
-#include <isl/Date.hxx>
 //#include <isl/VariantFormatter.hxx>
 #include <isl/HttpRequestStreamReader.hxx>
 #include <isl/AbstractMessageConsumer.hxx>

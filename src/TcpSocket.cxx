@@ -28,23 +28,18 @@ namespace isl
 TcpSocket::TcpSocket() :
 	AbstractIODevice(),
 	_descriptor(-1),
-	_localAddr(),
-	_remoteAddr(),
-	_connected(false),
-	_connectedRwLock()
+	_localAddrAutoPtr(),
+	_remoteAddrAutoPtr()
 {}
 
 TcpSocket::TcpSocket(int descriptor) :
 	AbstractIODevice(),
 	_descriptor(descriptor),
-	_localAddr(),
-	_remoteAddr(),
-	_connected(false),
-	_connectedRwLock()
+	_localAddrAutoPtr(),
+	_remoteAddrAutoPtr()
 {
 	fetchPeersData();
 	setIsOpen(true);
-	_connected = true;
 }
 
 TcpSocket::~TcpSocket()
@@ -56,18 +51,18 @@ TcpSocket::~TcpSocket()
 
 const TcpAddrInfo& TcpSocket::localAddr() const
 {
-	if (!_localAddr.get()) {
+	if (!_localAddrAutoPtr.get()) {
 		throw Exception(Error(SOURCE_LOCATION_ARGS, "Local address info have not been initialized"));
 	}
-	return *_localAddr.get();
+	return *_localAddrAutoPtr.get();
 }
 
 const TcpAddrInfo& TcpSocket::remoteAddr() const
 {
-	if (!_remoteAddr.get()) {
+	if (!_remoteAddrAutoPtr.get()) {
 		throw Exception(Error(SOURCE_LOCATION_ARGS, "Remote address info have not been initialized"));
 	}
-	return *_remoteAddr.get();
+	return *_remoteAddrAutoPtr.get();
 }
 
 void TcpSocket::bind(const TcpAddrInfo& addrInfo)
@@ -145,7 +140,6 @@ void TcpSocket::connect(const TcpAddrInfo& addrInfo)
 		throw Exception(SystemCallError(SOURCE_LOCATION_ARGS, SystemCallError::Connect, errno));
 	}
 	fetchPeersData();
-	setIsConnected(true);
 }
 
 void TcpSocket::closeSocket()
@@ -154,7 +148,6 @@ void TcpSocket::closeSocket()
 		errorLog().log(LogMessage(SOURCE_LOCATION_ARGS, SystemCallError(SOURCE_LOCATION_ARGS, SystemCallError::Close, errno).message()));
 	}
 	_descriptor = -1;
-	setIsConnected(false);
 }
 
 void TcpSocket::fetchPeersData()
@@ -171,14 +164,14 @@ void TcpSocket::fetchPeersData()
 		if (!inet_ntop(AF_INET6, &(addrPtr->sin6_addr), buf, INET6_ADDRSTRLEN)) {
 			throw Exception(SystemCallError(SOURCE_LOCATION_ARGS, SystemCallError::InetNToP, errno));
 		}
-		_localAddr.reset(new TcpAddrInfo(TcpAddrInfo::IpV6, buf, ntohs(addrPtr->sin6_port)));
+		_localAddrAutoPtr.reset(new TcpAddrInfo(TcpAddrInfo::IpV6, buf, ntohs(addrPtr->sin6_port)));
 	} else {
 		struct sockaddr_in * addrPtr = reinterpret_cast<struct sockaddr_in *>(&la);
 		char buf[INET_ADDRSTRLEN];
 		if (!inet_ntop(AF_INET, &(addrPtr->sin_addr), buf, INET_ADDRSTRLEN)) {
 			throw Exception(SystemCallError(SOURCE_LOCATION_ARGS, SystemCallError::InetNToP, errno));
 		}
-		_localAddr.reset(new TcpAddrInfo(TcpAddrInfo::IpV4, buf, ntohs(addrPtr->sin_port)));
+		_localAddrAutoPtr.reset(new TcpAddrInfo(TcpAddrInfo::IpV4, buf, ntohs(addrPtr->sin_port)));
 	}
 	// Fetching remote address info
 	struct sockaddr ra;
@@ -192,14 +185,14 @@ void TcpSocket::fetchPeersData()
 		if (!inet_ntop(AF_INET6, &(addrPtr->sin6_addr), buf, INET6_ADDRSTRLEN)) {
 			throw Exception(SystemCallError(SOURCE_LOCATION_ARGS, SystemCallError::InetNToP, errno));
 		}
-		_remoteAddr.reset(new TcpAddrInfo(TcpAddrInfo::IpV6, buf, ntohs(addrPtr->sin6_port)));
+		_remoteAddrAutoPtr.reset(new TcpAddrInfo(TcpAddrInfo::IpV6, buf, ntohs(addrPtr->sin6_port)));
 	} else {
 		struct sockaddr_in * addrPtr = reinterpret_cast<struct sockaddr_in *>(&ra);
 		char buf[INET_ADDRSTRLEN];
 		if (!inet_ntop(AF_INET, &(addrPtr->sin_addr), buf, INET_ADDRSTRLEN)) {
 			throw Exception(SystemCallError(SOURCE_LOCATION_ARGS, SystemCallError::InetNToP, errno));
 		}
-		_remoteAddr.reset(new TcpAddrInfo(TcpAddrInfo::IpV4, buf, ntohs(addrPtr->sin_port)));
+		_remoteAddrAutoPtr.reset(new TcpAddrInfo(TcpAddrInfo::IpV4, buf, ntohs(addrPtr->sin_port)));
 	}
 }
 
@@ -239,7 +232,6 @@ size_t TcpSocket::readImplementation(char * buffer, size_t bufferSize, const Tim
 		throw Exception(SystemCallError(SOURCE_LOCATION_ARGS, SystemCallError::PSelect, errno));
 	} else if (descriptorsCount == 0) {
 		// Timeout expired
-		//throw Exception(TimeoutExpiredIOError(SOURCE_LOCATION_ARGS));
 		return 0;
 	}
 	ssize_t bytesReceived = recv(_descriptor, buffer, bufferSize, 0);
@@ -253,7 +245,6 @@ size_t TcpSocket::readImplementation(char * buffer, size_t bufferSize, const Tim
 		//}
 	} else if (bytesReceived == 0) {
 		// Connection has been aborted by the client.
-		setIsConnected(false);
 		throw Exception(IOError(SOURCE_LOCATION_ARGS, IOError::ConnectionAborted));
 	}
 	return bytesReceived;
@@ -270,7 +261,6 @@ size_t TcpSocket::writeImplementation(const char * buffer, size_t bufferSize, co
 		throw Exception(SystemCallError(SOURCE_LOCATION_ARGS, SystemCallError::PSelect, errno));
 	} else if (descriptorsCount == 0) {
 		// Timeout expired
-		//throw Exception(TimeoutExpiredIOError(SOURCE_LOCATION_ARGS));
 		return 0;
 	}
 	ssize_t bytesSent = ::send(_descriptor, buffer, bufferSize, MSG_NOSIGNAL);
@@ -278,7 +268,6 @@ size_t TcpSocket::writeImplementation(const char * buffer, size_t bufferSize, co
 		if (errno == EPIPE) {
 			// Handled because send(2) man page says: "EPIPE: The local end has been shut down on a connection oriented socket.
 			// In this case the process will also receive a SIGPIPE unless MSG_NOSIGNAL is set."
-			setIsConnected(false);
 			throw Exception(IOError(SOURCE_LOCATION_ARGS, IOError::ConnectionAborted));
 		} else {
 			throw Exception(SystemCallError(SOURCE_LOCATION_ARGS, SystemCallError::Send, errno));
@@ -291,11 +280,9 @@ size_t TcpSocket::writeImplementation(const char * buffer, size_t bufferSize, co
 		//}
 	} else if (bytesSent == 0) {
 		// Connection has been aborted by the client.
-		setIsConnected(false);
 		throw Exception(IOError(SOURCE_LOCATION_ARGS, IOError::ConnectionAborted));
 	}
 	return bytesSent;
 }
 
 } // namespace isl
-

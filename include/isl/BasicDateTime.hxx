@@ -28,6 +28,15 @@ public:
 	static void resetBdts(struct tm& bdts);
 	//! Returns an empty libc timespec structure
 	static struct timespec emptyTimeSpec();
+	//! Makes a libc timespec structure
+	/*!
+	  \param sec Seconds
+	  \param nsec Nanoseconds
+	  \return libc timespec structure
+	*/
+	static struct timespec makeTimeSpec(time_t sec, long int nsec);
+	//! Returns current timestamp as libc timespec structure
+	static struct timespec nowTimeSpec();
 	//! Resets libc timespec structure
 	/*!
 	  \param ts libc timespec structure to reset
@@ -83,7 +92,6 @@ private:
 	const static int _monthDays[];
 };
 
-struct timespec now();
 bool operator==(const struct timespec& lhs, const struct timespec& rhs);
 bool operator!=(const struct timespec& lhs, const struct timespec& rhs);
 bool operator<(const struct timespec& lhs, const struct timespec& rhs);

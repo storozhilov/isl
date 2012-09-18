@@ -7,25 +7,21 @@
 namespace isl
 {
 
-Relay::Relay(ModbusDevice& device, int bitAddr, int feedbackBitAddr) :
+Relay::Relay(ModbusDevice& device, int stateBitAddr, int feedbackBitAddr) :
 	_device(device),
-	_bitAddr(bitAddr),
-	_feedbackBitAddr(feedbackBitAddr),
-	_state(false),
-	_stateRwLock()
+	_stateBitAddr(stateBitAddr),
+	_feedbackBitAddr(feedbackBitAddr)
 {}
 
 bool Relay::state() const
 {
-	ReadLocker locker(_stateRwLock);
-	return _state;
+	std::vector<uint8_t> bits = _device.readBits(_stateBitAddr, 1);
+	return bits[0];
 }
 
 void Relay::setState(bool newValue)
 {
-	_device.writeBit(_bitAddr, newValue);
-	WriteLocker locker(_stateRwLock);
-	_state = newValue;
+	_device.writeBit(_stateBitAddr, newValue);
 }
 
 bool Relay::feedbackState()
@@ -33,7 +29,7 @@ bool Relay::feedbackState()
 	if (_feedbackBitAddr <= 0) {
 		throw Exception(Error(SOURCE_LOCATION_ARGS, "Feedback bit address has not been set in relay"));
 	}
-	std::vector<uint8_t> bits = _device.readBits(_feedbackBitAddr, 1);
+	std::vector<uint8_t> bits = _device.readInputBits(_feedbackBitAddr, 1);
 	return bits[0];
 }
 

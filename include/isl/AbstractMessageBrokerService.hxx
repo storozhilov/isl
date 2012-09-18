@@ -14,7 +14,8 @@ namespace isl
 //! Message broker service subsystem abstract templated class
 /*!
   Use this class for your message broker service implementation. It creates (maxClients * 2) worker threads
-  to execute 2 tasks per each client. These tasks should be objects of the descendants of the following abstract classes:
+  to execute two tasks per each client connection: message sender and receiver ones. These tasks should be
+  objects of  the descendants of the following abstract classes:
 
   - AbstractMessageBrokerService::AbstractReceiverTask - is for receiving messages from the transport
     and providing them to subscribed message consumers. Your descendant of this class should override
@@ -48,18 +49,37 @@ public:
 	/*!
 	  \param owner Pointer to the owner subsystem
 	  \param maxClients Maximum clients amount
-	  \param listeningInputQueueTimeout Listening input queue timeout
+	  \param clockTimeout Subsystem's clock timeout
 	  \param maxTaskQueueOverflowSize Maximum tasks queue overflow size
 	*/
-	AbstractMessageBrokerService(Subsystem * owner, size_t maxClients, const isl::Timeout& listeningInputQueueTimeout = isl::Timeout(0, 100),
+	AbstractMessageBrokerService(Subsystem * owner, size_t maxClients, const Timeout& clockTimeout = Timeout::defaultTimeout(),
 			size_t maxTaskQueueOverflowSize = 0) :
 		AbstractAsyncTcpService(owner, maxClients, maxTaskQueueOverflowSize),
-		_listeningInputQueueTimeout(listeningInputQueueTimeout),
+		_clockTimeout(clockTimeout),
 		_providers(),
 		_consumers()
 	{}
+	//! Returns clock timeout
+	inline Timeout clockTimeout() const
+	{
+		ReadLocker locker(runtimeParamsRWLock);
+		return _clockTimeout;
+	}
+	//! Sets clock timeout
+	/*!
+	  Subsystem's restart needed to activate changes.
+
+	  \param newValue New clock timeout
+	*/
+	inline void setClockTimeout(const Timeout& newValue)
+	{
+		WriteLocker locker(runtimeParamsRWLock);
+		_clockTimeout = newValue;
+	}
 	//! Adds message provider to subscribe input queue to while running
 	/*!
+	  Subsystem's restart needed to activate changes.
+
 	  \param provider Reference to provider to add
 	*/
 	void addProvider(MessageProviderType& provider)
@@ -69,6 +89,8 @@ public:
 	}
 	//! Removes message provider
 	/*!
+	  Subsystem's restart needed to activate changes.
+
 	  \param provider Reference to provider to remove
 	*/
 	void removeProvider(MessageProviderType& provider)
@@ -82,6 +104,9 @@ public:
 		_providers.erase(pos);
 	}
 	//! Removes all message providers
+	/*!
+	  Subsystem's restart needed to activate changes.
+	*/
 	inline void resetProviders()
 	{
 		WriteLocker locker(runtimeParamsRWLock);
@@ -89,6 +114,8 @@ public:
 	}
 	//! Adds message consumer for providing incoming messages to while running
 	/*!
+	  Subsystem's restart needed to activate changes.
+
 	  \param consumer Reference to consumer to add
 	*/
 	void addConsumer(AbstractMessageConsumerType& consumer)
@@ -98,6 +125,8 @@ public:
 	}
 	//! Removes message consumer
 	/*!
+	  Subsystem's restart needed to activate changes.
+
 	  \param consumer Reference to consumer to remove
 	*/
 	void removeConsumer(AbstractMessageConsumerType& consumer)
@@ -111,6 +140,9 @@ public:
 		_consumers.erase(pos);
 	}
 	//! Removes all message consumers
+	/*!
+	  Subsystem's restart needed to activate changes.
+	*/
 	void resetConsumers()
 	{
 		WriteLocker locker(runtimeParamsRWLock);
@@ -156,13 +188,13 @@ protected:
 			}
 			return responseQueue.await(timeout);
 		}
-		//! Shared staff initialization virtual method
+	protected:
+		//! Shared staff initialization virtual method overriding
 		virtual void init()
 		{
 			_inputQueueAutoPtr.reset(createInputQueue());
 			_outputBusAutoPtr.reset(createOutputBus());
 		}
-	protected:
 		//! Input message queue creation factory method
 		/*!
 		  \return Auto-pointer to the input queue object
@@ -206,90 +238,77 @@ protected:
 			return _sharedStaff.inputQueue();
 		}
 	protected:
+		//! Before execute event handler
+		virtual void beforeExecute()
+		{}
 		//! On receive message from transport event handler
 		/*!
-		  Default implementation records an entry to the ISL's debug log and returns true
+		  Default implementation does nothing and returns true
 
 		  \param msg Constant reference to the received message
 		  \return True if to proceed with the message or false to discard it
 		*/
 		virtual bool onReceiveMessage(const Msg& msg)
 		{
-			std::ostringstream oss;
-			oss << "Message has been received from the " << socket().remoteAddr().firstEndpoint().host << ':' << socket().remoteAddr().firstEndpoint().port << " client";
-			debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, oss.str()));
 			return true;
 		}
 		//! On provide incoming message to the consumer event handler
 		/*!
-		  Default implementation records an entry to the ISL's debug log
-
 		  \param msg Constant reference to the provided message
 		  \param consumer Reference to the message consumer where the message has been provided to
 		*/
 		virtual void onProvideMessage(const Msg& msg, AbstractMessageConsumerType& consumer)
-		{
-			//debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Message has been provided to the consumer"));
-			if (&consumer == &_sharedStaff.outputBus()) {
-				debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Message has been provided to the internal output bus"));
-			} else {
-				debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Message has been provided to the consumer"));
-			}
-		}
+		{}
 		//! On receive data from transport exception event handler
 		/*!
-		  Default implementation records an entry to the ISL's error log
-		  TODO Make it return boolean
-
 		  \param e Pointer to std::exception instance or 0 if exception is unknown
 		*/
 		virtual void onReceiveDataException(std::exception * e = 0)
-		{
-			std::ostringstream msg;
-			msg << "Receiving data from " << socket().remoteAddr().firstEndpoint().host << ':' <<
-				socket().remoteAddr().firstEndpoint().port << " client ";
-			if (e) {
-				msg << "error -> exiting from task execution";
-				errorLog().log(ExceptionLogMessage(SOURCE_LOCATION_ARGS, *e, msg.str()));
-			} else {
-				msg << "unknown error -> exiting from task execution";
-				errorLog().log(LogMessage(SOURCE_LOCATION_ARGS, msg.str()));
-			}
-		}
+		{}
+		//! After execute event handler
+		virtual void afterExecute()
+		{}
 		//! Receiving message from transport abstract method
 		/*!
+		  \param timeout Data read timeout
 		  \return Auto-pointer to the received message or to 0 if no message have been received
 		*/
-		virtual std::auto_ptr<Msg> receiveMessage() = 0;
+		virtual std::auto_ptr<Msg> receiveMessage(const Timeout& timeout) = 0;
 	private:
 		virtual void execute(TaskDispatcherType::WorkerThread& worker)
 		{
 			isl::debugLog().log(isl::LogMessage(SOURCE_LOCATION_ARGS, "Receiver task execution has been started"));
-			// Fetching consumers to provide incoming messages to
+			// Triggering before execute event
+			beforeExecute();
+			// Fetching runtime parameters
+			Timeout clockTimeout;
 			ConsumersContainer consumers;
 			{
 				ReadLocker locker(_service.runtimeParamsRWLock);
+				clockTimeout = _service._clockTimeout;
 				consumers = _service._consumers;
 			}
 			while (true) {
-				if (shouldTerminate(worker)) {
-					isl::debugLog().log(isl::LogMessage(SOURCE_LOCATION_ARGS, "Client service termination has been detected -> exiting from receiver task execution"));
-					return;
+				if (_sharedStaff.shouldTerminate()) {
+					isl::debugLog().log(isl::LogMessage(SOURCE_LOCATION_ARGS, "Shared staff termination has been detected -> exiting from receiver task execution"));
+					break;
 				}
-				if (!socket().connected()) {
-					isl::debugLog().log(isl::LogMessage(SOURCE_LOCATION_ARGS, "Client connection socket is not connected -> exiting from receiver task execution"));
-					return;
+				if (worker.shouldTerminate()) {
+					isl::debugLog().log(isl::LogMessage(SOURCE_LOCATION_ARGS, "Worker termination has been detected -> exiting from receiver task execution"));
+					break;
 				}
 				// Reading message from the device
 				std::auto_ptr<Msg> msgAutoPtr;
 				try {
-					msgAutoPtr = receiveMessage();
+					msgAutoPtr = receiveMessage(clockTimeout);
 				} catch (std::exception& e) {
 					onReceiveDataException(&e);
-					return;
+					_sharedStaff.setShouldTerminate(true);
+					break;
 				} catch (...) {
 					onReceiveDataException();
-					return;
+					_sharedStaff.setShouldTerminate(true);
+					break;
 				}
 				if (msgAutoPtr.get()) {
 					// Calling on receive message event callback
@@ -308,34 +327,9 @@ protected:
 						}
 					}
 				}
-				/*try {
-					std::auto_ptr<Msg> msgAutoPtr(receiveMessage());
-					if (msgAutoPtr.get()) {
-						// Calling on receive message event callback
-						if (!onReceiveMessage(*msgAutoPtr.get())) {
-							debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Message has been rejected by the on receive event handler"));
-							continue;
-						}
-						// Providing message to the internal output bus
-						if (_sharedStaff.outputBus().push(*msgAutoPtr.get())) {
-							onProvideMessage(*msgAutoPtr.get(), _sharedStaff.outputBus());
-						}
-						// Providing message to all consumers
-						//for (typename ConsumersContainer::iterator i = _service._consumers.begin(); i != _service._consumers.end(); ++i) {
-						for (typename ConsumersContainer::iterator i = consumers.begin(); i != consumers.end(); ++i) {
-							if ((*i)->push(*msgAutoPtr.get())) {
-								onProvideMessage(*msgAutoPtr.get(), **i);
-							}
-						}
-					}
-				} catch (std::exception& e) {
-					onReceiveDataException(&e);
-					return;
-				} catch (...) {
-					onReceiveDataException();
-					return;
-				}*/
 			}
+			// Triggering after execute event
+			afterExecute();
 		}
 
 		AbstractMessageBrokerService& _service;
@@ -363,65 +357,56 @@ protected:
 			return _sharedStaff.inputQueue();
 		}
 	protected:
+		//! Before execute event handler
+		virtual void beforeExecute()
+		{}
 		//! On consume message from any provider event handler
 		/*!
-		  Default implementation records an entry to the ISL's debug log and returns true
+		  Default implementation does nothing and returns true
 
 		  \param msg Constant reference to the consumed message
 		  \return True if to proceed with the message or false to discard it
 		*/
 		virtual bool onConsumeMessage(const Msg& msg)
 		{
-			debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Message has been fetched from the consume buffer"));
 			return true;
 		}
 		//! On send message to transport event handler
 		/*!
-		  Default implementation records an entry to the ISL's debug log
-
 		  \param msg Constant reference to the message has been sent
 		*/
 		virtual void onSendMessage(const Msg& msg)
-		{
-			std::ostringstream oss;
-			oss << "Message has been sent to " << socket().remoteAddr().firstEndpoint().host << ':' << socket().remoteAddr().firstEndpoint().port << " client";
-			debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, oss.str()));
-		}
+		{}
 		//! On send data to transport exception event handler
 		/*!
-		  Default implementation records an entry to the ISL's error log
-
 		  \param e Pointer to std::exception instance or 0 if exception is unknown
 		*/
 		virtual void onSendDataException(std::exception * e = 0)
-		{
-			std::ostringstream msg;
-			msg << "Sending data to " << socket().remoteAddr().firstEndpoint().host << ':' <<
-				socket().remoteAddr().firstEndpoint().port << " server ";
-			if (e) {
-				msg << "error -> exiting from task execution";
-				errorLog().log(ExceptionLogMessage(SOURCE_LOCATION_ARGS, *e, msg.str()));
-			} else {
-				msg << "unknown error -> exiting from task execution";
-				errorLog().log(LogMessage(SOURCE_LOCATION_ARGS, msg.str()));
-			}
-		}
+		{}
+		//! After execute event handler
+		virtual void afterExecute()
+		{}
 		//! Sending message to transport abstract method
 		/*!
 		  \param msg Constant reference to message to send
+		  \param timeout Data send timeout
 		  \return True if the message has been sent
 		*/
-		virtual bool sendMessage(const Msg& msg) = 0;
+		virtual bool sendMessage(const Msg& msg, const Timeout& timeout) = 0;
 	private:
 		virtual void execute(TaskDispatcherType::WorkerThread& worker)
 		{
 			isl::debugLog().log(isl::LogMessage(SOURCE_LOCATION_ARGS, "Sender task execution has been started"));
+			// Triggering before execute event
+			beforeExecute();
 			std::auto_ptr<Msg> currentMessageAutoPtr;
 			bool sendingMessage = false;
-			// Fetching providers to subscribe to
+			// Fetching runtime parameters
+			Timeout clockTimeout;
 			ProvidersContainer providers;
 			{
 				ReadLocker locker(_service.runtimeParamsRWLock);
+				clockTimeout = _service._clockTimeout;
 				providers = _service._providers;
 			}
 			// Susbcribing input message queue to the providers
@@ -433,25 +418,27 @@ protected:
 				debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Sender task's input queue has been subscribed to the message provider"));
 			}
 			while (true) {
-				if (shouldTerminate(worker)) {
-					isl::debugLog().log(isl::LogMessage(SOURCE_LOCATION_ARGS, "Client service termination has been detected -> exiting from sender task execution"));
-					return;
+				if (_sharedStaff.shouldTerminate()) {
+					isl::debugLog().log(isl::LogMessage(SOURCE_LOCATION_ARGS, "Shared staff termination has been detected -> exiting from receiver task execution"));
+					break;
 				}
-				if (!socket().connected()) {
-					isl::debugLog().log(isl::LogMessage(SOURCE_LOCATION_ARGS, "Client connection socket is not connected -> exiting from sender task execution"));
-					return;
+				if (worker.shouldTerminate()) {
+					isl::debugLog().log(isl::LogMessage(SOURCE_LOCATION_ARGS, "Worker termination has been detected -> exiting from receiver task execution"));
+					break;
 				}
 				if (sendingMessage) {
 					// Sending message to peer
 					bool messageSent = false;
 					try {
-						messageSent = sendMessage(*currentMessageAutoPtr.get());
+						messageSent = sendMessage(*currentMessageAutoPtr.get(), clockTimeout);
 					} catch (std::exception& e) {
 						onSendDataException(&e);
-						return;
+						_sharedStaff.setShouldTerminate(true);
+						break;
 					} catch (...) {
+						_sharedStaff.setShouldTerminate(true);
 						onSendDataException();
-						return;
+						break;
 					}
 					if (messageSent) {
 						sendingMessage = false;
@@ -459,7 +446,7 @@ protected:
 					}
 				} else if (_consumeBuffer.empty()) {
 					// Fetching all messages from the input to the consume buffer
-					size_t consumedMessagesAmount = inputQueue().popAll(_consumeBuffer, _service._listeningInputQueueTimeout);
+					size_t consumedMessagesAmount = inputQueue().popAll(_consumeBuffer, clockTimeout);
 					if (consumedMessagesAmount > 0) {
 						std::ostringstream oss;
 						oss << consumedMessagesAmount << " message(s) has been fetched from the input queue to the consume buffer";
@@ -475,6 +462,8 @@ protected:
 					}
 				}
 			}
+			// Triggering after execute event
+			afterExecute();
 		}
 
 		AbstractMessageBrokerService& _service;
@@ -500,7 +489,7 @@ private:
 	typedef std::list<MessageProviderType *> ProvidersContainer;
 	typedef std::list<AbstractMessageConsumerType *> ConsumersContainer;
 
-	const Timeout _listeningInputQueueTimeout;
+	const Timeout _clockTimeout;
 	ProvidersContainer _providers;
 	ConsumersContainer _consumers;
 };

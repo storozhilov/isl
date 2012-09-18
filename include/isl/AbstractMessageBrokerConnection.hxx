@@ -39,6 +39,9 @@ namespace isl
   - AbstractMessageBrokerConnection::createReceiverThread() - creates receiver thread object;
   - AbstractMessageBrokerConnection::createSenderThread() - creates sender thread object.
 
+  TCP-connection is automatically reestablished during this subsystem's execution, so permanent socket is not
+  available.
+
   \tparam Msg Message class
   \tparam Cloner Message cloner class with static <tt>Msg * Cloner::clone(const Msg& msg)</tt> method for cloning the message
 */
@@ -81,23 +84,23 @@ public:
 	//! Constructor
 	/*!
 	  \param owner Pointer to the owner subsystem
-	  \param serverAddrInfo Message broker address
-	  \param listeningInputQueueTimeout Listening input queue timeout
-	  \param awaitingConnectionTimeout Awaiting connection timeout
+	  \param addr Message broker remote address if <tt>isListening = TRUE</tt> or a local address to bind otherwise
+	  \param isListening Does the receiver thread should listen for incoming connection or connect the remote address otherwise
+	  \param clockTimeout Subsystem's clock timeout
 	  \param inputQueueFactory Input message queue factory object reference
 	  \param outputBusFactory Output message bus factory object reference
 	*/
-	AbstractMessageBrokerConnection(Subsystem * owner, const TcpAddrInfo& serverAddrInfo,
-			const Timeout& listeningInputQueueTimeout = Timeout(0, 100), const Timeout& awaitingConnectionTimeout = Timeout(1),
-			const InputQueueFactory& inputQueueFactory = InputQueueFactory(), const OutputBusFactory& outputBusFactory = OutputBusFactory()) :
+	AbstractMessageBrokerConnection(Subsystem * owner, const TcpAddrInfo& addr, bool isListening = false,
+			const Timeout& clockTimeout = Timeout::defaultTimeout(), const InputQueueFactory& inputQueueFactory = InputQueueFactory(),
+			const OutputBusFactory& outputBusFactory = OutputBusFactory()) :
 		Subsystem(owner),
-		_serverAddrInfo(serverAddrInfo),
+		_addr(addr),
 		_inputQueueAutoPtr(inputQueueFactory.create()),
 		_providedInputQueuePtr(),
 		_outputBusAutoPtr(outputBusFactory.create()),
 		_providedOutputBusPtr(),
-		_listeningInputQueueTimeout(listeningInputQueueTimeout),
-		_awaitingConnectionTimeout(awaitingConnectionTimeout),
+		_isListening(isListening),
+		_clockTimeout(clockTimeout),
 		_receiverThreadAutoPtr(),
 		_senderThreadAutoPtr(),
 		_socket(),
@@ -107,23 +110,22 @@ public:
 	//! Constructor with user provided input message queue
 	/*!
 	  \param owner Pointer to the owner subsystem
-	  \param serverAddrInfo Message broker address
+	  \param addr Message broker remote address if <tt>isListening = TRUE</tt> or a local address to bind otherwise
 	  \param inputQueue Reference to the input message queue to fetch messages from
-	  \param listeningInputQueueTimeout Listening input queue timeout
-	  \param awaitingConnectionTimeout Awaiting connection timeout
+	  \param isListening Does the receiver thread should listen for incoming connection or connect the remote address otherwise
+	  \param clockTimeout Subsystem's clock timeout
 	  \param outputBusFactory Output message bus factory object reference
 	*/
-	AbstractMessageBrokerConnection(Subsystem * owner, const TcpAddrInfo& serverAddrInfo, MessageQueueType& inputQueue,
-			const Timeout& listeningInputQueueTimeout = Timeout(0, 100), const Timeout& awaitingConnectionTimeout = Timeout(1),
-			const OutputBusFactory& outputBusFactory = OutputBusFactory()) :
+	AbstractMessageBrokerConnection(Subsystem * owner, const TcpAddrInfo& addr, MessageQueueType& inputQueue, bool isListening = false,
+			const Timeout& clockTimeout = Timeout::defaultTimeout(), const OutputBusFactory& outputBusFactory = OutputBusFactory()) :
 		Subsystem(owner),
-		_serverAddrInfo(serverAddrInfo),
+		_addr(addr),
 		_inputQueueAutoPtr(),
 		_providedInputQueuePtr(&inputQueue),
 		_outputBusAutoPtr(outputBusFactory.create()),
 		_providedOutputBusPtr(),
-		_listeningInputQueueTimeout(listeningInputQueueTimeout),
-		_awaitingConnectionTimeout(awaitingConnectionTimeout),
+		_isListening(isListening),
+		_clockTimeout(clockTimeout),
 		_receiverThreadAutoPtr(),
 		_senderThreadAutoPtr(),
 		_socket(),
@@ -133,23 +135,22 @@ public:
 	//! Constructor with user provided output message bus
 	/*!
 	  \param owner Pointer to the owner subsystem
-	  \param serverAddrInfo Message broker address
+	  \param addr Message broker remote address if <tt>isListening = TRUE</tt> or a local address to bind otherwise
 	  \param outputBus Reference to the output message bus to provide all received messages to
-	  \param listeningInputQueueTimeout Listening input queue timeout
-	  \param awaitingConnectionTimeout Awaiting connection timeout
+	  \param isListening Does the receiver thread should listen for incoming connection or connect the remote address otherwise
+	  \param clockTimeout Subsystem's clock timeout
 	  \param inputQueueFactory Input message queue factory object reference
 	*/
-	AbstractMessageBrokerConnection(Subsystem * owner, const TcpAddrInfo& serverAddrInfo, MessageBusType& outputBus,
-			const Timeout& listeningInputQueueTimeout = Timeout(0, 100), const Timeout& awaitingConnectionTimeout = Timeout(1),
-			const InputQueueFactory& inputQueueFactory = InputQueueFactory()) :
+	AbstractMessageBrokerConnection(Subsystem * owner, const TcpAddrInfo& addr, MessageBusType& outputBus, bool isListening = false,
+			const Timeout& clockTimeout = Timeout::defaultTimeout(), const InputQueueFactory& inputQueueFactory = InputQueueFactory()) :
 		Subsystem(owner),
-		_serverAddrInfo(serverAddrInfo),
+		_addr(addr),
 		_inputQueueAutoPtr(inputQueueFactory.create()),
 		_providedInputQueuePtr(),
 		_outputBusAutoPtr(),
 		_providedOutputBusPtr(&outputBus),
-		_listeningInputQueueTimeout(listeningInputQueueTimeout),
-		_awaitingConnectionTimeout(awaitingConnectionTimeout),
+		_isListening(isListening),
+		_clockTimeout(clockTimeout),
 		_receiverThreadAutoPtr(),
 		_senderThreadAutoPtr(),
 		_socket(),
@@ -159,34 +160,28 @@ public:
 	//! Constructor with user provided input message queue and output message bus
 	/*!
 	  \param owner Pointer to the owner subsystem
-	  \param serverAddrInfo Message broker address
+	  \param addr Message broker remote address if <tt>isListening = TRUE</tt> or a local address to bind otherwise
 	  \param inputQueue Reference to the input message queue to fetch messages from
 	  \param outputBus Reference to the output message bus to provide all received messages to
-	  \param listeningInputQueueTimeout Listening input queue timeout
-	  \param awaitingConnectionTimeout Awaiting connection timeout
+	  \param isListening Does the receiver thread should listen for incoming connection or connect the remote address otherwise
+	  \param clockTimeout Subsystem's clock timeout
 	*/
-	AbstractMessageBrokerConnection(Subsystem * owner, const TcpAddrInfo& serverAddrInfo, MessageQueueType& inputQueue,
-			MessageBusType& outputBus, const Timeout& listeningInputQueueTimeout = Timeout(0, 100),
-			const Timeout& awaitingConnectionTimeout = Timeout(1)) :
+	AbstractMessageBrokerConnection(Subsystem * owner, const TcpAddrInfo& addr, MessageQueueType& inputQueue,
+			MessageBusType& outputBus, bool isListening = false, const Timeout& clockTimeout = Timeout::defaultTimeout()) :
 		Subsystem(owner),
-		_serverAddrInfo(serverAddrInfo),
+		_addr(addr),
 		_inputQueueAutoPtr(),
 		_providedInputQueuePtr(&inputQueue),
 		_outputBusAutoPtr(),
 		_providedOutputBusPtr(&outputBus),
-		_listeningInputQueueTimeout(listeningInputQueueTimeout),
-		_awaitingConnectionTimeout(awaitingConnectionTimeout),
+		_isListening(isListening),
+		_clockTimeout(clockTimeout),
 		_receiverThreadAutoPtr(),
 		_senderThreadAutoPtr(),
 		_socket(),
 		_providers(),
 		_consumers()
 	{}
-	//! Returns a reference to the socket connection
-	inline TcpSocket& socket()
-	{
-		return _socket;
-	}
 	//! Returns a reference to the input message queue
 	inline MessageQueueType& inputQueue()
 	{
@@ -209,8 +204,27 @@ public:
 			throw Exception(Error(SOURCE_LOCATION_ARGS, "Output message bus have not been initialized"));
 		}
 	}
+	//! Returns peer/bind address
+	TcpAddrInfo addr() const
+	{
+		ReadLocker locker(runtimeParamsRWLock);
+		return _addr;
+	}
+	//! Sets peer/bind address
+	/*!
+	  Subsystem's restart needed to activate changes.
+
+	  \param newValue New message broker address
+	*/
+	void setAddr(const TcpAddrInfo& newValue)
+	{
+		WriteLocker locker(runtimeParamsRWLock);
+		_addr = newValue;
+	}
 	//! Adds message provider to subscribe input queue to while running
 	/*!
+	  Subsystem's restart needed to activate changes.
+
 	  \param provider Reference to provider to add
 	*/
 	void addProvider(MessageProviderType& provider)
@@ -220,6 +234,8 @@ public:
 	}
 	//! Removes message provider
 	/*!
+	  Subsystem's restart needed to activate changes.
+
 	  \param provider Reference to provider to remove
 	*/
 	void removeProvider(MessageProviderType& provider)
@@ -233,6 +249,9 @@ public:
 		_providers.erase(pos);
 	}
 	//! Removes all message providers
+	/*!
+	  Subsystem's restart needed to activate changes.
+	*/
 	void resetProviders()
 	{
 		WriteLocker locker(runtimeParamsRWLock);
@@ -240,6 +259,8 @@ public:
 	}
 	//! Adds message consumer for providing incoming messages to while running
 	/*!
+	  Subsystem's restart needed to activate changes.
+
 	  \param consumer Reference to consumer to add
 	*/
 	void addConsumer(AbstractMessageConsumerType& consumer)
@@ -249,6 +270,8 @@ public:
 	}
 	//! Removes message consumer
 	/*!
+	  Subsystem's restart needed to activate changes.
+
 	  \param consumer Reference to consumer to remove
 	*/
 	void removeConsumer(AbstractMessageConsumerType& consumer)
@@ -262,19 +285,30 @@ public:
 		_consumers.erase(pos);
 	}
 	//! Removes all message consumers
+	/*!
+	  Subsystem's restart needed to activate changes.
+	*/
 	void resetConsumers()
 	{
 		WriteLocker locker(runtimeParamsRWLock);
 		_consumers.clear();
 	}
-	//! Sets message broker address
+	//! Returns clock timeout
+	Timeout clockTimeout() const
+	{
+		ReadLocker locker(runtimeParamsRWLock);
+		return _clockTimeout;
+	}
+	//! Sets clock timeout
 	/*!
-	  \param newValue New message broker address
+	  Subsystem's restart needed to activate changes.
+
+	  \param newValue New clock timeout
 	*/
-	void setServerAddr(const TcpAddrInfo& newValue)
+	void setClockTimeout(const Timeout& newValue)
 	{
 		WriteLocker locker(runtimeParamsRWLock);
-		_serverAddrInfo = newValue;
+		_clockTimeout = newValue;
 	}
 	//! Sends a message to message broker
 	inline bool sendMessage(const Msg& msg)
@@ -309,145 +343,128 @@ protected:
 		AbstractReceiverThread(AbstractMessageBrokerConnection& connection) :
 			AbstractThread(connection),
 			_connection(connection),
-			_sleepCond()
+			_acceptedSocketAutoPtr()
 		{}
-		//! Returning a reference to the network connection socket helper method
-		inline TcpSocket& socket()
-		{
-			return _connection._socket;
-		}
 	protected:
 		//! On connected event handler
 		/*!
-		  Default implementation records an entry to the ISL's debug log
+		  \param socket Reference to the connected socket
 		*/
-		virtual void onConnected()
-		{
-			std::ostringstream msg;
-			msg << "TCP-connection to " << _connection._serverAddrInfo.firstEndpoint().host << ':' <<
-				_connection._serverAddrInfo.firstEndpoint().port << " has been successfully established";
-			debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, msg.str()));
-		}
+		virtual void onConnected(TcpSocket& socket)
+		{}
 		//! On disconnected event handler
 		/*!
-		  Default implementation records an entry to the ISL's debug log
-
 		  \param isConnectionAborted True if the connection was aborted by peer or false if subsystem's stop occured
 		*/
 		virtual void onDisconnected(bool isConnectionAborted)
-		{
-			std::ostringstream msg;
-			msg << "TCP-connection to " << _connection._serverAddrInfo.firstEndpoint().host << ':' <<
-				_connection._serverAddrInfo.firstEndpoint().port << " server " << (isConnectionAborted ? "has been aborted" : "has been closed");
-			errorLog().log(LogMessage(SOURCE_LOCATION_ARGS, msg.str()));
-		}
+		{}
 		//! On receive message from transport event handler
 		/*!
-		  Default implementation records an entry to the ISL's debug log and returns true
+		  Default implementation does nothing and returns true
 
 		  \param msg Constant reference to the received message
 		  \return True if to proceed with the message or false to discard it
 		*/
 		virtual bool onReceiveMessage(const Msg& msg)
 		{
-			std::ostringstream oss;
-			oss << "Message has been received from " << _connection._serverAddrInfo.firstEndpoint().host << ':' <<
-				_connection._serverAddrInfo.firstEndpoint().port << " server";
-			debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, oss.str()));
 			return true;
 		}
 		//! On provide incoming message to the consumer event handler
 		/*!
-		  Default implementation records an entry to the ISL's debug log
-
 		  \param msg Constant reference to the provided message
 		  \param consumer Reference to the message consumer where the message has been provided to
 		*/
 		virtual void onProvideMessage(const Msg& msg, AbstractMessageConsumerType& consumer)
-		{
-			if (&consumer == &_connection.outputBus()) {
-				debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Message has been provided to the internal output bus"));
-			} else {
-				debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Message has been provided to the consumer"));
-			}
-		}
+		{}
 		//! On connect exception event handler
 		/*!
-		  Default implementation records an entry to the ISL's error log
-		  TODO Make it return boolean
-
 		  \param e Pointer to std::exception instance or 0 if exception is unknown
 		*/
 		virtual void onConnectException(std::exception * e = 0)
-		{
-			std::ostringstream msg;
-			msg << "Connecting to " << _connection._serverAddrInfo.firstEndpoint().host << ':' <<
-				_connection._serverAddrInfo.firstEndpoint().port << " server ";
-			if (e) {
-				msg << "error";
-				errorLog().log(ExceptionLogMessage(SOURCE_LOCATION_ARGS, *e, msg.str()));
-			} else {
-				msg << "unknown error";
-				errorLog().log(LogMessage(SOURCE_LOCATION_ARGS, msg.str()));
-			}
-		}
+		{}
 		//! On receive data from transport exception event handler
 		/*!
-		  Default implementation records an entry to the ISL's error log
-		  TODO Make it return boolean
-
 		  \param e Pointer to std::exception instance or 0 if exception is unknown
 		*/
 		virtual void onReceiveDataException(std::exception * e = 0)
-		{
-			std::ostringstream msg;
-			msg << "Receiving data from " << _connection._serverAddrInfo.firstEndpoint().host << ':' <<
-				_connection._serverAddrInfo.firstEndpoint().port << " server ";
-			if (e) {
-				msg << "error -> reestablishing connection";
-				errorLog().log(ExceptionLogMessage(SOURCE_LOCATION_ARGS, *e, msg.str()));
-			} else {
-				msg << "unknown error -> reestablishing connection";
-				errorLog().log(LogMessage(SOURCE_LOCATION_ARGS, msg.str()));
-			}
-		}
+		{}
 		//! Receiving message from transport abstract method
 		/*!
+		  \param socket Socket to read data from
+		  \param timeout Data read timeout
 		  \return Auto-pointer to the received message or to 0 if no message have been received
 		*/
-		virtual std::auto_ptr<Msg> receiveMessage() = 0;
+		virtual std::auto_ptr<Msg> receiveMessage(TcpSocket& socket, const Timeout& timeout) = 0;
 	private:
+		inline TcpSocket& transferSocket()
+		{
+			if (_connection.isListening()) {
+				return &_acceptedSocketAutoPtr.get();
+			} else {
+				return _connection._socket;
+			}
+		}
 		virtual void run()
 		{
 			debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Receiver thread has been started"));
-			// Fetching consumers to provide incoming messages to
+			// Fetching runtime parameters
+			std::auto_ptr<TcpAddrInfo> addrAutoPtr;
 			ConsumersContainer consumers;
+			bool isListening;
+			Timeout clockTimeout;
 			{
 				ReadLocker locker(_connection.runtimeParamsRWLock);
+				addrAutoPtr.reset(new TcpAddrInfo(_connection._addr));
 				consumers = _connection._consumers;
+				isListening = _connection._isListening;
+				clockTimeout = _connection._clockTimeout;
 			}
 			_connection._socket.open();
 			debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Socket has been opened"));
+			// Making socket listening if needed
+			if (isListening) {
+				_connection._socket.bind(*addrAutoPtr.get());
+				debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Socket has been binded"));
+				_connection._socket.listen(1);
+				debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Socket has been switched to the listening state"));
+			}
+			bool connected = false;
 			while (true) {
-				if (shouldTerminate()) {
-					debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Message broker connection termination has been detected -> exiting from receiver thread"));
-					break;
-				}
-				if (_connection._socket.connected()) {
-					// Receiving message from the device
+				if (connected) {
+					// Has connection
+					if (shouldTerminate()) {
+						debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Message broker connection termination has been detected -> exiting from receiver thread"));
+						break;
+					}
+					// Connection established -> receiving message from the device
+					TcpSocket& transferSocket = isListening ? *_acceptedSocketAutoPtr.get() : _connection._socket;
 					std::auto_ptr<Msg> msgAutoPtr;
 					try {
-						msgAutoPtr = receiveMessage();
+						msgAutoPtr = receiveMessage(transferSocket, clockTimeout);
 					} catch (std::exception& e) {
 						onReceiveDataException(&e);
-						_connection._socket.close();
+						_connection._senderThreadAutoPtr->resetTransferSocket();
+						if (isListening) {
+							_acceptedSocketAutoPtr->close();
+							_acceptedSocketAutoPtr.reset();
+						} else {
+							_connection._socket.close();
+							_connection._socket.open();
+						}
+						connected = false;
 						onDisconnected(true);
-						_connection._socket.open();
 					} catch (...) {
 						onReceiveDataException();
-						_connection._socket.close();
+						_connection._senderThreadAutoPtr->resetTransferSocket();
+						if (isListening) {
+							_acceptedSocketAutoPtr->close();
+							_acceptedSocketAutoPtr.reset();
+						} else {
+							_connection._socket.close();
+							_connection._socket.open();
+						}
+						connected = false;
 						onDisconnected(true);
-						_connection._socket.open();
 					}
 					if (msgAutoPtr.get()) {
 						// Calling on receive message event callback
@@ -467,22 +484,41 @@ protected:
 						}
 					}
 				} else {
-					// Connecting to server
+					// No connection -> establishing a connection
 					try {
-						_connection._socket.connect(_connection._serverAddrInfo);
-						onConnected();
+						if (isListening) {
+							_acceptedSocketAutoPtr = _connection._socket.accept(clockTimeout);
+							if (!_acceptedSocketAutoPtr.get()) {
+								throw Exception(Error(SOURCE_LOCATION_ARGS, "Accepting TCP-connection error"));
+							}
+							onConnected(*_acceptedSocketAutoPtr.get());
+							_connection._senderThreadAutoPtr->setTransferSocket(*_acceptedSocketAutoPtr.get());
+						} else {
+							_connection._socket.connect(*addrAutoPtr.get());
+							onConnected(_connection._socket);
+							_connection._senderThreadAutoPtr->setTransferSocket(_connection._socket);
+						}
+						connected = true;
 					} catch (std::exception& e) {
 						onConnectException(&e);
-						MutexLocker locker(_sleepCond.mutex());
-						_sleepCond.wait(_connection._awaitingConnectionTimeout);
 					} catch (...) {
 						onConnectException();
-						MutexLocker locker(_sleepCond.mutex());
-						_sleepCond.wait(_connection._awaitingConnectionTimeout);
+					}
+					//! Waiting for subsystem's termination if no connection established
+					if (!connected) {
+						if (awaitShouldTerminate(clockTimeout)) {
+							debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Message broker connection termination has been detected -> exiting from receiver thread"));
+							break;
+						}
 					}
 				}
 			}
-			if (_connection._socket.connected()) {
+			if (connected) {
+				if (_acceptedSocketAutoPtr.get()) {
+					_acceptedSocketAutoPtr->close();
+					_acceptedSocketAutoPtr.reset();
+					debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Accepted socket has been closed"));
+				}
 				_connection._socket.close();
 				debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Socket has been closed"));
 				onDisconnected(false);
@@ -490,7 +526,7 @@ protected:
 		}
 
 		AbstractMessageBrokerConnection& _connection;
-		WaitCondition _sleepCond;
+		std::auto_ptr<TcpSocket> _acceptedSocketAutoPtr;
 	};
 	//! Consuming messages from message providers subscribed to and sending them to the network transport abstract thread class
 	class AbstractSenderThread : public Subsystem::AbstractThread
@@ -503,76 +539,78 @@ protected:
 		AbstractSenderThread(AbstractMessageBrokerConnection& connection) :
 			AbstractThread(connection),
 			_connection(connection),
-			_sleepCond(),
+			_tranferSocketPtr(0),
+			_tranferSocketCond(),
 			_consumeBuffer()
 		{}
-		//! Returning a reference to the network connection socket helper method
-		inline TcpSocket& socket()
-		{
-			return _connection._socket;
-		}
 	protected:
+		//! On connected event handler
+		/*!
+		  \param socket Reference to the connected socket
+		*/
+		virtual void onConnected(TcpSocket& socket)
+		{}
+		//! On disconnected event handler
+		/*!
+		  \param isConnectionAborted TRUE if the connection was aborted by peer or false if subsystem's stop occured
+		*/
+		virtual void onDisconnected(bool isConnectionAborted)
+		{}
 		//! On consume message from any provider event handler
 		/*!
-		  Default implementation records an entry to the ISL's debug log and returns true
+		  Default implementation does nothing and returns true
 
 		  \param msg Constant reference to the consumed message
 		  \return True if to proceed with the message or false to discard it
 		*/
 		virtual bool onConsumeMessage(const Msg& msg)
 		{
-			debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Message has been consumed from the input message queue"));
 			return true;
 		}
 		//! On send message to transport event handler
 		/*!
-		  Default implementation records an entry to the ISL's debug log
-
 		  \param msg Constant reference to the message has been sent
 		*/
 		virtual void onSendMessage(const Msg& msg)
-		{
-			std::ostringstream oss;
-			oss << "Message has been sent to " << _connection._serverAddrInfo.firstEndpoint().host << ':'
-				<< _connection._serverAddrInfo.firstEndpoint().port << " server";
-			debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, oss.str()));
-		}
+		{}
 		//! On send data to transport exception event handler
 		/*!
-		  Default implementation records an entry to the ISL's error log
-
 		  \param e Pointer to std::exception instance or 0 if exception is unknown
 		*/
 		virtual void onSendDataException(std::exception * e = 0)
-		{
-			std::ostringstream msg;
-			msg << "Sending data to " << _connection._serverAddrInfo.firstEndpoint().host << ':' <<
-				_connection._serverAddrInfo.firstEndpoint().port << " server ";
-			if (e) {
-				msg << "error";
-				errorLog().log(ExceptionLogMessage(SOURCE_LOCATION_ARGS, *e, msg.str()));
-			} else {
-				msg << "unknown error";
-				errorLog().log(LogMessage(SOURCE_LOCATION_ARGS, msg.str()));
-			}
-		}
+		{}
 		//! Sending message to transport abstract method
 		/*!
 		  \param msg Constant reference to message to send
+		  \param socket Socket to send data to
+		  \param timeout Data send timeout
 		  \return True if the message has been sent
 		*/
-		virtual bool sendMessage(const Msg& msg) = 0;
+		virtual bool sendMessage(const Msg& msg, TcpSocket& socket, const Timeout& timeout) = 0;
 	private:
+		inline void setTransferSocket(TcpSocket& transferSocket)
+		{
+			MutexLocker locker(_tranferSocketCond.mutex());
+			_tranferSocketPtr = &transferSocket;
+			_tranferSocketCond.wakeOne();
+		}
+		inline void resetTransferSocket()
+		{
+			MutexLocker locker(_tranferSocketCond.mutex());
+			_tranferSocketPtr = 0;
+		}
 		virtual void run()
 		{
 			debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Sender thread has been started"));
 			std::auto_ptr<Msg> currentMessageAutoPtr;
 			bool sendingMessage = false;
-			// Fetching providers to subscribe to
+			// Fetching runtime parameters
 			ProvidersContainer providers;
+			Timeout clockTimeout;
 			{
 				ReadLocker locker(_connection.runtimeParamsRWLock);
 				providers = _connection._providers;
+				clockTimeout = _connection._clockTimeout;
 			}
 			// Susbcribing input message queue to the providers
 			typename MessageProviderType::SubscriberListReleaser subscriberListReleaser;
@@ -582,40 +620,59 @@ protected:
 				subscriberAutoPtr.release();
 				debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Sender thread's input queue has been subscribed to the message provider"));
 			}
+			bool connected = false;
 			while (true) {
 				if (shouldTerminate()) {
 					debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Message broker connection termination has been detected -> exiting from sender thread"));
-					return;
+					break;
 				}
 				if (sendingMessage) {
-					if (_connection._socket.connected()) {
-						// Sending message to peer
-						bool messageSent = false;
-						try {
-							messageSent = sendMessage(*currentMessageAutoPtr.get());
-						} catch (std::exception& e) {
-							onSendDataException(&e);
-							MutexLocker locker(_sleepCond.mutex());
-							_sleepCond.wait(_connection._awaitingConnectionTimeout);
-							continue;
-						} catch (...) {
-							onSendDataException();
-							MutexLocker locker(_sleepCond.mutex());
-							_sleepCond.wait(_connection._awaitingConnectionTimeout);
-							continue;
+					bool sendDataExceptionOccured = false;
+					{
+						MutexLocker locker(_tranferSocketCond.mutex());
+						if (_tranferSocketPtr) {
+							// Has connection
+							if (!connected) {
+								// Connection established -> call event handler
+								connected = true;
+								onConnected(*_tranferSocketPtr);
+							}
+							bool messageSent = false;
+							try {
+								messageSent = sendMessage(*currentMessageAutoPtr.get(), *_tranferSocketPtr, clockTimeout);
+							} catch (std::exception& e) {
+								sendDataExceptionOccured = true;
+								onSendDataException(&e);
+							} catch (...) {
+								sendDataExceptionOccured = true;
+								onSendDataException();
+							}
+							if (messageSent) {
+								sendingMessage = false;
+								onSendMessage(*currentMessageAutoPtr.get());
+							}
+						} else {
+							// No connection
+							if (connected) {
+								// Connection has been dropped -> call event handler
+								connected = false;
+								onDisconnected(true);
+							}
+							// Waiting for connection to be established in the receiver thread
+							_tranferSocketCond.wait(clockTimeout);
 						}
-						if (messageSent) {
-							sendingMessage = false;
-							onSendMessage(*currentMessageAutoPtr.get());
+					}
+					if (sendDataExceptionOccured) {
+						// Wait a moment if send data exception has been occured
+						// TODO Remove it?
+						if (awaitShouldTerminate(clockTimeout)) {
+							debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Message broker connection termination has been detected -> exiting from timer thread"));
+							break;
 						}
-					} else {
-						// Waiting for socket to be connected
-						MutexLocker locker(_sleepCond.mutex());
-						_sleepCond.wait(_connection._awaitingConnectionTimeout);
 					}
 				} else if (_consumeBuffer.empty()) {
 					// Fetching all messages from the input to the consume buffer
-					size_t consumedMessagesAmount = _connection.inputQueue().popAll(_consumeBuffer, _connection._listeningInputQueueTimeout);
+					size_t consumedMessagesAmount = _connection.inputQueue().popAll(_consumeBuffer, clockTimeout);
 					if (consumedMessagesAmount > 0) {
 						std::ostringstream oss;
 						oss << consumedMessagesAmount << " message(s) has been fetched from the input queue to the consume buffer";
@@ -631,11 +688,17 @@ protected:
 					}
 				}
 			}
+			if (connected) {
+				onDisconnected(false);
+			}
 		}
 
 		AbstractMessageBrokerConnection& _connection;
-		WaitCondition _sleepCond;
+		TcpSocket * _tranferSocketPtr;
+		WaitCondition _tranferSocketCond;
 		MessageBufferType _consumeBuffer;
+
+		friend class AbstractReceiverThread;
 	};
 	//! Before subsystem's start event handler
 	virtual void beforeStart()
@@ -686,13 +749,13 @@ private:
 	typedef std::list<MessageProviderType *> ProvidersContainer;
 	typedef std::list<AbstractMessageConsumerType *> ConsumersContainer;
 
-	TcpAddrInfo _serverAddrInfo;
+	TcpAddrInfo _addr;
 	std::auto_ptr<MessageQueueType> _inputQueueAutoPtr;
 	MessageQueueType * _providedInputQueuePtr;
 	std::auto_ptr<MessageBusType> _outputBusAutoPtr;
 	MessageBusType * _providedOutputBusPtr;
-	const Timeout _listeningInputQueueTimeout;
-	const Timeout _awaitingConnectionTimeout;
+	bool _isListening;
+	const Timeout _clockTimeout;
 	std::auto_ptr<AbstractReceiverThread> _receiverThreadAutoPtr;
 	std::auto_ptr<AbstractSenderThread> _senderThreadAutoPtr;
 	TcpSocket _socket;

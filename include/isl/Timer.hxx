@@ -34,8 +34,8 @@ public:
 	*/
 	Timer(Subsystem * owner, const Timeout& clockTimeout = Timeout::defaultTimeout(),
 			const Timeout& adjustmentTimeout = Timeout(ISL__TIMER_ADJUSTMENT_TIMEOUT_SECONDS, ISL__TIMER_ADJUSTMENT_TIMEOUT_NANO_SECONDS));
-	//! Timestamps container
-	typedef std::vector<struct timespec> TimestampContainer;
+	//! Destructor
+	virtual ~Timer();
 	//! Abstract timer class task
 	class AbstractTask
 	{
@@ -55,10 +55,14 @@ public:
 		{}
 		//! Task execution asbtract virtual method
 		/*!
+		  Exception thrown from this method directs timer to terminate it's execution.
+
 		  \param timer Reference to timer
-		  \param expiredTimestamps Container with expired timestamps for the task
+		  \param lastExpiredTimestamp Last expired timestamp
+		  \param expiredTimestamps Expired timestamps amount
+		  \param timeout Task execution timeout in timer
 		*/
-		virtual void execute(Timer& timer, const TimestampContainer& expiredTimestamps) = 0;
+		virtual void execute(Timer& timer, const struct timespec& lastExpiredTimestamp, size_t expiredTimestamps, const Timeout& timeout) = 0;
 	private:
 		friend class Timer;
 	};
@@ -126,6 +130,13 @@ public:
 	  Timer's restart needed to activate changes.
 	*/
 	void resetTasks();
+protected:
+	//! On timer overload event handler
+	/*!
+	  \param ticksExpired Expired ticks amount (always >= 2 - it's an overload)
+	*/
+	virtual void onOverload(size_t ticksExpired)
+	{}
 private:
 	Timer();
 	Timer(const Timer&);								// No copy

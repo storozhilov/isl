@@ -2,7 +2,6 @@
 #define ISL__TCP_SOCKET__HXX
 
 #include <isl/AbstractIODevice.hxx>
-#include <isl/ReadWriteLock.hxx>
 #include <isl/TcpAddrInfo.hxx>
 #include <list>
 #include <string>
@@ -13,7 +12,7 @@ namespace isl
 
 //! TCP-socket implementation
 /*!
-  This is a TCP-socket implementation with asynchronous mode support - you can read from it in one thread and write to it in another one.
+  This is an asynchronous I/O-device - you can read from it in one thread and write to it in another one.
 */
 class TcpSocket : public AbstractIODevice
 {
@@ -31,12 +30,6 @@ public:
 	const TcpAddrInfo& localAddr() const;
 	//! Returns a constant reference to remote address info if socket has been connected or throws an exception otherwise
 	const TcpAddrInfo& remoteAddr() const;
-	//! Tread-safely returns connected status
-	inline bool connected() const
-	{
-		ReadLocker locker(_connectedRwLock);
-		return _connected;
-	}
 	//! Binds socket to an interface
 	/*!
 	  \param addrInfo Address info to bind to
@@ -63,11 +56,6 @@ private:
 
 	TcpSocket& operator=(const TcpSocket&);							// No copy
 
-	inline void setIsConnected(bool newIsConnected)
-	{
-		WriteLocker locker(_connectedRwLock);
-		_connected = newIsConnected;
-	}
 	void closeSocket();
 	void fetchPeersData();
 
@@ -77,10 +65,8 @@ private:
 	virtual size_t writeImplementation(const char * buffer, size_t bufferSize, const Timeout& timeout);
 
 	int _descriptor;
-	std::auto_ptr<TcpAddrInfo> _localAddr;
-	std::auto_ptr<TcpAddrInfo> _remoteAddr;
-	bool _connected;
-	mutable ReadWriteLock _connectedRwLock;
+	std::auto_ptr<TcpAddrInfo> _localAddrAutoPtr;
+	std::auto_ptr<TcpAddrInfo> _remoteAddrAutoPtr;
 
 	friend class AbstractTcpListener;
 
@@ -89,4 +75,3 @@ private:
 } // namespace isl
 
 #endif
-

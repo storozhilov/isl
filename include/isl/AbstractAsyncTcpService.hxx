@@ -52,11 +52,12 @@ protected:
 		  \param socket Reference to the client connection socket
 		*/
 		SharedStaff(TcpSocket& socket) :
+			runtimeParamsRwLock(),
 			_socketAutoPtr(&socket),
 			_refsCount(0),
-			_refsCountMutex(),
+			//_refsCountMutex(),
 			_shouldTerminate(false),
-			_shouldTerminateRwLock(),
+			//_shouldTerminateRwLock(),
 			_receiverTask(),
 			_senderTask()
 		{}
@@ -81,20 +82,30 @@ protected:
 		//! Returns true if the shared staff object considers that serving sould be terminated
 		inline bool shouldTerminate() const
 		{
-			ReadLocker locker(_shouldTerminateRwLock);
+			//ReadLocker locker(_shouldTerminateRwLock);
+			ReadLocker locker(runtimeParamsRwLock);
 			return _shouldTerminate;
 		}
-		//! Initiates serving terminateion
+		//! Initiates serving termination
 		inline bool setShouldTerminate(bool newValue)
 		{
-			WriteLocker locker(_shouldTerminateRwLock);
+			//WriteLocker locker(_shouldTerminateRwLock);
+			WriteLocker locker(runtimeParamsRwLock);
 			bool oldValue = _shouldTerminate;
 			_shouldTerminate = newValue;
 			return oldValue;
 		}
-		//! Shared staff initialization virtual method
+		//! Shared staff initialization virtual method which is to be called after constructor's call
 		virtual void init()
 		{}
+	protected:
+		//! Shared staff's runtime parameters R/W-lock
+		/*!
+		  Use it for thread-safely locking of any of your shared staff's runtime parameter.
+		  This memeber has been introduced in order to save system resources by using the same
+		  R/W-lock for all runtime parameters of the shared staff.
+		*/
+		mutable ReadWriteLock runtimeParamsRwLock;
 	private:
 		SharedStaff();
 		SharedStaff(const SharedStaff&);						// No copy
@@ -103,25 +114,28 @@ protected:
 
 		inline int incRef()
 		{
-			MutexLocker locker(_refsCountMutex);
+			//MutexLocker locker(_refsCountMutex);
+			WriteLocker locker(runtimeParamsRwLock);
 			return ++_refsCount;
 		}
 		inline int decRef()
 		{
-			MutexLocker locker(_refsCountMutex);
+			//MutexLocker locker(_refsCountMutex);
+			WriteLocker locker(runtimeParamsRwLock);
 			return --_refsCount;
 		}
 
 		std::auto_ptr<TcpSocket> _socketAutoPtr;
 		int _refsCount;
-		Mutex _refsCountMutex;
+		//Mutex _refsCountMutex;
 		bool _shouldTerminate;
-		mutable ReadWriteLock _shouldTerminateRwLock;
+		//mutable ReadWriteLock _shouldTerminateRwLock;
 		AbstractReceiverTask * _receiverTask;
 		AbstractSenderTask * _senderTask;
 
 		friend class AbstractReceiverTask;
 		friend class AbstractSenderTask;
+		friend class ListenerThread;
 	};
 
 	//! Asynchronous TCP-service listener thread. Feel free to subclass.
@@ -232,15 +246,6 @@ protected:
 		{
 			return _sharedStaffPtr->socket();
 		}
-	protected:
-		//! Returns true if task should be terminated
-		/*!
-		  \param worker Reference to the worker thread
-		*/
-		inline bool shouldTerminate(TaskDispatcher::WorkerThread& worker) const
-		{
-			return worker.shouldTerminate() || _sharedStaffPtr->shouldTerminate();
-		}
 	private:
 		AbstractReceiverTask();
 		AbstractReceiverTask(const AbstractReceiverTask&);						// No copy
@@ -267,6 +272,7 @@ protected:
 			_sharedStaffPtr->_senderTask = this;
 			_sharedStaffPtr->incRef();
 		}
+		//! Destructor
 		virtual ~AbstractSenderTask()
 		{
 			if (_sharedStaffPtr->decRef() <= 0) {
@@ -278,15 +284,6 @@ protected:
 		inline TcpSocket& socket() const
 		{
 			return _sharedStaffPtr->socket();
-		}
-	protected:
-		//! Returns true if task should be terminated
-		/*!
-		  \param worker Reference to the worker thread
-		*/
-		inline bool shouldTerminate(TaskDispatcher::WorkerThread& worker) const
-		{
-			return worker.shouldTerminate() || _sharedStaffPtr->shouldTerminate();
 		}
 	private:
 		AbstractSenderTask();

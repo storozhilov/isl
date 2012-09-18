@@ -28,6 +28,23 @@ struct timespec BasicDateTime::emptyTimeSpec()
 	return ts;
 }
 
+struct timespec BasicDateTime::makeTimeSpec(time_t sec, long int nsec)
+{
+	struct timespec ts;
+	ts.tv_sec = sec;
+	ts.tv_nsec = nsec;
+	return ts;
+}
+
+struct timespec BasicDateTime::nowTimeSpec()
+{
+	timespec ts;
+	if (clock_gettime(CLOCK_REALTIME, &ts) != 0) {
+		throw Exception(SystemCallError(SOURCE_LOCATION_ARGS, SystemCallError::ClockGetTime, errno, "Fetching current time error"));
+	}
+	return ts;
+}
+
 void BasicDateTime::resetTimeSpec(struct timespec& ts)
 {
 	ts.tv_sec = 0;
@@ -128,15 +145,6 @@ bool BasicDateTime::bdts2str(const struct tm& bdts, int nanoSecond, const std::s
 		}
 	}
 	return true;
-}
-
-struct timespec now()
-{
-	timespec ts;
-	if (clock_gettime(CLOCK_REALTIME, &ts) != 0) {
-		throw Exception(SystemCallError(SOURCE_LOCATION_ARGS, SystemCallError::ClockGetTime, errno, "Fetching current time error"));
-	}
-	return ts;
 }
 
 bool operator==(const struct timespec& lhs, const struct timespec& rhs)

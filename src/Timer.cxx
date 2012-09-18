@@ -19,6 +19,9 @@ Timer::Timer(Subsystem * owner, const Timeout& clockTimeout, const Timeout& adju
 	_thread(*this)
 {}
 
+Timer::~Timer()
+{}
+
 int Timer::registerTask(AbstractTask& task, const Timeout& timeout)
 {
 	if (timeout.isZero()) {
@@ -104,11 +107,10 @@ void Timer::Thread::run()
 		for (TaskContainer::iterator i = taskContainer.begin(); i != taskContainer.end(); ++i) {
 			i->taskPtr->onStart(_timer);
 		}
-		struct timespec lastTickTimestamp = now();
+		struct timespec lastTickTimestamp = BasicDateTime::nowTimeSpec();
 		// Execute any task for the first time
-		TimestampContainer tc(1, lastTickTimestamp);
 		for (TaskContainer::iterator i = taskContainer.begin(); i != taskContainer.end(); ++i) {
-			i->taskPtr->execute(_timer, tc);
+			i->taskPtr->execute(_timer, lastTickTimestamp, 1, i->timeout.timeSpec());
 			i->nextExecutionTimestamp = lastTickTimestamp + i->timeout.timeSpec();
 		}
 		// Timer's main loop
@@ -119,31 +121,32 @@ void Timer::Thread::run()
 			do {
 				++ticksExpired;
 				nextTickTimestamp += clockTimeout.timeSpec();
-				// TODO Check out too big delay
-			} while (nextTickTimestamp - adjustmentTimeout.timeSpec() < now());
+				// TODO Check out too big delay?
+			} while (nextTickTimestamp - adjustmentTimeout.timeSpec() < BasicDateTime::nowTimeSpec());
 			// Waiting until new tick is coming or termination detected
 			if (awaitShouldTerminate(Timeout::leftToLimit(nextTickTimestamp))) {
 				debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Timer thread termination detected -> exiting from timer thread"));
 				break;
 			}
-			// Reporting if the timer overload has been detected
+			// Reporting if the timer overload has been detected before awaiting
 			if (ticksExpired > 1) {
-				std::ostringstream msg;
-				msg << "Timer overload has been detected: " << ticksExpired << " ticks expired";
-				warningLog().log(LogMessage(SOURCE_LOCATION_ARGS, msg.str()));
+				_timer.onOverload(ticksExpired);
 			}
-			// Executing tasks if needed
+			// Executing expired tasks
 			for (TaskContainer::iterator i = taskContainer.begin(); i != taskContainer.end(); ++i) {
-				TimestampContainer expiredTimestamps;
+				size_t expiredTimestamps = 0;
+				struct timespec lastExpiredTimestamp;
 				while (i->nextExecutionTimestamp < nextTickTimestamp) {
-					expiredTimestamps.push_back(i->nextExecutionTimestamp);
+					lastExpiredTimestamp = i->nextExecutionTimestamp;
+					++expiredTimestamps;
 					i->nextExecutionTimestamp += i->timeout.timeSpec();
 				}
-				if (!expiredTimestamps.empty()) {
-					i->taskPtr->execute(_timer, expiredTimestamps);
+				if (expiredTimestamps > 0) {
+					i->taskPtr->execute(_timer, lastExpiredTimestamp, expiredTimestamps, i->timeout);
 				}
-				lastTickTimestamp = nextTickTimestamp;
 			}
+			// Switching to the next tick
+			lastTickTimestamp = nextTickTimestamp;
 		}
 		// Calling onStop event handler for any task
 		for (TaskContainer::iterator i = taskContainer.begin(); i != taskContainer.end(); ++i) {
