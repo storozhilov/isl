@@ -92,16 +92,96 @@ private:
 	const static int _monthDays[];
 };
 
+//! POSIX.1b structure comparison operator
+/*!
+  \param lhs Left handed side argument
+  \param rhs Right handed side argument
+  \return TRUE if comparison is truly
+*/
 bool operator==(const struct timespec& lhs, const struct timespec& rhs);
+//! POSIX.1b structure comparison operator
+/*!
+  \param lhs Left handed side argument
+  \param rhs Right handed side argument
+  \return TRUE if comparison is truly
+*/
 bool operator!=(const struct timespec& lhs, const struct timespec& rhs);
+//! POSIX.1b structure comparison operator
+/*!
+  \param lhs Left handed side argument
+  \param rhs Right handed side argument
+  \return TRUE if comparison is truly
+*/
 bool operator<(const struct timespec& lhs, const struct timespec& rhs);
+//! POSIX.1b structure comparison operator
+/*!
+  \param lhs Left handed side argument
+  \param rhs Right handed side argument
+  \return TRUE if comparison is truly
+*/
 bool operator<=(const struct timespec& lhs, const struct timespec& rhs);
+//! POSIX.1b structure comparison operator
+/*!
+  \param lhs Left handed side argument
+  \param rhs Right handed side argument
+  \return TRUE if comparison is truly
+*/
 bool operator>(const struct timespec& lhs, const struct timespec& rhs);
+//! POSIX.1b structure comparison operator
+/*!
+  \param lhs Left handed side argument
+  \param rhs Right handed side argument
+  \return TRUE if comparison is truly
+*/
 bool operator>=(const struct timespec& lhs, const struct timespec& rhs);
+//! POSIX.1b structure arithmetic operator
+/*!
+  \param lhs Left handed side argument
+  \param rhs Right handed side argument
+  \return Arithmetic operatoin result
+*/
 struct timespec operator+(const struct timespec& lhs, const struct timespec& rhs);
+//! POSIX.1b structure arithmetic operator
+/*!
+  \param lhs Left handed side argument
+  \param rhs Right handed side argument
+  \return Arithmetic operatoin result
+*/
 struct timespec& operator+=(struct timespec& lhs, const struct timespec& rhs);
+//! POSIX.1b structure arithmetic operator
+/*!
+  \param lhs Left handed side argument
+  \param rhs Right handed side argument
+  \return Arithmetic operatoin result
+*/
 struct timespec operator-(const struct timespec& lhs, const struct timespec& rhs);
+//! POSIX.1b structure arithmetic operator
+/*!
+  \param lhs Left handed side argument
+  \param rhs Right handed side argument
+  \return Arithmetic operatoin result
+*/
 struct timespec& operator-=(struct timespec& lhs, const struct timespec& rhs);
+
+//! POSIX.1b time structure comparison helper class
+/*!
+  Use it in <tt>std::map</tt> or <tt>std::multimap</tt> instantiation when
+  <tt>struct timespec</tt> value is used as key.
+*/
+class TimeSpecComp
+{
+public:
+	//! Comparison &quot;less than&quot; operator
+	/*!
+	  \param lhs Left handed side argument
+	  \param rhs Right handed side argument
+	  \return TRUE if lhs is less than rhs
+	*/
+	inline bool operator()(const struct timespec& lhs, const struct timespec& rhs)
+	{
+		return lhs < rhs;
+	}
+};
 
 } // namespace isl
 

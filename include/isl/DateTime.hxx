@@ -148,6 +148,16 @@ public:
 	    \return Formatted datetime value
 	*/
 	std::string toString(const std::string& format = std::string(DefaultFormat)) const;
+	//! Returns time part of the datetime value
+	inline DateTime time() const
+	{
+		return DateTime(0, 0, 0, hour(), minute(), second(), nanoSecond(), tz());
+	}
+	//! Returns date part of the datetime value
+	inline DateTime date() const
+	{
+		return DateTime(year(), month(), day(), 0, 0, 0, 0, tz());
+	}
 	//! Resets datetime value to the NULL one
 	void reset();
 	//! Sets datetime value

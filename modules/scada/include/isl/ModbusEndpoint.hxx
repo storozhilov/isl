@@ -14,7 +14,7 @@ namespace isl
 
   This class belongs to the SCADA module of the ISL. You should enable appropriate building option (see 'scons -h').
 */
-class ModbusDevice
+class ModbusEndpoint
 {
 public:
 	//! Baud rate
@@ -71,24 +71,24 @@ public:
 	//! Constructs Modbus/RTU endpoint
 	/*!
 	  \param serialDevice Serial device filename (e.g. /dev/ttyS0 or /dev/ttyUSB0)
-	  \param deviceId Id of the Modbus-endpoint
+	  \param id Id of the Modbus-endpoint
 	  \param baud Baud rate
 	  \param parity Parity
 	  \param dataBits Data bits
 	  \param stopBits Stop bits
 	*/
-	ModbusDevice(const std::string& serialDevice, int deviceId, Baud baud, Parity parity, DataBits dataBits, StopBits stopBits);
+	ModbusEndpoint(const std::string& serialDevice, int id, Baud baud, Parity parity, DataBits dataBits, StopBits stopBits);
 	//! Destructor
-	~ModbusDevice();
+	~ModbusEndpoint();
 	//! Returns constant reference to the serial device filename
 	inline const std::string& serialDevice() const
 	{
 		return _serialDevice;
 	}
 	//! Returns Id of the Modbus-endpoint
-	inline int deviceId() const
+	inline int id() const
 	{
-		return _deviceId;
+		return _id;
 	}
 	//! Returns baud rate
 	inline Baud baud() const
@@ -181,14 +181,14 @@ public:
 	*/
 	std::vector<uint16_t> writeAndReadRegisters(int writeAddr, const std::vector<uint16_t>& writeRegisters, int readAddr, int readRegistersAmount);
 private:
-	ModbusDevice();
+	ModbusEndpoint();
 
-	ModbusDevice(const ModbusDevice&);
-	ModbusDevice& operator=(const ModbusDevice&);
+	ModbusEndpoint(const ModbusEndpoint&);
+	ModbusEndpoint& operator=(const ModbusEndpoint&);
 
 	modbus_t * _ctx;
 	std::string _serialDevice;
-	int _deviceId;
+	int _id;
 	Baud _baud;
 	Parity _parity;
 	DataBits _dataBits;

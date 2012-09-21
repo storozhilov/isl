@@ -1,4 +1,4 @@
-#include <isl/ModbusDevice.hxx>
+#include <isl/ModbusEndpoint.hxx>
 #include <isl/ModbusError.hxx>
 #include <isl/Exception.hxx>
 #include <isl/Error.hxx>
@@ -8,10 +8,10 @@
 namespace isl
 {
 
-ModbusDevice::ModbusDevice(const std::string& serialDevice, int deviceId, Baud baud, Parity parity, DataBits dataBits, StopBits stopBits) :
+ModbusEndpoint::ModbusEndpoint(const std::string& serialDevice, int id, Baud baud, Parity parity, DataBits dataBits, StopBits stopBits) :
 	_ctx(),
 	_serialDevice(serialDevice),
-	_deviceId(deviceId),
+	_id(id),
 	_baud(baud),
 	_parity(parity),
 	_dataBits(dataBits),
@@ -166,32 +166,32 @@ ModbusDevice::ModbusDevice(const std::string& serialDevice, int deviceId, Baud b
 	if (!_ctx) {
 		throw Exception(ModbusError(SOURCE_LOCATION_ARGS, errno, "Error Modbus-RTU context creation"));
 	}
-	if (modbus_set_slave(_ctx, _deviceId) < 0) {
+	if (modbus_set_slave(_ctx, _id) < 0) {
 		modbus_free(_ctx);
-		throw Exception(ModbusError(SOURCE_LOCATION_ARGS, errno, "Error setting device ID"));
+		throw Exception(ModbusError(SOURCE_LOCATION_ARGS, errno, "Error setting endpoint ID"));
 	}
 }
 
-ModbusDevice::~ModbusDevice()
+ModbusEndpoint::~ModbusEndpoint()
 {
 	modbus_free(_ctx);
 }
 
-void ModbusDevice::open()
+void ModbusEndpoint::open()
 {
 	if (modbus_connect(_ctx) < 0) {
 		throw Exception(ModbusError(SOURCE_LOCATION_ARGS, errno, "Error opening modbus connection"));
 	}
 }
 
-void ModbusDevice::flush()
+void ModbusEndpoint::flush()
 {
 	if (modbus_flush(_ctx) < 0) {
 		throw Exception(ModbusError(SOURCE_LOCATION_ARGS, errno, "Error flushing non-transmitted modbus data"));
 	}
 }
 
-std::vector<uint8_t> ModbusDevice::readBits(int addr, int bitsAmount)
+std::vector<uint8_t> ModbusEndpoint::readBits(int addr, int bitsAmount)
 {
 	std::vector<uint8_t> bits(bitsAmount);
 	int bitsFetched = modbus_read_bits(_ctx, addr, bitsAmount, &bits[0]);
@@ -202,7 +202,7 @@ std::vector<uint8_t> ModbusDevice::readBits(int addr, int bitsAmount)
 	return bits;
 }
 
-std::vector<uint8_t> ModbusDevice::readInputBits(int addr, int bitsAmount)
+std::vector<uint8_t> ModbusEndpoint::readInputBits(int addr, int bitsAmount)
 {
 	std::vector<uint8_t> bits(bitsAmount);
 	int bitsFetched = modbus_read_input_bits(_ctx, addr, bitsAmount, &bits[0]);
@@ -213,7 +213,7 @@ std::vector<uint8_t> ModbusDevice::readInputBits(int addr, int bitsAmount)
 	return bits;
 }
 
-std::vector<uint16_t> ModbusDevice::readRegisters(int addr, int registersAmount)
+std::vector<uint16_t> ModbusEndpoint::readRegisters(int addr, int registersAmount)
 {
 	std::vector<uint16_t> registers(registersAmount);
 	int registersFetched = modbus_read_registers(_ctx, addr, registersAmount, &registers[0]);
@@ -224,7 +224,7 @@ std::vector<uint16_t> ModbusDevice::readRegisters(int addr, int registersAmount)
 	return registers;
 }
 
-std::vector<uint16_t> ModbusDevice::readInputRegisters(int addr, int registersAmount)
+std::vector<uint16_t> ModbusEndpoint::readInputRegisters(int addr, int registersAmount)
 {
 	std::vector<uint16_t> registers(registersAmount);
 	int registersFetched = modbus_read_input_registers(_ctx, addr, registersAmount, &registers[0]);
@@ -235,21 +235,21 @@ std::vector<uint16_t> ModbusDevice::readInputRegisters(int addr, int registersAm
 	return registers;
 }
 
-void ModbusDevice::writeBit(int addr, bool value)
+void ModbusEndpoint::writeBit(int addr, bool value)
 {
 	if (modbus_write_bit(_ctx, addr, value ? TRUE : FALSE) < 0) {
 		throw Exception(ModbusError(SOURCE_LOCATION_ARGS, errno, "Error writing bit"));
 	}
 }
 
-void ModbusDevice::writeRegister(int addr, uint16_t value)
+void ModbusEndpoint::writeRegister(int addr, uint16_t value)
 {
 	if (modbus_write_register(_ctx, addr, value) < 0) {
 		throw Exception(ModbusError(SOURCE_LOCATION_ARGS, errno, "Error writing register"));
 	}
 }
 
-int ModbusDevice::writeBits(int addr, const std::vector<uint8_t>& bits)
+int ModbusEndpoint::writeBits(int addr, const std::vector<uint8_t>& bits)
 {
 	int bitsWritten = modbus_write_bits(_ctx, addr, bits.size(), &bits[0]);
 	if (bitsWritten < 0) {
@@ -258,7 +258,7 @@ int ModbusDevice::writeBits(int addr, const std::vector<uint8_t>& bits)
 	return bitsWritten;
 }
 
-int ModbusDevice::writeRegisters(int addr, const std::vector<uint16_t>& registers)
+int ModbusEndpoint::writeRegisters(int addr, const std::vector<uint16_t>& registers)
 {
 	int registersWritten = modbus_write_registers(_ctx, addr, registers.size(), &registers[0]);
 	if (registersWritten < 0) {
@@ -267,7 +267,7 @@ int ModbusDevice::writeRegisters(int addr, const std::vector<uint16_t>& register
 	return registersWritten;
 }
 
-std::vector<uint16_t> ModbusDevice::writeAndReadRegisters(int writeAddr, const std::vector<uint16_t>& writeRegisters, int readAddr, int readRegistersAmount)
+std::vector<uint16_t> ModbusEndpoint::writeAndReadRegisters(int writeAddr, const std::vector<uint16_t>& writeRegisters, int readAddr, int readRegistersAmount)
 {
 	std::vector<uint16_t> readRegisters(readRegistersAmount);
 	int registersFetched = modbus_write_and_read_registers(_ctx, writeAddr, writeRegisters.size(), &writeRegisters[0], readAddr, readRegistersAmount, &readRegisters[0]);

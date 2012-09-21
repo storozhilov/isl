@@ -1,7 +1,7 @@
 #ifndef ISL__SENSOR__HXX
 #define ISL__SENSOR__HXX
 
-#include <isl/ModbusDevice.hxx>
+#include <isl/ModbusEndpoint.hxx>
 
 namespace isl
 {
@@ -12,10 +12,10 @@ class Sensor
 public:
 	//! Constructs a relay
 	/*!
-	  \param device Reference to the modbus device
+	  \param endpoint Reference to the modbus endpoint
 	  \param valueRegisterAddr Sensor register address 
 	*/
-	Sensor(ModbusDevice& device, int valueRegisterAddr);
+	Sensor(ModbusEndpoint& endpoint, int valueRegisterAddr);
 	//! Returns sensor register address
 	inline int valueRegisterAddr() const
 	{
@@ -23,7 +23,7 @@ public:
 	}
 	//! Returns current value
 	/*!
-	  Sends "read input registers" (0x04) modbus command to the device and returns the data from the respons
+	  Sends "read input registers" (0x04) modbus command to the endpoint and returns the data from the respons
 
 	  \return Sensor register value
 	*/
@@ -34,7 +34,7 @@ private:
 
 	Sensor& operator=(const Sensor&);						// No copy
 
-	ModbusDevice& _device;
+	ModbusEndpoint& _endpoint;
 	int _valueRegisterAddr;
 };
 

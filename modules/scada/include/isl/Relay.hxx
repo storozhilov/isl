@@ -1,7 +1,7 @@
 #ifndef ISL__RELAY__HXX
 #define ISL__RELAY__HXX
 
-#include <isl/ModbusDevice.hxx>
+#include <isl/ModbusEndpoint.hxx>
 
 namespace isl
 {
@@ -12,11 +12,11 @@ class Relay
 public:
 	//! Constructs a relay
 	/*!
-	  \param device Reference to the modbus device
+	  \param endpoint Reference to the modbus endpoint
 	  \param stateBitAddr State bit address
 	  \param feedbackBitAddr Feedback bit address or 0 if no feedback is provided by the relay
 	*/
-	Relay(ModbusDevice& device, int stateBitAddr, int feedbackBitAddr = 0);
+	Relay(ModbusEndpoint& endpoint, int stateBitAddr, int feedbackBitAddr = 0);
 	//! Returns state bit address
 	inline int stateBitAddr() const
 	{
@@ -27,23 +27,28 @@ public:
 	{
 		return _feedbackBitAddr;
 	}
+	//! Inspects if the relay has a feedback channel
+	inline bool hasFeedback() const
+	{
+		return _feedbackBitAddr > 0;
+	}
 	//! Returns relay state
 	/*!
-	  Sends "read coil status" (0x01) modbus command to the device and returns the data from the response
+	  Sends "read coil status" (0x01) modbus command to the endpoint and returns the data from the response
 
 	  \return Relay state
 	*/
 	bool state() const;
 	//! Sets the new relay state
 	/*!
-	  Sends "preset single register" (0x06) modbus command to the device.
+	  Sends "preset single register" (0x06) modbus command to the endpoint.
 
 	  \param newValue New relay state
 	*/
 	void setState(bool newValue);
 	//! Returns a feedback bit state
 	/*!
-	  Sends "read input status" (0x02) modbus command to the device and returns the data from the response
+	  Sends "read input status" (0x02) modbus command to the endpoint and returns the data from the response
 
 	  \return Relay relay feedback state
 	*/
@@ -54,7 +59,7 @@ private:
 
 	Relay& operator=(const Relay&);							// No copy
 
-	ModbusDevice& _device;
+	ModbusEndpoint& _endpoint;
 	int _stateBitAddr;
 	int _feedbackBitAddr;
 };

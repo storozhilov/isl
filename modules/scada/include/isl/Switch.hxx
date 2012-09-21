@@ -1,7 +1,7 @@
 #ifndef ISL__SWITCH__HXX
 #define ISL__SWITCH__HXX
 
-#include <isl/ModbusDevice.hxx>
+#include <isl/ModbusEndpoint.hxx>
 
 namespace isl
 {
@@ -12,10 +12,10 @@ class Switch
 public:
 	//! Constructs a relay
 	/*!
-	  \param device Reference to the modbus device
+	  \param endpoint Reference to the modbus endpoint
 	  \param stateBitAddr Switch state bit address 
 	*/
-	Switch(ModbusDevice& device, int stateBitAddr);
+	Switch(ModbusEndpoint& endpoint, int stateBitAddr);
 	//! Returns switch state bit address
 	inline int stateBitAddr() const
 	{
@@ -23,7 +23,7 @@ public:
 	}
 	//! Returns current switch state
 	/*!
-	  Sends "read input status" (0x02) modbus command to the device and returns the data from the response
+	  Sends "read input status" (0x02) modbus command to the endpoint and returns the data from the response
 
 	  \return Switch register value
 	*/
@@ -34,7 +34,7 @@ private:
 
 	Switch& operator=(const Switch&);						// No copy
 
-	ModbusDevice& _device;
+	ModbusEndpoint& _endpoint;
 	int _stateBitAddr;
 };
 

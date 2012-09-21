@@ -1,6 +1,8 @@
 #ifndef ISL__MESSAGE_QUEUE__HXX
 #define ISL__MESSAGE_QUEUE__HXX
 
+#include <isl/common.hxx>
+#include <isl/LogMessage.hxx>
 #include <isl/WaitCondition.hxx>
 #include <isl/AbstractMessageConsumer.hxx>
 #include <list>

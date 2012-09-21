@@ -3,14 +3,14 @@
 namespace isl
 {
 
-Switch::Switch(ModbusDevice& device, int stateBitAddr) :
-	_device(device),
+Switch::Switch(ModbusEndpoint& endpoint, int stateBitAddr) :
+	_endpoint(endpoint),
 	_stateBitAddr(stateBitAddr)
 {}
 
 bool Switch::state() const
 {
-	std::vector<uint8_t> bits = _device.readBits(_stateBitAddr, 1);
+	std::vector<uint8_t> bits = _endpoint.readBits(_stateBitAddr, 1);
 	return bits[0];
 }
 

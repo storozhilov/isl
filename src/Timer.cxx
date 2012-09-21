@@ -10,29 +10,32 @@ namespace isl
 // Timer
 //------------------------------------------------------------------------------
 
-Timer::Timer(Subsystem * owner, const Timeout& clockTimeout, const Timeout& adjustmentTimeout) :
+Timer::Timer(Subsystem * owner, const Timeout& clockTimeout, const Timeout& adjustmentTimeout,
+			size_t maxScheduledTaskAmount) :
 	Subsystem(owner),
 	_clockTimeout(clockTimeout),
 	_adjustmentTimeout(adjustmentTimeout),
-	_lastTaskId(0),
-	_taskMap(),
+	_maxScheduledTaskAmount(maxScheduledTaskAmount),
+	_lastPeriodicTaskId(0),
+	_periodicTaskMap(),
+	_scheduledTaskMap(),
 	_thread(*this)
 {}
 
 Timer::~Timer()
 {}
 
-int Timer::registerTask(AbstractTask& task, const Timeout& timeout)
+int Timer::registerPeriodicTask(AbstractTask& task, const Timeout& timeout)
 {
 	if (timeout.isZero()) {
 		throw Exception(Error(SOURCE_LOCATION_ARGS, "Zero timeout is not permitted"));
 	}
 	WriteLocker locker(runtimeParamsRWLock);
-	_taskMap.insert(TaskMap::value_type(++_lastTaskId, TaskMapValue(&task, timeout)));
-	return _lastTaskId;
+	_periodicTaskMap.insert(PeriodicTaskMap::value_type(++_lastPeriodicTaskId, PeriodicTaskMapValue(&task, timeout)));
+	return _lastPeriodicTaskId;
 }
 
-void Timer::updateTask(int taskId, const Timeout& newTimeout)
+void Timer::updatePeriodicTask(int taskId, const Timeout& newTimeout)
 {
 	if (newTimeout.isZero()) {
 		throw Exception(Error(SOURCE_LOCATION_ARGS, "Zero timeout is not permitted"));
@@ -40,8 +43,8 @@ void Timer::updateTask(int taskId, const Timeout& newTimeout)
 	bool taskNotFound = false;
 	{
 		WriteLocker locker(runtimeParamsRWLock);
-		TaskMap::iterator pos = _taskMap.find(taskId);
-		if (pos == _taskMap.end()) {
+		PeriodicTaskMap::iterator pos = _periodicTaskMap.find(taskId);
+		if (pos == _periodicTaskMap.end()) {
 			taskNotFound = true;
 		} else {
 			pos->second.second = newTimeout;
@@ -54,16 +57,16 @@ void Timer::updateTask(int taskId, const Timeout& newTimeout)
 	}
 }
 
-void Timer::removeTask(int taskId)
+void Timer::removePeriodicTask(int taskId)
 {
 	bool taskNotFound = false;
 	{
 		WriteLocker locker(runtimeParamsRWLock);
-		TaskMap::iterator pos = _taskMap.find(taskId);
-		if (pos == _taskMap.end()) {
+		PeriodicTaskMap::iterator pos = _periodicTaskMap.find(taskId);
+		if (pos == _periodicTaskMap.end()) {
 			taskNotFound = true;
 		} else {
-			_taskMap.erase(pos);
+			_periodicTaskMap.erase(pos);
 		}
 	}
 	if (taskNotFound) {
@@ -73,10 +76,20 @@ void Timer::removeTask(int taskId)
 	}
 }
 
-void Timer::resetTasks()
+void Timer::resetPeriodicTasks()
 {
 	WriteLocker locker(runtimeParamsRWLock);
-	_taskMap.clear();
+	_periodicTaskMap.clear();
+}
+
+bool Timer::scheduleTask(AbstractTask& task, const Timeout& timeout)
+{
+	WriteLocker locker(runtimeParamsRWLock);
+	if (_scheduledTaskMap.size() >= _maxScheduledTaskAmount) {
+		return false;
+	}
+	_scheduledTaskMap.insert(ScheduledTaskMap::value_type(timeout.limit(), &task));
+	return true;
 }
 
 //------------------------------------------------------------------------------
@@ -94,22 +107,22 @@ void Timer::Thread::run()
 	try {
 		Timeout clockTimeout;
 		Timeout adjustmentTimeout;
-		TaskContainer taskContainer;
+		PeriodicTaskContainer periodicTasks;
 		{
 			ReadLocker locker(_timer.runtimeParamsRWLock);
 			clockTimeout = _timer._clockTimeout;
 			adjustmentTimeout = _timer._adjustmentTimeout;
-			for (TaskMap::const_iterator i = _timer._taskMap.begin(); i != _timer._taskMap.end(); ++i) {
-				taskContainer.push_back(TaskContainerItem(i->second.first, i->second.second));
+			for (PeriodicTaskMap::const_iterator i = _timer._periodicTaskMap.begin(); i != _timer._periodicTaskMap.end(); ++i) {
+				periodicTasks.push_back(PeriodicTaskContainerItem(i->second.first, i->second.second));
 			}
 		}
-		// Calling onStart event handler for any task
-		for (TaskContainer::iterator i = taskContainer.begin(); i != taskContainer.end(); ++i) {
+		// Calling onStart event handler for any periodic task
+		for (PeriodicTaskContainer::iterator i = periodicTasks.begin(); i != periodicTasks.end(); ++i) {
 			i->taskPtr->onStart(_timer);
 		}
 		struct timespec lastTickTimestamp = BasicDateTime::nowTimeSpec();
-		// Execute any task for the first time
-		for (TaskContainer::iterator i = taskContainer.begin(); i != taskContainer.end(); ++i) {
+		// Execute any periodic task for the first time
+		for (PeriodicTaskContainer::iterator i = periodicTasks.begin(); i != periodicTasks.end(); ++i) {
 			i->taskPtr->execute(_timer, lastTickTimestamp, 1, i->timeout.timeSpec());
 			i->nextExecutionTimestamp = lastTickTimestamp + i->timeout.timeSpec();
 		}
@@ -132,8 +145,8 @@ void Timer::Thread::run()
 			if (ticksExpired > 1) {
 				_timer.onOverload(ticksExpired);
 			}
-			// Executing expired tasks
-			for (TaskContainer::iterator i = taskContainer.begin(); i != taskContainer.end(); ++i) {
+			// Executing expired periodic tasks
+			for (PeriodicTaskContainer::iterator i = periodicTasks.begin(); i != periodicTasks.end(); ++i) {
 				size_t expiredTimestamps = 0;
 				struct timespec lastExpiredTimestamp;
 				while (i->nextExecutionTimestamp < nextTickTimestamp) {
@@ -145,11 +158,22 @@ void Timer::Thread::run()
 					i->taskPtr->execute(_timer, lastExpiredTimestamp, expiredTimestamps, i->timeout);
 				}
 			}
+			// Executing expired scheduled tasks
+			ScheduledTaskMap expiredScheduledTasks;
+			{
+				ReadLocker locker(_timer.runtimeParamsRWLock);
+				ScheduledTaskMap::iterator pos = _timer._scheduledTaskMap.upper_bound(nextTickTimestamp);
+				expiredScheduledTasks.insert(_timer._scheduledTaskMap.begin(), pos);
+				_timer._scheduledTaskMap.erase(_timer._scheduledTaskMap.begin(), pos);
+			}
+			for (ScheduledTaskMap::iterator i = expiredScheduledTasks.begin(); i != expiredScheduledTasks.end(); ++i) {
+				i->second->execute(_timer, i->first, 1, Timeout());
+			}
 			// Switching to the next tick
 			lastTickTimestamp = nextTickTimestamp;
 		}
-		// Calling onStop event handler for any task
-		for (TaskContainer::iterator i = taskContainer.begin(); i != taskContainer.end(); ++i) {
+		// Calling onStop event handler for any periodic task
+		for (PeriodicTaskContainer::iterator i = periodicTasks.begin(); i != periodicTasks.end(); ++i) {
 			i->taskPtr->onStop(_timer);
 		}
 	} catch (std::exception& e) {

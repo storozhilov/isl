@@ -1,31 +1,53 @@
 #include <isl/common.hxx>
 #include <isl/Server.hxx>
-#include <isl/SignalHandler.hxx>
 #include <isl/Timer.hxx>
 #include <isl/LogMessage.hxx>
 #include <isl/FileLogTarget.hxx>
 #include <iostream>
 
-class TimerTask : public isl::Timer::AbstractTask
+class ScheduledTask : public isl::Timer::AbstractTask
 {
 public:
-	TimerTask() :
+	ScheduledTask() :
 		isl::Timer::AbstractTask()
 	{}
 private:
 	virtual void execute(isl::Timer& timer, const struct timespec& lastExpiredTimestamp, size_t expiredTimestamps, const isl::Timeout& timeout)
 	{
 		std::ostringstream msg;
-		msg << "Timer task execution has been fired. Last expired timestamp: {" << isl::DateTime(lastExpiredTimestamp).toString() <<
+		msg << "Scheduled task execution has been fired. Last expired timestamp: {" << isl::DateTime(lastExpiredTimestamp).toString() <<
+			"}, expired timestamps: " << expiredTimestamps << ", task execution timeout: {" << timeout.timeSpec().tv_sec << ", " <<
+			timeout.timeSpec().tv_nsec << "}";
+		isl::debugLog().log(isl::LogMessage(SOURCE_LOCATION_ARGS, msg.str()));
+	}
+};
+
+class PeriodicTask : public isl::Timer::AbstractTask
+{
+public:
+	PeriodicTask(ScheduledTask& scheduledTask) :
+		isl::Timer::AbstractTask(),
+		_scheduledTask(scheduledTask)
+	{}
+private:
+	PeriodicTask();
+
+	virtual void execute(isl::Timer& timer, const struct timespec& lastExpiredTimestamp, size_t expiredTimestamps, const isl::Timeout& timeout)
+	{
+		timer.scheduleTask(_scheduledTask, isl::Timeout(1));
+		std::ostringstream msg;
+		msg << "Periodic task execution has been fired. Last expired timestamp: {" << isl::DateTime(lastExpiredTimestamp).toString() <<
 			"}, expired timestamps: " << expiredTimestamps << ", task execution timeout: {" << timeout.timeSpec().tv_sec << ", " <<
 			timeout.timeSpec().tv_nsec << "}";
 		isl::debugLog().log(isl::LogMessage(SOURCE_LOCATION_ARGS, msg.str()));
 		// Sleep alittle
-		struct timespec ts;
+		/*struct timespec ts;
 		ts.tv_sec = 0;
 		ts.tv_nsec = 500000000;
-		nanosleep(&ts, 0);
+		nanosleep(&ts, 0);*/
 	}
+
+	ScheduledTask& _scheduledTask;
 };
 
 class Timer : public isl::Timer
@@ -44,16 +66,17 @@ private:
 	}
 };
 
+//class TimerServer : public isl::Server
 class TimerServer : public isl::Server
 {
 public:
 	TimerServer(int argc, char * argv[]) :
 		isl::Server(argc, argv),
-		_signalHandler(this),
 		_timer(this),
-		_timerTask()
+		_scheduledTask(),
+		_periodicTask(_scheduledTask)
 	{
-		_timer.registerTask(_timerTask, isl::Timeout(5));
+		_timer.registerPeriodicTask(_periodicTask, isl::Timeout(5));
 	}
 private:
 	TimerServer();
@@ -76,9 +99,9 @@ private:
 		isl::debugLog().log(isl::LogMessage(SOURCE_LOCATION_ARGS, "Server has been stopped"));
 	}
 
-	isl::SignalHandler _signalHandler;					// We need a signal handler to stop/restart server
 	Timer _timer;
-	TimerTask _timerTask;
+	ScheduledTask _scheduledTask;
+	PeriodicTask _periodicTask;
 };
 
 int main(int argc, char *argv[])

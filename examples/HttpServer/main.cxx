@@ -1,5 +1,4 @@
 #include <isl/Server.hxx>
-#include <isl/SignalHandler.hxx>
 #include <isl/AbstractSyncTcpService.hxx>
 #include <isl/Exception.hxx>
 #include <isl/HttpRequestReader.hxx>
@@ -9,7 +8,7 @@
 #include <sstream>
 
 #define LISTEN_PORT 8888			// TCP-port to listen to
-#define MAX_CLIENTS 10				// Max clients to served simultaneously
+#define MAX_CLIENTS 10				// Max clients to be served simultaneously
 #define TRANSMISSION_SECONDS_TIMEOUT 60		// Data transmission timeout in seconds
 
 // Our HTTP-service subsystem class
@@ -102,7 +101,6 @@ class HttpServer : public isl::Server
 public:
 	HttpServer(int argc, char * argv[]) :
 		isl::Server(argc, argv),
-		_signalHandler(this),
 		_httpService(this)
 	{}
 private:
@@ -126,7 +124,6 @@ private:
 		isl::debugLog().log(isl::LogMessage(SOURCE_LOCATION_ARGS, "Server has been stopped"));
 	}
 
-	isl::SignalHandler _signalHandler;					// We need a signal handler to stop/restart server
 	HttpService _httpService;
 };
 

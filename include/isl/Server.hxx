@@ -1,20 +1,19 @@
 #ifndef ISL__SERVER__HXX
 #define ISL__SERVER__HXX
 
-#include <isl/WaitCondition.hxx>
 #include <isl/Subsystem.hxx>
+#include <isl/SignalSet.hxx>
+#include <isl/MessageQueue.hxx>
 #include <vector>
-#include <deque>
 
 namespace isl
 {
 
 //! Base class for server
 /*!
-  Starting & stopping server could not be done directly by start() & stop() methods cause it should be done in main thread.
-  You should use doStart(), doStop(), doExit() methods which are sends command to the main thread to make an appropriate action.
-
-  TODO Use MessageQueue<Command> for commands queue?
+  Server has a main loop which is to be executed by run() method from the application's main
+  thread - this is because UNIX-signals should be blocked in main thread only.
+  Main loop is awaits for incoming UNIX-signals or commands and reacts respectively.
 */
 class Server : public Subsystem
 {
@@ -23,11 +22,14 @@ public:
 	/*!
 	  \param argc Command-line arguments amount
 	  \param argv Command-line arguments array
+	  \param trackSignals UNIX-signals set to track
+	  \param clockTimeout Subsystem's clock timeout
 	*/
-	Server(int argc, char * argv[]);
-	//! Runs the server
+	Server(int argc, char * argv[], const SignalSet& trackSignals = SignalSet(3, SIGHUP, SIGINT, SIGTERM),
+			const Timeout& clockTimeout = Timeout::defaultTimeout());
+	//! Executes the server
 	/*!
-	  Call this method from the main thread only!
+	  \note Call this method from the application's main thread only.
 	*/
 	void run();
 	//! Returns command-line arguments amount
@@ -40,51 +42,72 @@ public:
 	{
 		return _argv.at(argNo);
 	}
-	//! Sends start command to the server
-	void doStart()
+	//! Returns all command-line arguments
+	inline const std::vector<std::string>& argv() const
 	{
-		sendCommand(StartCommand);
+		return _argv;
 	}
-	//! Sends stop command to the server
-	void doStop()
+	//! Sends restart command to the server
+	/*!
+	  \return TRUE if the command has been accepted by the server
+	*/
+	inline bool doRestart()
 	{
-		sendCommand(StopCommand);
+		return sendCommand(RestartCommand);
 	}
-	//! Sends exit command to the server
-	void doExit()
+	//! Sends terminate command to the server
+	/*!
+	  \return TRUE if the command has been accepted by the server
+	*/
+	inline bool doTerminate()
 	{
-		sendCommand(ExitCommand);
+		return sendCommand(TerminateCommand);
 	}
 protected:
+	//! Starting method redefinition to make in protected
+	inline void start()
+	{
+		Subsystem::start();
+	}
+	//! Stopping method redefinition to make in protected
+	inline void stop()
+	{
+		Subsystem::stop();
+	}
 	//! Before run event handler
 	virtual void beforeRun()
 	{}
 	//! After run event handler
 	virtual void afterRun()
 	{}
+	//! On signal event handler
+	/*!
+	  \param signo UNIX-signal number
+	  \return TRUE if to continue execution or FALSE otherwise
+	*/
+	virtual bool onSignal(int signo);
 private:
 	enum Command {
-		StopCommand,
-		StartCommand,
-		ExitCommand
+		RestartCommand,
+		TerminateCommand
 	};
-	enum PrivateConstants {
-		MaxCommandQueueSize = 16
-	};
-
 	Server();
 	Server(const Server&);						// No copy
 
 	Server& operator=(const Server&);				// No copy
 
-	void sendCommand(Command cmd);
+	inline bool sendCommand(Command cmd)
+	{
+		return _commandsQueue.push(cmd);
+	}
 
 	std::vector<std::string> _argv;
-	std::deque<Command> _commandsQueue;
-	WaitCondition _commandsCond;
+	SignalSet _trackSignals;
+	Timeout _clockTimeout;
+	MessageQueue<Command> _commandsQueue;
+	sigset_t _initialSignalMask;
 };
 
 } // namespace isl
 
 #endif
-

@@ -13,6 +13,9 @@
 #ifndef ISL__TIMER_ADJUSTMENT_TIMEOUT_NANO_SECONDS
 #define ISL__TIMER_ADJUSTMENT_TIMEOUT_NANO_SECONDS 10000000		// 10 milliseconds
 #endif
+#ifndef ISL__TIMER_MAX_SCHEDULED_TASK_AMOUNT
+#define ISL__TIMER_MAX_SCHEDULED_TASK_AMOUNT 1024
+#endif
 
 namespace isl
 {
@@ -22,6 +25,8 @@ namespace isl
   Timer starts up one thread and executes any of registered tasks during running. You should
   implement Timer::AbstractTask class descendant and register it in timer in order to bring
   it work.
+
+  TODO Reset scheduled tasks map after stop?
 */
 class Timer : public Subsystem
 {
@@ -31,9 +36,11 @@ public:
 	  \param owner Pointer to owner subsystem
 	  \param clockTimeout Timer clock timeout
 	  \param adjustmentTimeout Timer adjustment timeout which is used in determination of the next unexpired timer tick
+	  \param maxScheduledTaskAmount Maximum amount of scheduled tasks
 	*/
 	Timer(Subsystem * owner, const Timeout& clockTimeout = Timeout::defaultTimeout(),
-			const Timeout& adjustmentTimeout = Timeout(ISL__TIMER_ADJUSTMENT_TIMEOUT_SECONDS, ISL__TIMER_ADJUSTMENT_TIMEOUT_NANO_SECONDS));
+			const Timeout& adjustmentTimeout = Timeout(ISL__TIMER_ADJUSTMENT_TIMEOUT_SECONDS, ISL__TIMER_ADJUSTMENT_TIMEOUT_NANO_SECONDS),
+			size_t maxScheduledTaskAmount = ISL__TIMER_MAX_SCHEDULED_TASK_AMOUNT);
 	//! Destructor
 	virtual ~Timer();
 	//! Abstract timer class task
@@ -101,36 +108,48 @@ public:
 		WriteLocker locker(runtimeParamsRWLock);
 		_adjustmentTimeout = newValue;
 	}
-	//! Registers task in timer
+	//! Registers periodic task in timer
 	/*!
 	  Timer's restart needed to activate changes.
 
 	  \param task Reference to task to register
-	  \param timeout Task execution timeout
+	  \param timeout Task execution period timeout
 	  \return Task ID
 	*/
-	int registerTask(AbstractTask& task, const Timeout& timeout);
-	//! Updates registered task in timer
+	int registerPeriodicTask(AbstractTask& task, const Timeout& timeout);
+	//! Updates registered periodic task in timer
 	/*!
 	  Timer's restart needed to activate changes.
 
 	  \param taskId Task ID to update
-	  \param newTimeout New task execution timeout
+	  \param newTimeout New task execution period timeout
 	*/
-	void updateTask(int taskId, const Timeout& newTimeout);
-	//! Removes registered task in timer
+	void updatePeriodicTask(int taskId, const Timeout& newTimeout);
+	//! Removes registered preiodic task in timer
 	/*!
 	  Timer's restart needed to activate changes.
 
 	  \param taskId Task ID to remove
 	*/
-	void removeTask(int taskId);
+	void removePeriodicTask(int taskId);
 	//! Removes all registered tasks from the timer
 	/*!
 	  Timer's restart needed to activate changes.
 	*/
-	void resetTasks();
+	void resetPeriodicTasks();
+	//! Schedule a task for single execution
+	/*!
+	  \param task Reference to task to schedule
+	  \param timeout Timeout to wait for the task execution from now
+	  \return TRUE if task has been successfully scheduled or FALSE if the scheduled task container has been overflowed
+	*/
+	bool scheduleTask(AbstractTask& task, const Timeout& timeout);
 protected:
+	//! After stop event handler redefinition
+        inline virtual void afterStop()
+	{
+		_scheduledTaskMap.clear();
+	}
 	//! On timer overload event handler
 	/*!
 	  \param ticksExpired Expired ticks amount (always >= 2 - it's an overload)
@@ -143,8 +162,9 @@ private:
 
 	Timer& operator=(const Timer&);							// No copy
 
-	typedef std::pair<AbstractTask *, Timeout> TaskMapValue;
-	typedef std::map<int, TaskMapValue> TaskMap;
+	typedef std::pair<AbstractTask *, Timeout> PeriodicTaskMapValue;
+	typedef std::map<int, PeriodicTaskMapValue> PeriodicTaskMap;
+	typedef std::multimap<struct timespec, AbstractTask *, TimeSpecComp> ScheduledTaskMap;
 
 	class Thread : public AbstractThread
 	{
@@ -156,19 +176,19 @@ private:
 
 		Thread& operator=(const Thread&);					// No copy
 
-		struct TaskContainerItem
+		struct PeriodicTaskContainerItem
 		{
 			AbstractTask * taskPtr;
 			Timeout timeout;
 			struct timespec nextExecutionTimestamp;
 
-			TaskContainerItem(AbstractTask * taskPtr, const Timeout& timeout) :
+			PeriodicTaskContainerItem(AbstractTask * taskPtr, const Timeout& timeout) :
 				taskPtr(taskPtr),
 				timeout(timeout),
 				nextExecutionTimestamp()
 			{}
 		};
-		typedef std::list<TaskContainerItem> TaskContainer;
+		typedef std::list<PeriodicTaskContainerItem> PeriodicTaskContainer;
 
 		bool hasPendingSignals() const;
 		int extractPendingSignal() const;
@@ -180,8 +200,10 @@ private:
 
 	Timeout _clockTimeout;
 	Timeout _adjustmentTimeout;
-	int _lastTaskId;
-	TaskMap _taskMap;
+	size_t _maxScheduledTaskAmount;
+	int _lastPeriodicTaskId;
+	PeriodicTaskMap _periodicTaskMap;
+	ScheduledTaskMap _scheduledTaskMap;
 	Thread _thread;
 };
 

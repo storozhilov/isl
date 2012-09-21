@@ -49,6 +49,7 @@ public:
 		SigDelSet,
 		SigPending,
 		SigWait,
+		SigTimedWait,
 		// I/O functions
 		Socket,
 		Fcntl,
@@ -199,6 +200,8 @@ protected:
 				return "sigpending(2)";
 			case SigWait:
 				return "sigwait(2)";
+			case SigTimedWait:
+				return "sigtimedwait(2)";
 			// I/O functions
 			case Socket:
 				return "socket(2)";
