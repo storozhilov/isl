@@ -14,7 +14,7 @@ public:
 	/*!
 	  \param endpoint Reference to the modbus endpoint
 	  \param stateBitAddr State bit address
-	  \param feedbackBitAddr Feedback bit address or 0 if no feedback is provided by the relay
+	  \param feedbackBitAddr Feedback state input bit address or 0 if no feedback is provided by the relay
 	*/
 	Relay(ModbusEndpoint& endpoint, int stateBitAddr, int feedbackBitAddr = 0);
 	//! Returns state bit address
@@ -41,12 +41,12 @@ public:
 	bool state() const;
 	//! Sets the new relay state
 	/*!
-	  Sends "preset single register" (0x06) modbus command to the endpoint.
+	  Sends "force single coil" (0x05) modbus command to the endpoint.
 
 	  \param newValue New relay state
 	*/
 	void setState(bool newValue);
-	//! Returns a feedback bit state
+	//! Returns a feedback state
 	/*!
 	  Sends "read input status" (0x02) modbus command to the endpoint and returns the data from the response
 
