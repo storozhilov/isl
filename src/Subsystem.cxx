@@ -12,7 +12,8 @@ Subsystem::Subsystem(Subsystem * owner) :
 	_owner(owner),
 	_children(),
 	_threads(),
-	_startStopMutex()
+	_shouldTerminate(false),
+	_shouldTerminateCond()
 {
 	if (_owner) {
 		_owner->registerChild(this);
@@ -32,7 +33,7 @@ Subsystem::~Subsystem()
 
 void Subsystem::start()
 {
-	MutexLocker locker(_startStopMutex);
+	_shouldTerminate = false;
 	beforeStart();
 	startImpl();
 	afterStart();
@@ -40,7 +41,12 @@ void Subsystem::start()
 
 void Subsystem::stop()
 {
-	MutexLocker locker(_startStopMutex);
+	{
+		// Setting termination flag and waking all threads
+		MutexLocker locker(_shouldTerminateCond.mutex());
+		_shouldTerminate = true;
+		_shouldTerminateCond.wakeAll();
+	}
 	beforeStop();
 	stopImpl();
 	afterStop();
@@ -54,7 +60,6 @@ void Subsystem::startImpl()
 	}
 	// Starting threads
 	for (Threads::iterator i = _threads.begin(); i != _threads.end(); ++i) {
-		(*i)->setShouldTerminate(false);
 		if ((*i)->autoStart()) {
 			(*i)->start();
 		}
@@ -65,8 +70,7 @@ void Subsystem::stopImpl()
 {
 	// Stopping threads (TODO Timed join & killing thread if it has not been terminated)
 	for (Threads::iterator i = _threads.begin(); i != _threads.end(); ++i) {
-		if ((*i)->autoStop()) {
-			(*i)->setShouldTerminate(true);
+		if ((*i)->autoJoin()) {
 			(*i)->join();
 		}
 	}
@@ -114,13 +118,11 @@ void Subsystem::unregisterThread(Subsystem::AbstractThread * thread)
 // Subsystem::AbstractThread
 //------------------------------------------------------------------------------
 
-Subsystem::AbstractThread::AbstractThread(Subsystem& subsystem, bool autoStart, bool autoStop, bool isTrackable, bool awaitStartup) :
+Subsystem::AbstractThread::AbstractThread(Subsystem& subsystem, bool autoStart, bool autoJoin, bool isTrackable, bool awaitStartup) :
 	::isl::AbstractThread(isTrackable, awaitStartup),
 	_subsystem(subsystem),
 	_autoStart(autoStart),
-	_autoStop(autoStop),
-	_shouldTerminate(false),
-	_shouldTerminateCond()
+	_autoJoin(autoJoin)
 {
 	_subsystem.registerThread(this);
 }
@@ -132,25 +134,18 @@ Subsystem::AbstractThread::~AbstractThread()
 
 bool Subsystem::AbstractThread::shouldTerminate()
 {
-	MutexLocker locker(_shouldTerminateCond.mutex());
-	return _shouldTerminate;
+	MutexLocker locker(_subsystem._shouldTerminateCond.mutex());
+	return _subsystem._shouldTerminate;
 }
 
 bool Subsystem::AbstractThread::awaitShouldTerminate(Timeout timeout)
 {
-	MutexLocker locker(_shouldTerminateCond.mutex());
-	if (_shouldTerminate) {
+	MutexLocker locker(_subsystem._shouldTerminateCond.mutex());
+	if (_subsystem._shouldTerminate) {
 		return true;
 	}
-	_shouldTerminateCond.wait(timeout);
-	return _shouldTerminate;
-}
-
-void Subsystem::AbstractThread::setShouldTerminate(bool newValue)
-{
-	MutexLocker locker(_shouldTerminateCond.mutex());
-	_shouldTerminate = newValue;
-	_shouldTerminateCond.wakeAll();
+	_subsystem._shouldTerminateCond.wait(timeout);
+	return _subsystem._shouldTerminate;
 }
 
 } // namespace isl

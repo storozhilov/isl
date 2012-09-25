@@ -34,8 +34,14 @@ public:
 		return _owner;
 	}
 	//! Asynchronously starts subsystem
+	/*!
+	  \note This method is not thread-safe - you should do you own synchronization if needed.
+	*/
 	void start();
 	//! Synchronously stops subsystem
+	/*!
+	  \note This method is not thread-safe - you should do you own synchronization if needed.
+	*/
 	void stop();
 protected:
 	//! Subsystem-aware abstract thread
@@ -46,11 +52,11 @@ protected:
 		/*!
 		  \param subsystem Reference to subsystem object new thread is controlled by
 		  \param autoStart TRUE if thread should be automatically started on subsystem's start operation
-		  \param autoStop Thread will be terminated and joined to on subsytem's stop operation if TRUE or you should do it yourself in some other thread otherwise
+		  \param autoJoin Thread will be joined to on subsytem's stop operation if TRUE or you should do it yourself in some other thread otherwise
 		  \param isTrackable If TRUE isRunning() method could be used for inspecting if the thread is running for the cost of R/W-lock
 		  \param awaitStartup If TRUE, then launching thread will wait until new thread is started for the cost of condition variable and mutex
 		*/
-		AbstractThread(Subsystem& subsystem, bool autoStart = true, bool autoStop = true, bool isTrackable = false, bool awaitStartup = false);
+		AbstractThread(Subsystem& subsystem, bool autoStart = true, bool autoJoin = true, bool isTrackable = false, bool awaitStartup = false);
 		//! Destructor
 		virtual ~AbstractThread();
 		//! Returns reference to subsystem object
@@ -63,10 +69,10 @@ protected:
 		{
 			return _autoStart;
 		}
-		//! Returns TRUE if the thread will be terminated and joined to on subsytem's stop operation
-		inline bool autoStop() const
+		//! Returns TRUE if the thread will be automatically joined to on subsytem's stop operation
+		inline bool autoJoin() const
 		{
-			return _autoStop;
+			return _autoJoin;
 		}
 		//! Returns TRUE if the thread should be terminated due to it's subsystem state
 		/*!
@@ -76,35 +82,13 @@ protected:
 		//! Awaiting for thread termination method
 		/*!
 		  \param timeout Timeout to wait
-		  \return TRUE if the thread has been terminated
+		  \return TRUE if the thread should be terminated
 		*/
 		bool awaitShouldTerminate(Timeout timeout = Timeout::defaultTimeout());
-		//! Sets should terminate flag to the new value
-		/*!
-		  \param newValue New value for the should terminate flag
-		*/
-		void setShouldTerminate(bool newValue);
 	private:
 		Subsystem& _subsystem;
 		bool _autoStart;
-		bool _autoStop;
-		bool _shouldTerminate;
-		WaitCondition _shouldTerminateCond;
-	};
-	//! Start/stop operations locker utility class
-	class StartStopLocker
-	{
-	public:
-		StartStopLocker(Subsystem& subsystem) :
-			_locker(subsystem._startStopMutex)
-		{}
-	private:
-		StartStopLocker();
-		StartStopLocker(const StartStopLocker&);
-
-		StartStopLocker& operator=(const StartStopLocker&);
-
-		MutexLocker _locker;
+		bool _autoJoin;
 	};
 	//! Before start event handler
 	virtual void beforeStart()
@@ -125,8 +109,10 @@ protected:
 	//! Subsystem's runtime parameters R/W-lock
 	/*!
 	  Use it for thread-safely locking of any of your subsystem's runtime parameter.
-	  This memeber has been introduced in order to save system resources by using the same
+	  This memeber has been introduced in order to save OS resources by using the same
 	  R/W-lock for all runtime parameters of the subsystem.
+
+	  TODO Remove it
 	*/
 	mutable ReadWriteLock runtimeParamsRWLock;
 private:
@@ -146,7 +132,8 @@ private:
 	Subsystem * _owner;
 	Children _children;
 	Threads _threads;
-	Mutex _startStopMutex;
+	bool _shouldTerminate;
+	WaitCondition _shouldTerminateCond;
 };
 
 } // namespace isl

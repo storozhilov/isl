@@ -6,6 +6,8 @@
 #include <isl/LogMessage.hxx>
 #include <isl/ExceptionLogMessage.hxx>
 #include <isl/MessageProvider.hxx>
+#include <isl/MessageBus.hxx>
+#include <isl/MessageQueue.hxx>
 #include <isl/MessageBuffer.hxx>
 
 namespace isl

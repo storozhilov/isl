@@ -26,24 +26,32 @@ namespace isl
 template <typename Task> class BasicTaskDispatcher : public Subsystem
 {
 public:
+	//! Tasks list
 	typedef std::list<Task *> TaskList;
 
 	//! WorkerThread thread class
 	class WorkerThread : public AbstractThread
 	{
 	public:
+		//! Constructs worker thread
+		/*!
+		  \param taskDispatcher Reference to the task dispatcher object
+		  \param id ID of the worker
+		*/
 		WorkerThread(BasicTaskDispatcher& taskDispatcher, unsigned int id) :
-			AbstractThread(taskDispatcher, true, false /* No auto-stop workers - see BasicTaskDispatcher::beforeStop() event handler */),
+			AbstractThread(taskDispatcher, true, false /* No auto-join to workers - see BasicTaskDispatcher::beforeStop() event handler */),
 			_taskDispatcher(taskDispatcher),
 			_id(id)
 		{}
+		//! Destructor
 		virtual ~WorkerThread()
 		{}
-
+		//! Returns a reference to the task dispatcher
 		inline BasicTaskDispatcher& taskDispatcher()
 		{
 			return _taskDispatcher;
 		}
+		//! Returns ID of the worker
 		inline unsigned int id() const
 		{
 			return _id;
@@ -287,9 +295,6 @@ private:
 		debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Stopping task dispatcher"));
 		debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Waking up workers"));
 		{
-			for (typename WorkerList::iterator i = _workers.begin(); i != _workers.end(); ++i) {
-				(*i)->setShouldTerminate(true);
-			}
 			{
 				MutexLocker locker(_taskCond.mutex());
 				_taskCond.wakeAll();
@@ -319,13 +324,14 @@ private:
 class AbstractTask
 {
 public:
+	//! Task dispatcher type
 	typedef BasicTaskDispatcher<AbstractTask> TaskDispatcherType;
 
 	AbstractTask()
 	{}
 	virtual ~AbstractTask()
 	{}
-	
+	//! Task execution virtual abstract method
 	virtual void execute(TaskDispatcherType::WorkerThread& worker) = 0;
 private:
 	AbstractTask(const AbstractTask&);						// No copy
