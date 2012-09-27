@@ -13,7 +13,7 @@ public:
 	//! Constructs a relay
 	/*!
 	  \param endpoint Reference to the modbus endpoint
-	  \param valueRegisterAddr Sensor register address 
+	  \param valueRegisterAddr Sensor input register address 
 	*/
 	Sensor(ModbusEndpoint& endpoint, int valueRegisterAddr);
 	//! Returns sensor register address
@@ -23,7 +23,7 @@ public:
 	}
 	//! Returns current value
 	/*!
-	  Sends "read input registers" (0x04) modbus command to the endpoint and returns the data from the respons
+	  Sends "read input registers" (0x04) modbus command to the endpoint and returns the data from the response
 
 	  \return Sensor register value
 	*/

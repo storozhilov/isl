@@ -7,6 +7,9 @@ namespace isl
 {
 
 //! Switch class from the ISL's SCADA module.
+/*!
+  This is a boolean Sensor where it's value is represented by bit not word.
+*/
 class Switch
 {
 public:

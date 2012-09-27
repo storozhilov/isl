@@ -19,8 +19,9 @@ public:
 	enum PowerOffReason {
 		UndefinedReason = 0,			//!< Undefined reason
 		LimitSwitchRaeson = 1,			//!< Power off caused by limit switch triggering
-		TimeoutExpiredReason = 2,		//!< Power off caused by open/close power supply duration timeout expired
-		CommandReason = 3			//!< Power off caused by another MODBUS-command
+		TimeoutExpiredReason = 2,		//!< Power off caused by power supply duration timeout expired
+		StopCommandReason = 3,			//!< Power off caused by resetting a power supply bit MODBUS-command
+		ReverseCommandReason = 4		//!< Power off caused by setting a reverse power supply bit MODBUS-command
 	};
 	//! Constructs a valve
 	/*!
@@ -31,8 +32,8 @@ public:
 	  \param closeLimitSwitchStateBitAddr Closing door limit switch state input bit address
 	  \param maxOpenDurationRegisterAddr Maximum opening door power supply duration register address (if the limit switch had not beed switched)
 	  \param maxCloseDurationRegisterAddr Maximum closing door power supply duration register address (if the limit switch had not beed switched)
-	  \param openPowerOffReasonRegisterAddr Last open drive power off reason register address
-	  \param closePowerOffReasonRegisterAddr Last close drive power off reason register address
+	  \param openPowerOffReasonRegisterAddr Last open drive power off reason input register address
+	  \param closePowerOffReasonRegisterAddr Last close drive power off reason input register address
 	*/
 	Valve(ModbusEndpoint& endpoint, int openDriveStateBitAddr, int closeDriveStateBitAddr, int openLimitSwitchStateBitAddr,
 			int closeLimitSwitchStateBitAddr, int maxOpenDurationRegisterAddr, int maxCloseDurationRegisterAddr,

@@ -7,6 +7,9 @@ namespace isl
 {
 
 //! Relay class from the ISL's SCADA module.
+/*!
+  This is a boolean Control where it's value is represented by bit not word.
+*/
 class Relay
 {
 public:

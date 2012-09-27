@@ -27,7 +27,7 @@ void Relay::setState(bool newValue)
 bool Relay::feedbackState()
 {
 	if (_feedbackBitAddr <= 0) {
-		throw Exception(Error(SOURCE_LOCATION_ARGS, "Feedback bit address has not been set in relay"));
+		throw Exception(Error(SOURCE_LOCATION_ARGS, "No feedback is provided by the relay"));
 	}
 	std::vector<uint8_t> bits = _endpoint.readInputBits(_feedbackBitAddr, 1);
 	return bits[0];
