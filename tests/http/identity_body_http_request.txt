@@ -1,0 +1,6 @@
+GET /index.html HTTP/1.1
+Host: localhost
+X-Foo: bar
+Content-Length: 10
+
+1234567890

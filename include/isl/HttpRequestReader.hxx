@@ -36,7 +36,7 @@ public:
 	  \param streamReaderBufferSize Internal stream reader buffer size
 	*/
 	HttpRequestReader(AbstractIODevice& device, size_t maxBodySize = DefaultMaxBodySize, size_t bufferSize = DefaultBufferSize,
-			size_t streamReaderBufferSize = HttpMessageStreamReader::DefaultBufferSize);
+			size_t streamReaderBufferSize = HttpRequestStreamReader::DefaultBufferSize);
 	//! Returns const reference to the internal stream reader
 	inline const HttpRequestStreamReader& streamReader() const
 	{
@@ -67,6 +67,8 @@ public:
 	void reset();
 	//! Fetches a request
 	/*!
+	  \note This method throws an Exception if the message body is too long.
+
 	  \param timeout Read data timeout
 	  \param bytesReadFromDevice Pointer to memory location where number of bytes have been fetched from the device is to be put
 	  \return TRUE if the complete HTTP-request has been received or FALSE otherwise

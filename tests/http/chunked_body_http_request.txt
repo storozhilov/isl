@@ -1,0 +1,12 @@
+GET /index.html?q=%D0%B0%D0%B1%D0%B2 HTTP/1.1
+Host: localhost
+X-Foo: bar
+Transfer-Encoding: chunked
+
+a
+1234567890
+b
+12345678901
+0
+X-Bar: foo
+

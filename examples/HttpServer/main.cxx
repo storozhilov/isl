@@ -63,8 +63,8 @@ private:
 			// Composing an HTTP-response
 			std::ostringstream oss;
 			oss << "<html><head><title>HTTP-request has been recieved</title></head><body>";
-			if (_requestReader.streamReader().isBad()) {
-				oss << "<p>Bad request: &quot;" << _requestReader.streamReader().error()->message() << "&quot;</p>";
+			if (_requestReader.streamReader().parser().isBad()) {
+				oss << "<p>Bad request: &quot;" << _requestReader.streamReader().parser().error()->message() << "&quot;</p>";
 			} else {
 				oss << "<p>URI: &quot;" << _requestReader.streamReader().uri() << "&quot;</p>" <<
 					"<p>path: &quot;" << isl::String::decodePercent(_requestReader.path()) << "&quot;</p>" <<
@@ -72,7 +72,7 @@ private:
 				for (isl::Http::Params::const_iterator i = _requestReader.get().begin(); i != _requestReader.get().end(); ++i) {
 					oss << "<p>get[&quot;" << i->first << "&quot;] = &quot;" << i->second << "&quot;</p>";
 				}
-				for (isl::Http::Params::const_iterator i = _requestReader.streamReader().header().begin(); i != _requestReader.streamReader().header().end(); ++i) {
+				for (isl::Http::Params::const_iterator i = _requestReader.streamReader().parser().header().begin(); i != _requestReader.streamReader().parser().header().end(); ++i) {
 					oss << "<p>header[&quot;" << i->first << "&quot;] = &quot;" << i->second << "&quot;</p>";
 				}
 				for (isl::Http::RequestCookies::const_iterator i = _requestReader.cookies().begin(); i != _requestReader.cookies().end(); ++i) {

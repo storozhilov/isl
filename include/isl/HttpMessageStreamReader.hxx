@@ -23,6 +23,9 @@ namespace isl
 {
 
 //! Base class for HTTP-message stream readers
+/*
+  TODO Migration to HttpMessageParser!!!
+*/
 class HttpMessageStreamReader
 {
 public:
@@ -34,33 +37,33 @@ public:
 	};
 	//! Parser states
 	enum ParserState {
-		ParsingMessage,
-		ParsingFirstToken,
-		ParsingFirstTokenSP,
-		ParsingSecondToken,
-		ParsingSecondTokenSP,
-		ParsingThirdToken,
-		ParsingFirstLineLF,
-		ParsingHeader,
-		ParsingHeaderName,
-		ParsingHeaderValue,
-		ParsingHeaderValueLF,
-		ParsingHeaderValueLWS,
-		ParsingEndOfHeader,
-		ParsingIdentityBody,
-		ParsingChunkSize,
-		ParsingChunkSizeLF,
-		ParsingChunkExtension,
-		ParsingChunk,
-		ParsingChunkCR,
-		ParsingChunkLF,
-		ParsingTrailerHeader,
-		ParsingTrailerHeaderName,
-		ParsingTrailerHeaderValue,
-		ParsingTrailerHeaderValueLF,
-		ParsingTrailerHeaderValueLWS,
-		ParsingFinalLF,
-		MessageCompleted
+		ParsingMessage,					//!< Initial state
+		ParsingFirstToken,				//!< Parsing first token
+		ParsingFirstTokenSP,				//!< Parsing the delimeter b/w first and second token
+		ParsingSecondToken,				//!< Parsing second token
+		ParsingSecondTokenSP,				//!< Parsing the delimeter b/w second and third token
+		ParsingThirdToken,				//!< Parsing third token
+		ParsingFirstLineLF,				//!< First line LF has been found
+		ParsingHeader,					//!< Parsing the beginning of the message header
+		ParsingHeaderName,				//!< Parsing message header name
+		ParsingHeaderValue,				//!< Parsing message header value
+		ParsingHeaderValueLF,				//!< Message header line LF has been found
+		ParsingHeaderValueLWS,				//!< Parsing message header multiline value LWS
+		ParsingEndOfHeader,				//!< Parsing the end of the message header section
+		ParsingIdentityBody,				//!< Parsing indentity-encoded message body
+		ParsingChunkSize,				//!< Parsing the chunk size of the chunked-encoded message body
+		ParsingChunkSizeLF,				//!< Chunk size line LF of of the chunked-encoded message body has been found
+		ParsingChunkExtension,				//!< Parsing the chunk extension of the of the chunked-encoded message body
+		ParsingChunk,					//!< Parsing the chunk of the chunked-encoded message body
+		ParsingChunkCR,					//!< Chunk's CR has been found
+		ParsingChunkLF,					//!< Chunk's LF has been found
+		ParsingTrailerHeader,				//!< Parsing the beginning of the message trailer header
+		ParsingTrailerHeaderName,			//!< Parsing message trailer header name
+		ParsingTrailerHeaderValue,			//!< Parsing message trailer header value
+		ParsingTrailerHeaderValueLF,			//!< Message trailer header line LF has been found
+		ParsingTrailerHeaderValueLWS,			//!< Parsing message trailer header multiline value LWS
+		ParsingFinalLF,					//!< Parsing the final LF of the message
+		MessageCompleted				//!< Complete message has been parsed
 	};
 
 	//! Constructs reader

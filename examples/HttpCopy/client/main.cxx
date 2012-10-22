@@ -51,7 +51,7 @@ int main(int argc, char *argv[])
 		isl::HttpResponseStreamReader r(s);
 		try {
 			unsigned int totalBytesRead = 0;
-			while (!r.isCompleted()) {
+			while (!r.parser().isCompleted()) {
 				//bool timeoutExpired;
 				//unsigned int bytesRead = r.read(buf, BUFFER_SIZE, isl::Timeout(TRANSMISSION_SECONDS_TIMEOUT), &timeoutExpired);
 				//if (timeoutExpired) {
@@ -70,17 +70,17 @@ int main(int argc, char *argv[])
 			}
 		} catch (isl::Exception& e) {
 			std::wcerr << e.what() << std::endl;
-			std::wcerr << "Parser state is " << r.parserState() << ", HTTP-version is '" << isl::String::utf8Decode(r.version()) <<
+			std::wcerr << "Parser state is " << r.parser().state() << ", HTTP-version is '" << isl::String::utf8Decode(r.version()) <<
 				"', status code is '" << isl::String::utf8Decode(r.statusCode()) <<
 				"', reason phrase is '" << isl::String::utf8Decode(r.reasonPhrase()) << '\'' << std::endl;
 			return 1;
 		} catch (std::exception& e) {
 			std::wcerr << e.what() << std::endl;
-			std::wcerr << "Parser state is " << r.parserState() << std::endl;
+			std::wcerr << "Parser state is " << r.parser().state() << std::endl;
 			return 1;
 		} catch (...) {
 			std::wcerr << "Unknown copy error" << std::endl;
-			std::wcerr << "Parser state is " << r.parserState() << std::endl;
+			std::wcerr << "Parser state is " << r.parser().state() << std::endl;
 			return 1;
 		}
 	/*} catch (isl::Exception& e) {

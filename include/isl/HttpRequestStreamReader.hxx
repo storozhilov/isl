@@ -1,144 +1,63 @@
 #ifndef ISL__HTTP_REQUEST_STREAM_READER__HXX
 #define ISL__HTTP_REQUEST_STREAM_READER__HXX
 
-#include <isl/HttpMessageStreamReader.hxx>
-#include <isl/Error.hxx>
+#include <isl/AbstractHttpMessageStreamReader.hxx>
+
+#ifndef ISL__HTTP_REQUEST_STREAM_READER_DEFAULT_MAX_METHOD_LENGTH
+#define ISL__HTTP_REQUEST_STREAM_READER_DEFAULT_MAX_METHOD_LENGTH 20
+#endif
+#ifndef ISL__HTTP_REQUEST_STREAM_READER_DEFAULT_MAX_URI_LENGTH
+#define ISL__HTTP_REQUEST_STREAM_READER_DEFAULT_MAX_URI_LENGTH 4096
+#endif
+#ifndef ISL__HTTP_REQUEST_STREAM_READER_DEFAULT_MAX_VERSION_LENGTH
+#define ISL__HTTP_REQUEST_STREAM_READER_DEFAULT_MAX_VERSION_LENGTH 20
+#endif
 
 namespace isl
 {
 
 //! HTTP-request stream reader
-class HttpRequestStreamReader : public HttpMessageStreamReader
+class HttpRequestStreamReader : public AbstractHttpMessageStreamReader
 {
 public:
+	enum Constants {
+		DefaultMaxMethodLength = ISL__HTTP_REQUEST_STREAM_READER_DEFAULT_MAX_METHOD_LENGTH,
+		DefaultMaxUriLength = ISL__HTTP_REQUEST_STREAM_READER_DEFAULT_MAX_URI_LENGTH,
+		DefaultMaxVersionLength = ISL__HTTP_REQUEST_STREAM_READER_DEFAULT_MAX_VERSION_LENGTH
+	};
 	//! Constructs HTTP-request stream reader
 	/*!
 	  \param device Reference to the I/O-device to fetch data from
 	  \param bufferSize Data reading buffer size
+	  \param maxMethodLength Maximum HTTP-method length
+	  \param maxUriLength Maximum URI length
+	  \param maxVersionLength Maximum HTTP-version length
 	*/
-	HttpRequestStreamReader(AbstractIODevice& device, size_t bufferSize = DefaultBufferSize) :
-		HttpMessageStreamReader(device, bufferSize),
-		_method(),
-		_uri(),
-		_version(),
-		_maxMethodLength(MaxMethodLength),
-		_maxUriLength(MaxUriLength),
-		_maxVersionLength(MaxVersionLength)
-	{}
-	//! Returns HTTP-method of the HTTP-request
-	inline std::string method() const
+	HttpRequestStreamReader(AbstractIODevice& device, size_t bufferSize = DefaultBufferSize,
+			size_t maxMethodLength = DefaultMaxMethodLength, size_t maxUriLength = DefaultMaxUriLength,
+			size_t maxVersionLength = DefaultMaxVersionLength);
+	//! Returns HTTP-method
+	inline const std::string& method() const
 	{
-		return _method;
+		return parser().firstToken();
 	}
-	//! Returns URI of the HTTP-request
-	inline std::string uri() const
+	//! Returns URI
+	inline const std::string& uri() const
 	{
-		return _uri;
+		return parser().secondToken();
 	}
-	//! Returns HTTP-version of the HTTP-request
-	inline std::string version() const
+	//! Returns HTTP-version
+	inline const std::string& version() const
 	{
-		return _version;
+		return parser().thirdToken();
 	}
-	//! Returns maximum HTTP-method length
-	inline size_t maxMethodLength() const
-	{
-		return _maxMethodLength;
-	}
-	//! Sets maximum HTTP-method length
-	/*!
-	  \param newValue New maximum HTTP-method length value
-	*/
-	inline void setMaxMethodLength(size_t newValue)
-	{
-		_maxMethodLength = newValue;
-	}
-	//! Returns maximum URI length
-	inline size_t maxUriLength() const
-	{
-		return _maxUriLength;
-	}
-	//! Sets maximum URI length
-	/*!
-	  \param newValue New maximum URI length value
-	*/
-	inline void setMaxUriLength(size_t newValue)
-	{
-		_maxUriLength = newValue;
-	}
-	//! Returns maximum HTTP-version length
-	inline size_t maxVersionLength() const
-	{
-		return _maxVersionLength;
-	}
-	//! Sets maximum HTTP-version length
-	/*!
-	  \param newValue New maximum HTTP-version length value
-	*/
-	inline void setMaxVersionLength(size_t newValue)
-	{
-		_maxVersionLength = newValue;
-	}
-	//! Resets HTTP-request stream reader to it's initial state
-	virtual void reset()
-	{
-		HttpMessageStreamReader::reset();
-		_method.clear();
-		_uri.clear();
-		_version.clear();
-	}
+protected:
+	//! Parser creation factory method
+	virtual HttpMessageParser * createParser() const;
 private:
-	HttpRequestStreamReader();
-
-	enum PrivateConstants {
-		MaxMethodLength = 20,
-		MaxUriLength = 4096,
-		MaxVersionLength = 20
-	};
-	
-	virtual bool isAllowedInFirstToken(char ch) const
-	{
-		return Http::isToken(ch);
-	}
-	virtual void appendToFirstToken(char ch)
-	{
-		if (_method.length() >= _maxMethodLength) {
-			setIsBad(Error(SOURCE_LOCATION_ARGS, "Request method is too long"));
-			return;
-		}
-		_method.append(1, ch);
-	}
-	virtual bool isAllowedInSecondToken(char ch) const
-	{
-		return Http::isAllowedInUri(ch);
-	}
-	virtual void appendToSecondToken(char ch)
-	{
-		if (_uri.length() >= _maxUriLength) {
-			setIsBad(Error(SOURCE_LOCATION_ARGS, "Request URI is too long"));
-			return;
-		}
-		_uri.append(1, ch);
-	}
-	virtual bool isAllowedInThirdToken(char ch) const
-	{
-		return Http::isAllowedInVersion(ch);
-	}
-	virtual void appendToThirdToken(char ch)
-	{
-		if (_version.length() >= _maxVersionLength) {
-			setIsBad(Error(SOURCE_LOCATION_ARGS, "Request version is too long"));
-			return;
-		}
-		_version.append(1, ch);
-	}
-
-	std::string _method;
-	std::string _uri;
-	std::string _version;
-	size_t _maxMethodLength;
-	size_t _maxUriLength;
-	size_t _maxVersionLength;
+	const size_t _maxMethodLength;
+	const size_t _maxUriLength;
+	const size_t _maxVersionLength;
 };
 
 } // namespace isl

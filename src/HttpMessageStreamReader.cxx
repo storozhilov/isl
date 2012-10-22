@@ -59,6 +59,7 @@ size_t HttpMessageStreamReader::read(char * bodyBuffer, size_t bodyBufferSize, c
 	}
 	// Resetting reader/parser if previous message has been completed
 	if (isCompleted()) {
+		// TODO ERROR IS HERE!!!!!!!!!!!!!
 		reset();
 	}
 	if (bytesReadFromDevice) {

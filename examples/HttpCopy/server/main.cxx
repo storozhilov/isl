@@ -34,7 +34,7 @@ int main(int argc, char *argv[])
 		unsigned int totalBytesRead = 0;
 		char buf[BUFFER_SIZE];
 		try {
-			while (!r.isCompleted()) {
+			while (!r.parser().isCompleted()) {
 				//bool timeoutExpired;
 				//unsigned int bytesRead = r.read(buf, BUFFER_SIZE, isl::Timeout(TRANSMISSION_SECONDS_TIMEOUT), &timeoutExpired);
 				//if (timeoutExpired) {
@@ -52,8 +52,8 @@ int main(int argc, char *argv[])
 				totalBytesRead += bytesRead;
 			}
 			std::cout << "Source filename is \"" << r.uri() << '"' << std::endl;
-			std::cout << "Current directory is \"" << isl::Http::paramValue(r.header(), "X-Current-Directory") << '"' << std::endl;
-			std::cout << "Target filename/directory is \"" << isl::Http::paramValue(r.header(), "X-Dest-Filename") << '"' << std::endl;
+			std::cout << "Current directory is \"" << isl::Http::paramValue(r.parser().header(), "X-Current-Directory") << '"' << std::endl;
+			std::cout << "Target filename/directory is \"" << isl::Http::paramValue(r.parser().header(), "X-Dest-Filename") << '"' << std::endl;
 			isl::HttpResponseStreamWriter w(*ss.get());
 			w.setHeaderField("X-Copy-Status", "OK");
 			/*if (!w.writeBodyless()) {
@@ -62,15 +62,15 @@ int main(int argc, char *argv[])
 			w.writeBodyless();
 		} catch (isl::Exception& e) {
 			std::cerr << e.what() << std::endl;
-			std::cerr << "HTTP-request parser state is " << r.parserState() << std::endl;
+			std::cerr << "HTTP-request parser state is " << r.parser().state() << std::endl;
 			return 1;
 		} catch (std::exception& e) {
 			std::cerr << e.what() << std::endl;
-			std::cerr << "HTTP-request parser state is " << r.parserState() << std::endl;
+			std::cerr << "HTTP-request parser state is " << r.parser().state() << std::endl;
 			return 1;
 		} catch (...) {
 			std::cerr << "Unknown error occured." << std::endl;
-			std::cerr << "HTTP-request parser state is " << r.parserState() << std::endl;
+			std::cerr << "HTTP-request parser state is " << r.parser().state() << std::endl;
 			return 1;
 		}
 		//std::cout << "\nHTTP-request has been succefully read. Method: '" << r.method() << "', URI: '" << r.uri() << "' Version: '" << r.version() << "', Headers:" << std::endl;

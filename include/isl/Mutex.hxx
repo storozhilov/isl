@@ -4,8 +4,6 @@
 #include <isl/Timeout.hxx>
 #include <pthread.h>
 
-#include <set>
-
 namespace isl
 {
 
@@ -83,4 +81,3 @@ private:
 } // namespace isl
 
 #endif
-

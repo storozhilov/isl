@@ -23,15 +23,7 @@ HttpRequestReader::HttpRequestReader(AbstractIODevice& device, size_t maxBodySiz
 const Http::RequestCookies& HttpRequestReader::cookies() const
 {
 	if (!_cookiesExtracted) {
-		/*for (Http::Params::const_iterator i = _streamReader.header().begin(); i != _streamReader.header().end(); ++i) {
-			if (i->first != "Cookie") {
-				continue;
-			}
-			HttpRequestCookieParser cookieParser;
-			Http::RequestCookies cookies = cookieParser.parse(i->second);
-			_cookies.insert(cookies.begin(), cookies.end());
-		}*/
-		Http::grabCookies(_streamReader.header(), _cookies);
+		Http::grabCookies(_streamReader.parser().header(), _cookies);
 		_cookiesExtracted = true;
 	}
 	return _cookies;
@@ -49,7 +41,7 @@ const Http::Params& HttpRequestReader::get() const
 const Http::Params& HttpRequestReader::post() const
 {
 	if (!_postExtracted) {
-		if (Http::hasParam(_streamReader.header(), "Content-Type", "application/x-www-form-urlencoded")) {
+		if (Http::hasParam(_streamReader.parser().header(), "Content-Type", "application/x-www-form-urlencoded")) {
 			Http::parseParams(_body, _post);
 		}
 		_postExtracted = true;
@@ -73,19 +65,18 @@ void HttpRequestReader::reset()
 
 bool HttpRequestReader::receive(Timeout timeout, size_t * bytesReadFromDevice)
 {
-	if (_streamReader.isCompleted()) {
+	if (_streamReader.parser().isCompleted()) {
 		reset();
 	}
 	size_t bodyBytesRead = _streamReader.read(&_buffer[0], _buffer.size(), timeout, bytesReadFromDevice);
-	if (_streamReader.isBad()) {
+	if (_streamReader.parser().isBad()) {
 		return false;
 	}
 	if ((_body.size() + bodyBytesRead) > _maxBodySize) {
-		_streamReader.setIsBad(Error(SOURCE_LOCATION_ARGS, "Request entity is too long"));
-		return false;
+		throw Exception(Error(SOURCE_LOCATION_ARGS, "Request entity is too long"));	// TODO ???
 	}
 	_body.append(&_buffer[0], bodyBytesRead);
-	if (_streamReader.isCompleted()) {
+	if (_streamReader.parser().isCompleted()) {
 		Http::parseUri(_streamReader.uri(), _path, _query);
 		return true;
 	} else {
