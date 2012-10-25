@@ -80,14 +80,14 @@ void Valve::setMaxCloseDuration(const Timeout& newValue)
 Valve::PowerOffReason Valve::openPowerOffReason() const
 {
 	std::vector<uint16_t> registers = _endpoint.readInputRegisters(_openPowerOffReasonRegisterAddr, 1);
-	return (registers[0] == LimitSwitchRaeson || registers[0] == TimeoutExpiredReason || registers[0] == StopCommandReason || registers[0] == ReverseCommandReason) ?
+	return (registers[0] == LimitSwitchReason || registers[0] == TimeoutExpiredReason || registers[0] == StopCommandReason || registers[0] == ReverseCommandReason) ?
 		static_cast<PowerOffReason>(registers[0]) : UndefinedReason;
 }
 
 Valve::PowerOffReason Valve::closePowerOffReason() const
 {
 	std::vector<uint16_t> registers = _endpoint.readInputRegisters(_closePowerOffReasonRegisterAddr, 1);
-	return (registers[0] == LimitSwitchRaeson || registers[0] == TimeoutExpiredReason || registers[0] == StopCommandReason || registers[0] == ReverseCommandReason) ?
+	return (registers[0] == LimitSwitchReason || registers[0] == TimeoutExpiredReason || registers[0] == StopCommandReason || registers[0] == ReverseCommandReason) ?
 		static_cast<PowerOffReason>(registers[0]) : UndefinedReason;
 }
 

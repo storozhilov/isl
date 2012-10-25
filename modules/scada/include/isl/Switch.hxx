@@ -16,7 +16,7 @@ public:
 	//! Constructs a relay
 	/*!
 	  \param endpoint Reference to the modbus endpoint
-	  \param stateBitAddr Switch state bit address 
+	  \param stateBitAddr Switch state input bit address 
 	*/
 	Switch(ModbusEndpoint& endpoint, int stateBitAddr);
 	//! Returns switch state bit address

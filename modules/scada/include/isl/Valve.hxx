@@ -9,7 +9,7 @@ namespace isl
 
 //! Valve class from the ISL's SCADA module.
 /*!
-  Valve has bidirectional motor to open/close the door and two limit switches which indicates
+  Valve has bidirectional motor to open/close the door and two limit switches which indicate
   that power supply to the motor while opening/closing the door should be interrupted.
 */
 class Valve
@@ -18,7 +18,7 @@ public:
 	//! Door drive power off reason
 	enum PowerOffReason {
 		UndefinedReason = 0,			//!< Undefined reason
-		LimitSwitchRaeson = 1,			//!< Power off caused by limit switch triggering
+		LimitSwitchReason = 1,			//!< Power off caused by limit switch triggering
 		TimeoutExpiredReason = 2,		//!< Power off caused by power supply duration timeout expired
 		StopCommandReason = 3,			//!< Power off caused by resetting a power supply bit MODBUS-command
 		ReverseCommandReason = 4		//!< Power off caused by setting a reverse power supply bit MODBUS-command

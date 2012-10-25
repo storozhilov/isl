@@ -1,5 +1,5 @@
-#ifndef ISL__MODBUS_DEVICE__HXX
-#define ISL__MODBUS_DEVICE__HXX
+#ifndef ISL__MODBUS_ENDPOINT__HXX
+#define ISL__MODBUS_ENDPOINT__HXX
 
 #include <modbus.h>
 #include <string>
@@ -78,6 +78,16 @@ public:
 	  \param stopBits Stop bits
 	*/
 	ModbusEndpoint(const std::string& serialDevice, int id, Baud baud, Parity parity, DataBits dataBits, StopBits stopBits);
+	//! Constructs Modbus/RTU endpoint using raw parameter values
+	/*!
+	  \param serialDevice Serial device filename (e.g. /dev/ttyS0 or /dev/ttyUSB0)
+	  \param id Id of the Modbus-endpoint
+	  \param baudValue Baud rate integer value
+	  \param parityValue Parity value: 'N' - no parity, 'E' - even parity, 'O' - odd parity
+	  \param dataBitsValue Data bits amount: 5, 6, 7, or 8
+	  \param stopBitsValue Stop bits amount: 1 or 2
+	*/
+	ModbusEndpoint(const std::string& serialDevice, int id, int baudValue, char parityValue, int dataBitsValue, int stopBitsValue);
 	//! Destructor
 	~ModbusEndpoint();
 	//! Returns constant reference to the serial device filename
@@ -93,22 +103,22 @@ public:
 	//! Returns baud rate
 	inline Baud baud() const
 	{
-		return _baud;
+		return baudFromValue(_baudValue);
 	}
 	//! Returns parity
 	inline Parity parity() const
 	{
-		return _parity;
+		return parityFromValue(_parityValue);
 	}
 	//! Returns databits
 	inline DataBits dataBits() const
 	{
-		return _dataBits;
+		return dataBitsFromValue(_dataBitsValue);
 	}
 	//! Returns stop bits
 	inline StopBits stopBits() const
 	{
-		return _stopBits;
+		return stopBitsFromValue(_stopBitsValue);
 	}
 	//! Opens a Modbus-endpoint
 	void open();
@@ -186,13 +196,24 @@ private:
 	ModbusEndpoint(const ModbusEndpoint&);
 	ModbusEndpoint& operator=(const ModbusEndpoint&);
 
+	void init();
+
+	static int baudToValue(Baud baud);
+	static Baud baudFromValue(int baudValue);
+	static char parityToValue(Parity parity);
+	static Parity parityFromValue(char parityValue);
+	static int dataBitsToValue(DataBits dataBits);
+	static DataBits dataBitsFromValue(int dataBitsValue);
+	static int stopBitsToValue(StopBits stopBits);
+	static StopBits stopBitsFromValue(int stopBitsValue);
+
 	modbus_t * _ctx;
 	std::string _serialDevice;
 	int _id;
-	Baud _baud;
-	Parity _parity;
-	DataBits _dataBits;
-	StopBits _stopBits;
+	int _baudValue;
+	char _parityValue;
+	int _dataBitsValue;
+	int _stopBitsValue;
 };
 
 } // namespace isl
