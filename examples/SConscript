@@ -1,0 +1,17 @@
+import os
+
+env = Environment(
+CCFLAGS = ['-g', '-Wall'],
+CPPPATH = '../include',
+LIBPATH = '../lib',
+LIBS = ['isl', 'pthread', 'rt']
+)
+env.Append(ENV = {'PATH' : os.environ['PATH']})
+
+broadcastMessageBrokerBuilder = env.Program('BroadcastMessageBroker/bmb', 'BroadcastMessageBroker/main.cxx')
+testBuilder = env.Program('Test/test', 'Test/main.cxx')
+httpServerBuilder = env.Program('HttpServer/hsd', 'HttpServer/main.cxx')
+httpCopyServerBuilder = env.Program('HttpCopy/htcpd', 'HttpCopy/server/main.cxx')
+httpCopyClientBuilder = env.Program('HttpCopy/htcp', 'HttpCopy/client/main.cxx')
+
+Default([broadcastMessageBrokerBuilder, testBuilder, httpServerBuilder, httpCopyServerBuilder, httpCopyClientBuilder])

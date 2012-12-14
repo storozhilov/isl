@@ -2,9 +2,7 @@
 #define ISL__ABSTRACT_IO_DEVICE__HXX
 
 #include <isl/Timeout.hxx>
-#include <isl/Mutex.hxx>
-//#include <vector>
-#include <sys/types.h>
+#include <isl/AbstractError.hxx>
 
 namespace isl
 {
@@ -13,6 +11,32 @@ namespace isl
 class AbstractIODevice
 {
 public:
+	//! Device not open error class
+	class NotOpenError : public AbstractError
+	{
+	public:
+		//! Constructs device not open error
+		/*!
+		  \param SOURCE_LOCATION_ARGS_DECLARATION put SOURCE_LOCATION_ARGS macro here
+		  \param info User info
+		*/
+		NotOpenError(SOURCE_LOCATION_ARGS_DECLARATION, const std::string& info = std::string()) :
+			AbstractError(SOURCE_LOCATION_ARGS_PASSTHRU, info)
+		{}
+		//! Clones error
+		virtual AbstractError * clone() const
+		{
+			return new NotOpenError(*this);
+		}
+	private:
+		NotOpenError();
+
+		virtual std::string composeMessage() const
+		{
+			return "I/O-device is not open";
+		}
+	};
+
 	AbstractIODevice();
 	virtual ~AbstractIODevice();
 

@@ -33,7 +33,7 @@ sconscriptTargets = ['src/SConscript']
 if GetOption('build-scada') or os.environ.get('ISL_BUILD_SCADA', '').upper() == 'YES':
 	sconscriptTargets.append('modules/scada/SConscript')
 if GetOption('build-examples') or os.environ.get('ISL_BUILD_EXAMPLES', '').upper() == 'YES':
-	sconscriptTargets.extend(['examples/Test/SConscript', 'examples/HttpServer/SConscript', 'examples/HttpCopy/SConscript'])
+	sconscriptTargets.append('examples/SConscript')
 if GetOption('build-tests') or os.environ.get('ISL_BUILD_TESTS', '').upper() == 'YES':
 	sconscriptTargets.append('tests/SConscript')
 SConscript(sconscriptTargets)

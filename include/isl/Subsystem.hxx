@@ -29,18 +29,21 @@ public:
 	//! Destructor
 	virtual ~Subsystem();
 	//! Returns an owner of the subsystem
+	/*!
+	  \note Thread-safe
+	*/
 	inline Subsystem * owner() const
 	{
 		return _owner;
 	}
 	//! Asynchronously starts subsystem
 	/*!
-	  \note This method is not thread-safe - you should do you own synchronization if needed.
+	  \note Thread-unsafe
 	*/
 	void start();
 	//! Synchronously stops subsystem
 	/*!
-	  \note This method is not thread-safe - you should do you own synchronization if needed.
+	  \note Thread-unsafe
 	*/
 	void stop();
 protected:

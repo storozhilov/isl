@@ -31,7 +31,11 @@ size_t AbstractHttpMessageStreamReader::read(char * bodyBuffer, size_t bodyBuffe
 	if (bytesReadFromDevice) {
 		*bytesReadFromDevice = 0;
 	}
+	if (parserPrivate().isCompleted()) {
+		parserPrivate().reset();
+	}
 	if (bodyBufferSize <= 0) {
+		// TODO Maybe to throw an exception?
 		return 0;
 	}
 	size_t bodyBytesRead = 0;

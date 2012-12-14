@@ -2,57 +2,168 @@
 #define ISL__ABSTRACT_SYNC_TCP_SERVICE__HXX
 
 #include <isl/common.hxx>
-#include <isl/AbstractTcpService.hxx>
+#include <isl/Subsystem.hxx>
+#include <isl/TaskDispatcher.hxx>
+#include <isl/TcpAddrInfo.hxx>
+#include <isl/TcpSocket.hxx>
 #include <isl/LogMessage.hxx>
 #include <isl/ExceptionLogMessage.hxx>
 
 namespace isl
 {
 
-//! Base class for synchronous TCP-service, which reads from and writes to socket in the same thread
-class AbstractSyncTcpService : public AbstractTcpService
+//! Base class for synchronous TCP-service, which reads from and writes to the client connection socket in the same thread
+class AbstractSyncTcpService : public Subsystem
 {
 public:
-	//! Constructor
-	/*!
-	  \param owner Pointer to the owner subsystem
-	  \param maxClients Maximum clients amount to serve at the same time
-	  \param maxTaskQueueOverflowSize Maximum tasks queue overflow size
-	*/
-	AbstractSyncTcpService(Subsystem * owner, size_t maxClients, size_t maxTaskQueueOverflowSize = 0) :
-		AbstractTcpService(owner, maxClients, maxTaskQueueOverflowSize)
-	{}
-
-	//! Returns maximum clients amount
-	inline size_t maxClients() const
-	{
-		return workersAmount();
-	}
-	//! Sets maximum clients amount
-	/*!
-	  Subsystem's restart needed to completely apply the new value;
-
-	  \param newValue New maximum clients amount
-	*/
-	inline void setMaxClients(size_t newValue)
-	{
-		setWorkersAmount(newValue);
-	}
-protected:
-	//! Synchronous TCP-service listener thread. Feel free to subclass.
-	class ListenerThread : public AbstractTcpService::AbstractListenerThread
+	//! Synchronous TCP-service abstract task
+	class AbstractTask
 	{
 	public:
 		//! Constructor
 		/*!
-		  \param service Reference to TCP-service object
-		  \param addrInfo TCP-address info to bind to
-		  \param listenTimeout Timeout to wait for incoming connections
-		  \param backLog Listen backlog
+		  \param socket Reference to the client connection socket
 		*/
-		ListenerThread(AbstractSyncTcpService& service, const TcpAddrInfo& addrInfo, const Timeout& listenTimeout, unsigned int backLog) :
-			AbstractListenerThread(service, addrInfo, listenTimeout, backLog),
-			_service(service)
+		AbstractTask(TcpSocket& socket) :
+			_socketAutoPtr(&socket)
+		{}
+		// Destructor
+		virtual ~AbstractTask()
+		{}
+		//! Returns a reference to the client connection socket
+		inline TcpSocket& socket()
+		{
+			return *_socketAutoPtr.get();
+		}
+		//! Task execution method
+		/*!
+		  \param taskDispatcher Reference to the task dispatcher subsystem
+		*/
+		inline void execute(TaskDispatcher<AbstractTask>& taskDispatcher)
+		{
+			executeImpl(taskDispatcher);
+		}
+	protected:
+		//! Task execution abstract virtual method to override in subclasses
+		/*!
+		  \param taskDispatcher Reference to the task dispatcher subsystem
+		*/
+		virtual void executeImpl(TaskDispatcher<AbstractTask>& taskDispatcher) = 0;
+	private:
+		std::auto_ptr<TcpSocket> _socketAutoPtr;
+	};
+	//! Constructor
+	/*!
+	  \param owner Pointer to the owner subsystem
+	  \param maxClients Maximum clients amount to serve at the same time
+	  \param clockTimeout Subsystem's clock timeout
+	*/
+	AbstractSyncTcpService(Subsystem * owner, size_t maxClients, const Timeout& clockTimeout = Timeout::defaultTimeout());
+	//! Destructor
+	virtual ~AbstractSyncTcpService();
+
+	//! Returns maximum clients amount
+	inline size_t maxClients() const
+	{
+		return _taskDispatcher.workersAmount();
+	}
+	//! Sets maximum clients amount
+	/*!
+	  \param newValue New maximum clients amount
+
+	  \note Thread-unsafe: call it when subsystem is idling only
+	*/
+	inline void setMaxClients(size_t newValue)
+	{
+		_taskDispatcher.setWorkersAmount(newValue);
+	}
+	//! Returns clock timeout
+	inline const Timeout& clockTimeout() const
+	{
+		return _clockTimeout;
+	}
+	//! Sets new clock timeout
+	/*!
+	  \param newValue New clock timeout value
+
+	  \note Thread-unsafe: call it when subsystem is idling only
+	*/
+	inline void setClockTimeout(const Timeout& newValue)
+	{
+		_clockTimeout = newValue;
+	}
+	//! Adds listener to the service
+	/*!
+	  \param addrInfo TCP-address info to bind to
+	  \param backLog Listen backlog
+	  \return Listener id
+
+	  \note Thread-unsafe: call it when subsystem is idling only
+	*/
+	int addListener(const TcpAddrInfo& addrInfo, unsigned int backLog = 15);
+	//! Updates listener
+	/*!
+	  \param id Listener id
+	  \param addrInfo TCP-address info to bind to
+	  \param backLog Listen backlog
+
+	  \note Thread-unsafe: call it when subsystem is idling only
+	*/
+	void updateListener(int id, const TcpAddrInfo& addrInfo, unsigned int backLog = 15);
+	//! Removes listener
+	/*!
+	  \param id Id of the listener to remove
+
+	  \note Thread-unsafe: call it when subsystem is idling only
+	*/
+	void removeListener(int id);
+	//! Resets all listeners
+	/*!
+	  \note Thread-unsafe: call it when subsystem is idling only
+	*/
+	inline void resetListeners()
+	{
+		_listenerConfigs.clear();
+	}
+protected:
+	//! Starting service method redefinition
+	virtual void startImpl();
+	//! Stopping service method redefinition
+	virtual void stopImpl();
+
+	//! On overload event handler
+	/*!
+	  \param task Reference to the unperformed task
+	*/
+	virtual void onOverload(AbstractTask& task)
+	{}
+
+	//! Task creation abstract virtual method to override in subclasses
+	/*!
+	  \param socket Reference to the client connection socket
+	*/
+	virtual AbstractTask * createTask(TcpSocket& socket) = 0;
+private:
+	struct ListenerConfig
+	{
+		ListenerConfig(const TcpAddrInfo& addrInfo, unsigned int backLog) :
+			addrInfo(addrInfo),
+			backLog(backLog)
+		{}
+
+		TcpAddrInfo addrInfo;
+		unsigned int backLog;
+	};
+	typedef std::map<int, ListenerConfig> ListenerConfigs;
+
+	class ListenerThread : public AbstractThread
+	{
+	public:
+		ListenerThread(AbstractSyncTcpService& service, const TcpAddrInfo& addrInfo, unsigned int backLog) :
+			AbstractThread(service),
+			_service(service),
+			_addrInfo(addrInfo),
+			_backLog(backLog)
 		{}
 	private:
 		ListenerThread();
@@ -60,132 +171,22 @@ protected:
 
 		ListenerThread& operator=(const ListenerThread&);						// No copy
 
-		virtual void run()
-		{
-			onStart();
-			debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Listener thread has been started"));
-			try {
-				TcpSocket serverSocket;
-				debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Server socket has been created"));
-				serverSocket.open();
-				debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Server socket has been opened"));
-				serverSocket.bind(addrInfo());
-				debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Server socket has been binded"));
-				serverSocket.listen(backLog());
-				debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Server socket has been switched to the listening state"));
-				while (true) {
-					if (shouldTerminate()) {
-						debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Listener thread termination detected before accepting TCP-connection -> exiting from listener thread"));
-						break;
-					}
-					std::auto_ptr<TcpSocket> socketAutoPtr(serverSocket.accept(listenTimeout()));
-					if (shouldTerminate()) {
-						debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Listener thread termination detected after accepting TCP-connection -> exiting from listener thread"));
-						break;
-					}
-					if (!socketAutoPtr.get()) {
-						// Accepting TCP-connection timeout expired
-						continue;
-					}
-					std::ostringstream msg;
-					msg << "TCP-connection has been received from " << socketAutoPtr.get()->remoteAddr().firstEndpoint().host << ':' <<
-						socketAutoPtr.get()->remoteAddr().firstEndpoint().port;
-					debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, msg.str()));
-					std::auto_ptr<AbstractTask> taskAutoPtr(_service.createTask(*this, *socketAutoPtr.get()));
-					socketAutoPtr.release();
-					if (taskDispatcher().perform(taskAutoPtr.get())) {
-						taskAutoPtr.release();
-					} else {
-						warningLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Too many TCP-connection requests"));
-					}
-				}
-			} catch (std::exception& e) {
-				errorLog().log(ExceptionLogMessage(SOURCE_LOCATION_ARGS, e, "Synchronous TCP-service listener execution error -> exiting from listener thread"));
-			} catch (...) {
-				errorLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Synchronous TCP-service listener unknown execution error -> exiting from listener thread"));
-			}
-			onStop();
-		}
+		virtual void run();
 
 		AbstractSyncTcpService& _service;
+		const TcpAddrInfo _addrInfo;
+		const unsigned int _backLog;
 	};
 
-	//! Base class for synchronous TCP-service task
-	class AbstractTask : public ::isl::AbstractTask
-	{
-	public:
-		//! Constructor
-		/*!
-		  \param service Reference to the asynchronous TCP-service
-		  \param socket Reference to the client connection socket
-		*/
-		AbstractTask(AbstractSyncTcpService& service, TcpSocket& socket) :
-			::isl::AbstractTask(),
-			_service(service),
-			_socketAutoPtr(&socket)
-		{}
-		//! Returns reference to TCP-service
-		inline AbstractSyncTcpService& service()
-		{
-			return _service;
-		}
-		//! Returns reference to the socket
-		inline TcpSocket& socket() const
-		{
-			return *_socketAutoPtr.get();
-		}
-	private:
-		AbstractTask();
-		AbstractTask(const AbstractTask&);								// No copy
+	typedef std::list<ListenerThread *> ListenersContainer;
 
-		AbstractTask& operator=(const AbstractTask&);							// No copy
+	void resetListenerThreads();
 
-		AbstractSyncTcpService& _service;
-		std::auto_ptr<TcpSocket> _socketAutoPtr;
-	};
-
-	//! Creating listener factory method
-	/*!
-	  \param addrInfo TCP-address info to bind to
-	  \param listenTimeout Timeout to wait for incoming connections
-	  \param backLog Listen backlog
-	  \return Pointer to new listener
-	*/
-	virtual AbstractListenerThread * createListener(const TcpAddrInfo& addrInfo, const Timeout& listenTimeout, unsigned int backLog)
-	{
-		return new ListenerThread(*this, addrInfo, listenTimeout, backLog);
-	}
-	//! Creating task factory method to override
-	/*!
-	  \param listener Reference to listener thread object
-	  \param socket Reference to the client connection socket
-	  \return Pointer to the new task object
-	*/
-	virtual AbstractTask * createTask(ListenerThread& listener, TcpSocket& socket) = 0;
-private:
-	AbstractSyncTcpService();
-	AbstractSyncTcpService(const AbstractSyncTcpService&);						// No copy
-
-	AbstractSyncTcpService& operator=(const AbstractSyncTcpService&);				// No copy
-
-	virtual void beforeStart()
-	{
-		debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Starting synchronous TCP-service"));
-		AbstractTcpService::beforeStart();
-	}
-	virtual void afterStart()
-	{
-		debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Synchronous TCP-service has been started"));
-	}
-	virtual void beforeStop()
-	{
-		debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Stopping synchronous TCP-service"));
-	}
-	virtual void afterStop()
-	{
-		AbstractTcpService::afterStop();
-		debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Synchronous TCP-service has been stopped"));
-	}
+	TaskDispatcher<AbstractTask> _taskDispatcher;
+	Timeout _clockTimeout;
+	int _lastListenerConfigId;
+	ListenerConfigs _listenerConfigs;
+	ListenersContainer _listeners;
 };
 
 } // namespace isl

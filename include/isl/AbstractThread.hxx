@@ -9,7 +9,14 @@ namespace isl
 class ReadWriteLock;
 class WaitCondition;
 
-//! Thread abstract base class
+//! Standalone thread abstract base class
+/*!
+  Use this class if you want an object, which is running it's virtual method in the separate thread.
+  
+  \note The behaviour is undefined when the new thread has been started before the completion of the previous one.
+
+  \sa MemFunThread, FunctorThread
+*/
 class AbstractThread
 {
 public:

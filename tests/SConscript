@@ -11,4 +11,6 @@ env.Append(ENV = {'PATH' : os.environ['PATH']})
 datetimeTestBuilder = env.Program('datetime/datetime', Glob('datetime/main.cxx'))
 timerTestBuilder = env.Program('timer/timer', Glob('timer/main.cxx'))
 httpTestBuilder = env.Program('http/http', Glob('http/main.cxx'))
-Default([datetimeTestBuilder, timerTestBuilder, httpTestBuilder])
+threadTestBuilder = env.Program('thread/thread', Glob('thread/main.cxx'))
+
+Default([datetimeTestBuilder, timerTestBuilder, httpTestBuilder, threadTestBuilder])

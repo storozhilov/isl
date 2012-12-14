@@ -17,9 +17,9 @@ public:
 	/*!
 	  \param endpoint Reference to the modbus endpoint
 	  \param stateBitAddr State bit address
-	  \param feedbackBitAddr Feedback state input bit address or 0 if no feedback is provided by the relay
+	  \param feedbackBitAddr Feedback state input bit address or negative value if no feedback is provided by the relay
 	*/
-	Relay(ModbusEndpoint& endpoint, int stateBitAddr, int feedbackBitAddr = 0);
+	Relay(ModbusEndpoint& endpoint, int stateBitAddr, int feedbackBitAddr = -1);
 	//! Returns state bit address
 	inline int stateBitAddr() const
 	{
@@ -33,7 +33,7 @@ public:
 	//! Inspects if the relay has a feedback channel
 	inline bool hasFeedback() const
 	{
-		return _feedbackBitAddr > 0;
+		return _feedbackBitAddr >= 0;
 	}
 	//! Returns relay state
 	/*!

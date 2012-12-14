@@ -12,8 +12,13 @@ const wchar_t * Http::DateTimeWFormat = L"%a, %d %b %Y %H:%M:%S %Z";
 void Http::parseUri(const std::string& uriStr, std::string& path, std::string& query)
 {
 	size_t questionMarkPos = uriStr.find('?');
-	path = uriStr.substr(0, questionMarkPos);
-	query = uriStr.substr(questionMarkPos + 1);
+	if (questionMarkPos == std::string::npos) {
+		path = uriStr;
+		query.clear();
+	} else {
+		path = uriStr.substr(0, questionMarkPos);
+		query = uriStr.substr(questionMarkPos + 1);
+	}
 }
 
 std::string Http::composeUri(const std::string& path, const std::string& query)

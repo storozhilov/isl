@@ -68,7 +68,8 @@ const TcpAddrInfo& TcpSocket::remoteAddr() const
 void TcpSocket::bind(const TcpAddrInfo& addrInfo)
 {
 	if (!isOpen()) {
-		throw Exception(IOError(SOURCE_LOCATION_ARGS, IOError::DeviceIsNotOpen));
+		//throw Exception(IOError(SOURCE_LOCATION_ARGS, IOError::DeviceIsNotOpen));
+		throw Exception(NotOpenError(SOURCE_LOCATION_ARGS));
 	}
 	// Setting SO_REUSEADDR to true
 	int reuseAddr = 1;
@@ -88,7 +89,8 @@ void TcpSocket::bind(const TcpAddrInfo& addrInfo)
 void TcpSocket::listen(unsigned int backLog)
 {
 	if (!isOpen()) {
-		throw Exception(IOError(SOURCE_LOCATION_ARGS, IOError::DeviceIsNotOpen));
+		//throw Exception(IOError(SOURCE_LOCATION_ARGS, IOError::DeviceIsNotOpen));
+		throw Exception(NotOpenError(SOURCE_LOCATION_ARGS));
 	}
 	if (::listen(_descriptor, backLog) != 0) {
 		throw Exception(SystemCallError(SOURCE_LOCATION_ARGS, SystemCallError::Listen, errno));
@@ -98,7 +100,8 @@ void TcpSocket::listen(unsigned int backLog)
 std::auto_ptr<TcpSocket> TcpSocket::accept(const Timeout& timeout)
 {
 	if (!isOpen()) {
-		throw Exception(IOError(SOURCE_LOCATION_ARGS, IOError::DeviceIsNotOpen));
+		//throw Exception(IOError(SOURCE_LOCATION_ARGS, IOError::DeviceIsNotOpen));
+		throw Exception(NotOpenError(SOURCE_LOCATION_ARGS));
 	}
 	// Waiting for incoming connection
 	timespec selectTimeout = timeout.timeSpec();
@@ -134,7 +137,8 @@ std::auto_ptr<TcpSocket> TcpSocket::accept(const Timeout& timeout)
 void TcpSocket::connect(const TcpAddrInfo& addrInfo)
 {
 	if (!isOpen()) {
-		throw Exception(IOError(SOURCE_LOCATION_ARGS, IOError::DeviceIsNotOpen));
+		//throw Exception(IOError(SOURCE_LOCATION_ARGS, IOError::DeviceIsNotOpen));
+		throw Exception(NotOpenError(SOURCE_LOCATION_ARGS));
 	}
 	if (::connect(_descriptor, addrInfo.addrinfo()->ai_addr, addrInfo.addrinfo()->ai_addrlen)) {
 		throw Exception(SystemCallError(SOURCE_LOCATION_ARGS, SystemCallError::Connect, errno));
@@ -245,7 +249,8 @@ size_t TcpSocket::readImplementation(char * buffer, size_t bufferSize, const Tim
 		//}
 	} else if (bytesReceived == 0) {
 		// Connection has been aborted by the client.
-		throw Exception(IOError(SOURCE_LOCATION_ARGS, IOError::ConnectionAborted));
+		//throw Exception(IOError(SOURCE_LOCATION_ARGS, IOError::ConnectionAborted));
+		throw Exception(ConnectionAbortedError(SOURCE_LOCATION_ARGS));
 	}
 	return bytesReceived;
 }
@@ -268,7 +273,8 @@ size_t TcpSocket::writeImplementation(const char * buffer, size_t bufferSize, co
 		if (errno == EPIPE) {
 			// Handled because send(2) man page says: "EPIPE: The local end has been shut down on a connection oriented socket.
 			// In this case the process will also receive a SIGPIPE unless MSG_NOSIGNAL is set."
-			throw Exception(IOError(SOURCE_LOCATION_ARGS, IOError::ConnectionAborted));
+			//throw Exception(IOError(SOURCE_LOCATION_ARGS, IOError::ConnectionAborted));
+			throw Exception(ConnectionAbortedError(SOURCE_LOCATION_ARGS));
 		} else {
 			throw Exception(SystemCallError(SOURCE_LOCATION_ARGS, SystemCallError::Send, errno));
 		}
@@ -280,7 +286,8 @@ size_t TcpSocket::writeImplementation(const char * buffer, size_t bufferSize, co
 		//}
 	} else if (bytesSent == 0) {
 		// Connection has been aborted by the client.
-		throw Exception(IOError(SOURCE_LOCATION_ARGS, IOError::ConnectionAborted));
+		//throw Exception(IOError(SOURCE_LOCATION_ARGS, IOError::ConnectionAborted));
+		throw Exception(ConnectionAbortedError(SOURCE_LOCATION_ARGS));
 	}
 	return bytesSent;
 }

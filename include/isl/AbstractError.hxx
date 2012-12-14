@@ -44,13 +44,13 @@ public:
 		return _info;
 	}
 	//! Returns true if an error is an instance of particular type templated method
-	template <typename T> bool instanceOf()
+	template <typename T> bool instanceOf() const
 	{
-		return (dynamic_cast<T *>(this));
+		return (dynamic_cast<const T *>(this));
 	}
 	//! Composes and returns an error message
 	const std::string& message() const;
-	//! Composing string with source code filename, line number and function name help function
+	//! Composing string with source code filename, line number and function name helper method
 	std::string sourceLocation() const;
 
 	//! Cloning method for mandatory overriding in subclasses.

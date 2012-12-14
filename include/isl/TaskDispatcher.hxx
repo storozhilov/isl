@@ -12,334 +12,238 @@
 #include <sstream>
 #include <memory>
 
+#include <isl/MemFunThread.hxx>
+
 namespace isl
 {
 
-//! Task dispatcher for executing tasks in the pool of the worker threads
+//! Executes task object's method in separate thread
 /*!
-  This is an <a href="http://en.wikipedia.org/wiki/Active_object">Active object pattern</a> templated extensible implementation.
-  Thread creation operation is quite expensive one, so it's reasonable to pre-create pool of worker threads which are
-  waiting on condition variable for incoming tasks to execute.
+  Use this class if you want your <strong>task object</strong>'s method to be executed in a separate thread,
+  which is one of the prestarted threads pool. If your task object has 2 or more such methods to execute take a
+  look at the MultiTaskDispatcher class instead.
 
-  TODO Introduce a <tt>bool Task::autoDelete()</tt> member.
+  \note Task dispatcher will automatically dispose all pending tasks on stop() operation without execution.
+
+  \tparam T Task object class
+
+  \sa MultiTaskDispatcher
+
+  \sa <a href="http://en.wikipedia.org/wiki/Active_object">Active object pattern</a>
 */
-template <typename Task> class BasicTaskDispatcher : public Subsystem
+template <typename T> class TaskDispatcher : public Subsystem
 {
 public:
-	//! Tasks list
-	typedef std::list<Task *> TaskList;
+	//! Task object's method type definition
+	typedef void (T::*Method)(TaskDispatcher<T>&);
+private:
+	typedef MemFunThread<TaskDispatcher<T> > WorkerThread;
 
-	//! WorkerThread thread class
-	class WorkerThread : public AbstractThread
+	class PendingTask
 	{
 	public:
-		//! Constructs worker thread
-		/*!
-		  \param taskDispatcher Reference to the task dispatcher object
-		  \param id ID of the worker
-		*/
-		WorkerThread(BasicTaskDispatcher& taskDispatcher, unsigned int id) :
-			AbstractThread(taskDispatcher, true, false /* No auto-join to workers - see BasicTaskDispatcher::beforeStop() event handler */),
-			_taskDispatcher(taskDispatcher),
-			_id(id)
+		PendingTask(TaskDispatcher<T>& dispatcher, T * taskPtr, const Method method) :
+			_dispatcher(dispatcher),
+			_taskAutoPtr(taskPtr),
+			_method(method)
 		{}
-		//! Destructor
-		virtual ~WorkerThread()
-		{}
-		//! Returns a reference to the task dispatcher
-		inline BasicTaskDispatcher& taskDispatcher()
+		inline void execute()
 		{
-			return _taskDispatcher;
+			((_taskAutoPtr.get())->*(_method))(_dispatcher);
 		}
-		//! Returns ID of the worker
-		inline unsigned int id() const
-		{
-			return _id;
-		}
-	protected:
-		//! On start event handler
-		virtual void onStart()
-		{}
-		//! On stop event handler
-		virtual void onStop()
-		{}
 	private:
-		WorkerThread();
-		WorkerThread(const WorkerThread&);							// No copy
+		PendingTask();
+		PendingTask(const PendingTask&);							// No copy
+		PendingTask& operator=(const PendingTask&);						// No copy
 
-		WorkerThread& operator=(const WorkerThread&);						// No copy
-
-		virtual void run()
-		{
-			onStart();
-			debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "WorkerThread has been started"));
-			while (true) {
-				if (shouldTerminate()) {
-					debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Worker thread termination has been detected before task pick up -> exiting from the worker thread"));
-					break;
-				}
-				std::auto_ptr<Task> taskAutoPtr;
-				{
-					MutexLocker locker(_taskDispatcher._taskCond.mutex());
-					if (_taskDispatcher._taskQueue.empty()) {
-						// Wait for the next task if the task queue is empty
-						++_taskDispatcher._awaitingWorkersCount;
-						_taskDispatcher._taskCond.wait();
-						--_taskDispatcher._awaitingWorkersCount;
-						if (!_taskDispatcher._taskQueue.empty()) {
-							// Pick up the next task from the task queue if the task queue is not empty
-							taskAutoPtr.reset(_taskDispatcher._taskQueue.back());
-							_taskDispatcher._taskQueue.pop_back();
-						}
-					} else {
-						// Pick up the next task from the task queue if the task queue is not empty
-						taskAutoPtr.reset(_taskDispatcher._taskQueue.back());
-						_taskDispatcher._taskQueue.pop_back();
-					}
-				}
-				if (shouldTerminate()) {
-					debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Worker thread termination has been detected after task pick up -> exiting from the worker thread"));
-					break;
-				}
-				if (taskAutoPtr.get()) {
-					try {
-						taskAutoPtr->execute(*this);
-					} catch (std::exception& e) {
-						errorLog().log(ExceptionLogMessage(SOURCE_LOCATION_ARGS, e, "Task execution error"));
-					} catch (...) {
-						errorLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Task execution unknown error"));
-					}
-				} else {
-					// TODO Remove it?
-					debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "No task for worker"));
-				}
-			}
-			onStop();
-		}
-
-		BasicTaskDispatcher& _taskDispatcher;
-		unsigned int _id;
+		TaskDispatcher<T>& _dispatcher;
+		std::auto_ptr<T> _taskAutoPtr;
+		Method _method;
 	};
-	
+	typedef std::deque<PendingTask *> PendingTasksQueue;
+public:
 	//! Constructs new task dispatcher
 	/*!
 	  \param owner Pointer to the owner subsystem
-	  \param workersAmount WorkerThread threads amount
-	  \param maxTaskQueueOverflowSize Max tasks queue overflow
+	  \param workersAmount Worker threads amount
 	*/
-	BasicTaskDispatcher(Subsystem * owner, size_t workersAmount, size_t maxTaskQueueOverflowSize = 0) :
+	TaskDispatcher(Subsystem * owner, size_t workersAmount) :
 		Subsystem(owner),
 		_workersAmount(workersAmount),
-		_maxTaskQueueOverflowSize(maxTaskQueueOverflowSize),
-		_taskCond(),
+		_cond(),
+		_shouldTerminate(false),
+		_workers(),
 		_awaitingWorkersCount(0),
-		_taskQueue(),
-		_workers()
+		_pendingTasksQueue()
 	{}
-	~BasicTaskDispatcher()
+	virtual ~TaskDispatcher()
 	{
 		resetWorkers();
-		for (typename TaskQueue::iterator i = _taskQueue.begin(); i != _taskQueue.end(); ++i) {
-			delete (*i);
-		}
+		resetPendingTasksQueue();
 	}
-	
 	//! Returns workers amount
 	inline size_t workersAmount() const
 	{
-		ReadLocker locker(runtimeParamsRWLock);
 		return _workersAmount;
 	}
-	//! Sets new workers count.
+	//! Sets workers amount
 	/*!
-	  Subsystem's restart needed to completely apply the new value;
-
 	  \param newValue New workers amount
+
+	  \note Thread-unsafe: call it when subsystem is idling only
 	*/
 	inline void setWorkersAmount(size_t newValue)
 	{
-		WriteLocker locker(runtimeParamsRWLock);
 		_workersAmount = newValue;
 	}
-	//! Thread-safely returns maximum task queue overflow size.
-	inline size_t maxTaskQueueOverflowSize() const
-	{
-		MutexLocker locker(_taskCond.mutex());
-		return _maxTaskQueueOverflowSize;
-	}
-	//! Thread-safely sets the new maximum task queue overflow size.
+	//! Returns if the task dispatcher should be terminated
 	/*!
-	  Changes will take place on the next task performing operation
+	  Call this method periodically during long-live tasks execution for correct subsystem's termination.
 
-	  \param newValue New maximum task queue overflow size
+	  \note Thread-safe
 	*/
-	inline void setMaxTaskQueueOverflowSize(size_t newValue)
+	inline bool shouldTerminate() const
 	{
-		MutexLocker locker(_taskCond.mutex());
-		_maxTaskQueueOverflowSize = newValue;
+		MutexLocker locker(_cond.mutex());
+		return _shouldTerminate;
 	}
-	//! Performs a task
+	//! Accepts task for execution it's single method in separate thread
 	/*!
-	  \return True if the task has been successfully passed to workers
+	  \param taskAutoPtr Reference to the auto-pointer to task object, which is automatically released if the task has been successfully accepted.
+	  \param method Pointer to method of the task to be executed in the separate thread
+	  \return TRUE if the task has been successfully accepted
+
+	  \note Thread-safe
 	*/
-	bool perform(Task * task)
+	inline bool perform(std::auto_ptr<T>& taskAutoPtr, Method method)
 	{
-		size_t awaitingWorkersCount;
-		size_t taskQueueSize;
-		size_t currentMaxTaskQueueOverflowSize;
+		//return perform(taskAutoPtr, MethodsContainer(1, method));
+		//return true;
+		if (!taskAutoPtr.get()) {
+			// TODO Maybe to throw an exception???
+			errorLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Empty pointer to task to execute"));
+			return true;
+		}
 		bool taskPerformed = false;
 		{
-			MutexLocker locker(_taskCond.mutex());
-			awaitingWorkersCount = _awaitingWorkersCount;
-			taskQueueSize = _taskQueue.size();
-			if ((awaitingWorkersCount + _maxTaskQueueOverflowSize) >= (taskQueueSize + 1)) {
-				_taskQueue.push_front(task);
-				_taskCond.wakeOne();
-				taskPerformed = true;
-			}
-			currentMaxTaskQueueOverflowSize = _maxTaskQueueOverflowSize;
+			MutexLocker locker(_cond.mutex());
+			_pendingTasksQueue.push_front(new PendingTask(*this, taskAutoPtr.get(), method));
+			taskPerformed = true;
+			_cond.wakeOne();
 		}
-		std::ostringstream oss;
-		oss << "Total workers: " << _workers.size() << ", workers awaiting: " << awaitingWorkersCount << ", tasks in pool: " << (taskQueueSize + 1) <<
-			", max task overflow: "  << currentMaxTaskQueueOverflowSize << ", detected tasks overflow: " <<
-			((awaitingWorkersCount >= (taskQueueSize + 1)) ? 0 : taskQueueSize + 1 - awaitingWorkersCount);
 		if (taskPerformed) {
-			debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, oss.str()));
+			taskAutoPtr.release();
 		} else {
-			warningLog().log(LogMessage(SOURCE_LOCATION_ARGS, oss.str()));
+			warningLog().log(LogMessage(SOURCE_LOCATION_ARGS, "No enough workers available"));
 		}
 		return taskPerformed;
 	}
-	//! Performs a tasks
-	/*!
-	  \return True if the tasks have been successfully passed to workers
-	*/
-	bool perform(const TaskList& taskList)
-	{
-		size_t tasksCount = taskList.size();
-		if (tasksCount <= 0) {
-			return true;
-		}
-		size_t awaitingWorkersCount;
-		size_t taskQueueSize;
-		size_t currentMaxTaskQueueOverflowSize;
-		bool tasksPerformed = false;
-		{
-			MutexLocker locker(_taskCond.mutex());
-			awaitingWorkersCount = _awaitingWorkersCount;
-			taskQueueSize = _taskQueue.size();
-			if ((awaitingWorkersCount + _maxTaskQueueOverflowSize) >= (taskQueueSize + tasksCount)) {
-				for (typename TaskList::const_iterator i = taskList.begin(); i != taskList.end(); ++i) {
-					_taskQueue.push_front(*i);
-				}
-				_taskCond.wakeAll();
-				tasksPerformed = true;
-			}
-			currentMaxTaskQueueOverflowSize = _maxTaskQueueOverflowSize;
-		}
-		std::ostringstream oss;
-		oss << "Total workers: " << _workers.size() << ", workers awaiting: " << awaitingWorkersCount << ", tasks to execute: " << tasksCount <<
-			" tasks in pool: " << (taskQueueSize + tasksCount) << ", max task overflow: "  << currentMaxTaskQueueOverflowSize << ", detected tasks overflow: " <<
-			((awaitingWorkersCount >= (taskQueueSize + tasksCount)) ? 0 : taskQueueSize + 1 - awaitingWorkersCount);
-		if (tasksPerformed) {
-			debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, oss.str()));
-		} else {
-			warningLog().log(LogMessage(SOURCE_LOCATION_ARGS, oss.str()));
-		}
-		return tasksPerformed;
-	}
 protected:
-	//! Creating new worker factory method
-	/*!
-	  \param workerId Id for the new worker
-	  \return Pointer to new worker thread
-	*/
-	virtual WorkerThread * createWorker(unsigned int workerId)
+	virtual void startImpl()
 	{
-		return new WorkerThread(*this, workerId);
+		// Calling ancestor's method
+		Subsystem::startImpl();
+		_shouldTerminate = false;
+		_awaitingWorkersCount = 0;
+		debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Creating and starting workers"));
+		for (size_t i = 0; i < _workersAmount; ++i) {
+			std::auto_ptr<WorkerThread> newWorkerAutoPtr(new WorkerThread());
+			WorkerThread * newWorkerPtr = newWorkerAutoPtr.get();
+			_workers.push_back(newWorkerPtr);
+			newWorkerAutoPtr.release();
+			newWorkerPtr->start(*this, &TaskDispatcher<T>::work);
+		}
+		debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Workers have been created and started"));
+	}
+	virtual void stopImpl()
+	{
+		debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Stopping workers"));
+		// Waking up all workers
+		{
+			MutexLocker locker(_cond.mutex());
+			_shouldTerminate = true;
+			_cond.wakeAll();
+		}
+		// Waiting for all workers to terminate
+		for (typename WorkersContainer::iterator i = _workers.begin(); i != _workers.end(); ++i) {
+			(*i)->join();
+		}
+		debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Workers have been stopped"));
+		// Disposing workers
+		resetWorkers();
+		// Disposing pending tasks queue
+		resetPendingTasksQueue();
+		// Calling ancestor's method
+		Subsystem::stopImpl();
 	}
 private:
-	BasicTaskDispatcher();
-	BasicTaskDispatcher(const BasicTaskDispatcher&);						// No copy
+	TaskDispatcher();
+	TaskDispatcher(const TaskDispatcher&);						// No copy
 
-	BasicTaskDispatcher& operator=(const BasicTaskDispatcher&);					// No copy
+	TaskDispatcher& operator=(const TaskDispatcher&);					// No copy
 
-	typedef std::deque<Task *> TaskQueue;
-	typedef std::list<WorkerThread *> WorkerList;
+	typedef std::list<WorkerThread *> WorkersContainer;
 
 	void resetWorkers()
 	{
-		for (typename WorkerList::iterator i = _workers.begin(); i != _workers.end(); ++i) {
+		for (typename WorkersContainer::iterator i = _workers.begin(); i != _workers.end(); ++i) {
 			delete (*i);
 		}
 		_workers.clear();
 	}
 
-	virtual void beforeStart()
+	void resetPendingTasksQueue()
 	{
-		debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Starting task dispatcher"));
-		debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Creating workers"));
-		for (size_t i = 0; i < workersAmount(); ++i) {
-			std::auto_ptr<WorkerThread> newWorkerAutoPtr(createWorker(i));
-			_workers.push_back(newWorkerAutoPtr.get());
-			newWorkerAutoPtr.release();
+		for (typename PendingTasksQueue::iterator i = _pendingTasksQueue.begin(); i != _pendingTasksQueue.end(); ++i) {
+			delete (*i);
+			warningLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Pending task has been discarded"));
 		}
-		debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Workers have been created"));
+		_pendingTasksQueue.clear();
 	}
-	virtual void afterStart()
+
+	void work()
 	{
-		debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Task dispatcher has been started"));
-	}
-	virtual void beforeStop()
-	{
-		debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Stopping task dispatcher"));
-		debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Waking up workers"));
-		{
+		while (true) {
+			std::auto_ptr<PendingTask> pendingTaskAutoPtr;
 			{
-				MutexLocker locker(_taskCond.mutex());
-				_taskCond.wakeAll();
+				MutexLocker locker(_cond.mutex());
+				if (_shouldTerminate) {
+					return;
+				}
+				if (_pendingTasksQueue.empty()) {
+					// Waiting for the next task if the pending tasks queue is empty
+					++_awaitingWorkersCount;
+					_cond.wait();
+					--_awaitingWorkersCount;
+					if (_shouldTerminate) {
+						return;
+					}
+					if (!_pendingTasksQueue.empty()) {
+						pendingTaskAutoPtr.reset(_pendingTasksQueue.back());
+						_pendingTasksQueue.pop_back();
+					}
+				} else {
+					pendingTaskAutoPtr.reset(_pendingTasksQueue.back());
+					_pendingTasksQueue.pop_back();
+				}
 			}
-			for (typename WorkerList::iterator i = _workers.begin(); i != _workers.end(); ++i) {
-				(*i)->join();
+			if (pendingTaskAutoPtr.get()) {
+				pendingTaskAutoPtr->execute();
+			} else {
+				warningLog().log(LogMessage(SOURCE_LOCATION_ARGS, "No pending task for worker"));
 			}
 		}
-	}
-	virtual void afterStop()
-	{
-		debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Deleting workers"));
-		resetWorkers();
-		debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Workers have been deleted"));
-		debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Task dispatcher has been stopped"));
 	}
 
 	size_t _workersAmount;
-	size_t _maxTaskQueueOverflowSize;
-	mutable WaitCondition _taskCond;
+	mutable WaitCondition _cond;
+	bool _shouldTerminate;
+	WorkersContainer _workers;
 	size_t _awaitingWorkersCount;
-	TaskQueue _taskQueue;
-	WorkerList _workers;
+	PendingTasksQueue _pendingTasksQueue;
+
+	friend class MemFunThread<TaskDispatcher<T> >;
 };
-
-//! Base class for task which worker should execute
-class AbstractTask
-{
-public:
-	//! Task dispatcher type
-	typedef BasicTaskDispatcher<AbstractTask> TaskDispatcherType;
-
-	AbstractTask()
-	{}
-	virtual ~AbstractTask()
-	{}
-	//! Task execution virtual abstract method
-	virtual void execute(TaskDispatcherType::WorkerThread& worker) = 0;
-private:
-	AbstractTask(const AbstractTask&);						// No copy
-
-	AbstractTask& operator=(const AbstractTask&);					// No copy
-};
-
-typedef BasicTaskDispatcher<AbstractTask> TaskDispatcher;
 
 } // namespace isl
 

@@ -17,6 +17,32 @@ namespace isl
 class TcpSocket : public AbstractIODevice
 {
 public:
+	//! Connection aborted error class
+	class ConnectionAbortedError : public AbstractError
+	{
+	public:
+		//! Constructs connection aborted error
+		/*!
+		  \param SOURCE_LOCATION_ARGS_DECLARATION put SOURCE_LOCATION_ARGS macro here
+		  \param info User info
+		*/
+		ConnectionAbortedError(SOURCE_LOCATION_ARGS_DECLARATION, const std::string& info = std::string()) :
+			AbstractError(SOURCE_LOCATION_ARGS_PASSTHRU, info)
+		{}
+		//! Clones error
+		virtual AbstractError * clone() const
+		{
+			return new ConnectionAbortedError(*this);
+		}
+	private:
+		ConnectionAbortedError();
+
+		virtual std::string composeMessage() const
+		{
+			return "Connection aborted on TCP-socket";
+		}
+	};
+
 	//! Constructor
 	TcpSocket();
 	//! Destructor

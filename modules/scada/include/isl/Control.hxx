@@ -14,9 +14,9 @@ public:
 	/*!
 	  \param endpoint Reference to the modbus endpoint
 	  \param valueRegisterAddr Control's value register address 
-	  \param feedbackRegisterAddr Feedback value input register address or 0 if no feedback is provided by the control
+	  \param feedbackRegisterAddr Feedback value input register address or negative value if no feedback is provided by the control
 	*/
-	Control(ModbusEndpoint& endpoint, int valueRegisterAddr, int feedbackRegisterAddr = 0);
+	Control(ModbusEndpoint& endpoint, int valueRegisterAddr, int feedbackRegisterAddr = -1);
 	//! Returns sensor register address
 	inline int valueRegisterAddr() const
 	{
@@ -26,6 +26,11 @@ public:
 	inline int feedbackRegisterAddr() const
 	{
 		return _feedbackRegisterAddr;
+	}
+	//! Inspects if the sensor has a feedback channel
+	inline bool hasFeedback() const
+	{
+		return _feedbackRegisterAddr >= 0;
 	}
 	//! Returns current control's value
 	/*!

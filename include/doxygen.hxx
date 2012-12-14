@@ -108,6 +108,7 @@ namespace isl
 
   \code
 #include <isl/Server.hxx>
+#include <isl/PidFile.hxx>
 #include <isl/AbstractSyncTcpService.hxx>
 #include <isl/Exception.hxx>
 #include <isl/HttpRequestReader.hxx>
@@ -120,7 +121,6 @@ namespace isl
 #define MAX_CLIENTS 10				// Max clients to be served simultaneously
 #define TRANSMISSION_SECONDS_TIMEOUT 60		// Data transmission timeout in seconds
 
-// Our HTTP-service subsystem class
 class HttpService : public isl::AbstractSyncTcpService
 {
 public:
@@ -132,17 +132,17 @@ public:
 	}
 private:
 	// Returning HTTP-request properties task class to execute in task dispatcher
-	class HttpTask : public isl::AbstractSyncTcpService::AbstractTask
+	class HttpTask : public AbstractTask
 	{
 	public:
-		HttpTask(AbstractSyncTcpService& service, isl::TcpSocket& socket) :
-			isl::AbstractSyncTcpService::AbstractTask(service, socket),
+		HttpTask(isl::TcpSocket& socket) :
+			AbstractTask(socket),
 			_requestReader(socket)
 		{}
 	private:
 		HttpTask();
 		// Task execution method definition
-		virtual void execute(TaskDispatcherType::WorkerThread& worker)
+		virtual void executeImpl(isl::TaskDispatcher<AbstractTask>& taskDispatcher)
 		{
 			// Reading an HTTP-request and reporting an error if occured
 			try {
@@ -172,8 +172,8 @@ private:
 			// Composing an HTTP-response
 			std::ostringstream oss;
 			oss << "<html><head><title>HTTP-request has been recieved</title></head><body>";
-			if (_requestReader.streamReader().isBad()) {
-				oss << "<p>Bad request: &quot;" << _requestReader.streamReader().error()->message() << "&quot;</p>";
+			if (_requestReader.streamReader().parser().isBad()) {
+				oss << "<p>Bad request: &quot;" << _requestReader.streamReader().parser().error()->message() << "&quot;</p>";
 			} else {
 				oss << "<p>URI: &quot;" << _requestReader.streamReader().uri() << "&quot;</p>" <<
 					"<p>path: &quot;" << isl::String::decodePercent(_requestReader.path()) << "&quot;</p>" <<
@@ -181,7 +181,7 @@ private:
 				for (isl::Http::Params::const_iterator i = _requestReader.get().begin(); i != _requestReader.get().end(); ++i) {
 					oss << "<p>get[&quot;" << i->first << "&quot;] = &quot;" << i->second << "&quot;</p>";
 				}
-				for (isl::Http::Params::const_iterator i = _requestReader.streamReader().header().begin(); i != _requestReader.streamReader().header().end(); ++i) {
+				for (isl::Http::Params::const_iterator i = _requestReader.streamReader().parser().header().begin(); i != _requestReader.streamReader().parser().header().end(); ++i) {
 					oss << "<p>header[&quot;" << i->first << "&quot;] = &quot;" << i->second << "&quot;</p>";
 				}
 				for (isl::Http::RequestCookies::const_iterator i = _requestReader.cookies().begin(); i != _requestReader.cookies().end(); ++i) {
@@ -198,9 +198,9 @@ private:
 		isl::HttpRequestReader _requestReader;
 	};
 	// Task creation factory method definition
-	virtual isl::AbstractSyncTcpService::AbstractTask * createTask(ListenerThread& listener, isl::TcpSocket& socket)
+	virtual AbstractTask * createTask(isl::TcpSocket& socket)
 	{
-		return new HttpTask(*this, socket);
+		return new HttpTask(socket);
 	}
 };
 
@@ -238,7 +238,7 @@ private:
 
 int main(int argc, char *argv[])
 {
-	isl::writePid("hsd.pid");						// Writing PID of the server to file
+	isl::PidFile pidFile("hsd.pid");					// Writing PID of the server to file
 	isl::debugLog().connectTarget(isl::FileLogTarget("hsd.log"));		// Connecting basic logs to one file target
 	isl::warningLog().connectTarget(isl::FileLogTarget("hsd.log"));
 	isl::errorLog().connectTarget(isl::FileLogTarget("hsd.log"));

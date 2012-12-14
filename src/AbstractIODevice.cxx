@@ -3,7 +3,7 @@
 #include <isl/LogMessage.hxx>
 #include <isl/Exception.hxx>
 #include <isl/Error.hxx>
-#include <isl/IOError.hxx>
+//#include <isl/IOError.hxx>
 #include <cstring>
 
 namespace isl
@@ -39,7 +39,8 @@ void AbstractIODevice::close()
 size_t AbstractIODevice::read(char * buffer, size_t bufferSize, const Timeout& timeout)
 {
 	if (!_isOpen) {
-		throw Exception(IOError(SOURCE_LOCATION_ARGS, IOError::DeviceIsNotOpen));
+		//throw Exception(IOError(SOURCE_LOCATION_ARGS, IOError::DeviceIsNotOpen));
+		throw Exception(NotOpenError(SOURCE_LOCATION_ARGS));
 	}
 	if (bufferSize <= 0) {
 		return 0;
@@ -50,7 +51,8 @@ size_t AbstractIODevice::read(char * buffer, size_t bufferSize, const Timeout& t
 size_t AbstractIODevice::write(const char * buffer, size_t bufferSize, const Timeout& timeout)
 {
 	if (!_isOpen) {
-		throw Exception(IOError(SOURCE_LOCATION_ARGS, IOError::DeviceIsNotOpen));
+		//throw Exception(IOError(SOURCE_LOCATION_ARGS, IOError::DeviceIsNotOpen));
+		throw Exception(NotOpenError(SOURCE_LOCATION_ARGS));
 	}
 	if (bufferSize <= 0) {
 		return 0;
