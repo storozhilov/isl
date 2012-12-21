@@ -127,6 +127,8 @@ private:
 	struct timespec _ts;
 };
 
+Timeout operator*(const Timeout& lhs, size_t rhs);
+
 } // namespace isl
 
 #endif

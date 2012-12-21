@@ -56,6 +56,11 @@ public:
 	virtual ~MemFunThread()
 	{}
 
+	//! Returns thread's opaque handle
+	inline pthread_t handle() const
+	{
+		return _thread;
+	}
 	//! Inspects if the thread is catching exceptions occured during function/functor execution
 	/*!
 	  \note Thread-safe

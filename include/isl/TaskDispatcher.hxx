@@ -138,11 +138,11 @@ public:
 		}
 		return taskPerformed;
 	}
-protected:
-	virtual void startImpl()
+	//! Starts subsystem
+	virtual void start()
 	{
 		// Calling ancestor's method
-		Subsystem::startImpl();
+		Subsystem::start();
 		_shouldTerminate = false;
 		_awaitingWorkersCount = 0;
 		debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Creating and starting workers"));
@@ -155,7 +155,8 @@ protected:
 		}
 		debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Workers have been created and started"));
 	}
-	virtual void stopImpl()
+	//! Stops subsystem
+	virtual void stop()
 	{
 		debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Stopping workers"));
 		// Waking up all workers
@@ -174,7 +175,7 @@ protected:
 		// Disposing pending tasks queue
 		resetPendingTasksQueue();
 		// Calling ancestor's method
-		Subsystem::stopImpl();
+		Subsystem::stop();
 	}
 private:
 	TaskDispatcher();

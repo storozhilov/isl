@@ -92,21 +92,6 @@ public:
 	{
 		_taskDispatcher.setWorkersAmount(newValue * 2);
 	}
-	//! Returns clock timeout
-	inline const Timeout& clockTimeout() const
-	{
-		return _clockTimeout;
-	}
-	//! Sets new clock timeout
-	/*!
-	  \param newValue New clock timeout value
-
-	  \note Thread-unsafe: call it when subsystem is idling only
-	*/
-	inline void setClockTimeout(const Timeout& newValue)
-	{
-		_clockTimeout = newValue;
-	}
 	//! Adds listener to the service
 	/*!
 	  \param addrInfo TCP-address info to bind to
@@ -140,12 +125,11 @@ public:
 	{
 		_listenerConfigs.clear();
 	}
-protected:
 	//! Starting service method redefinition
-	virtual void startImpl();
+	virtual void start();
 	//! Stopping service method redefinition
-	virtual void stopImpl();
-
+	virtual void stop();
+protected:
 	//! On overload event handler
 	/*!
 	  \param task Reference to the unperformed task
@@ -198,7 +182,6 @@ private:
 	void resetListenerThreads();
 
 	MultiTaskDispatcher<AbstractTask> _taskDispatcher;
-	Timeout _clockTimeout;
 	int _lastListenerConfigId;
 	ListenerConfigs _listenerConfigs;
 	ListenersContainer _listeners;

@@ -28,6 +28,11 @@ public:
 	AbstractThread(bool isTrackable = false, bool awaitStartup = false);
 	//! Destructor
 	virtual ~AbstractThread();
+	//! Returns thread's opaque handle
+	inline pthread_t handle() const
+	{
+		return _thread;
+	}
 	//! Inspects if the thread is trackable
 	inline bool isTrackable() const
 	{

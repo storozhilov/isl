@@ -53,4 +53,9 @@ struct timespec Timeout::initialTimeSpec(time_t secs, long int nsecs)
 	return ts;
 }
 
+Timeout operator*(const Timeout& lhs, size_t rhs)
+{
+	return Timeout((long int) lhs.seconds() * rhs, (long int) lhs.nanoSeconds() * rhs);
+}
+
 } // namespace isl

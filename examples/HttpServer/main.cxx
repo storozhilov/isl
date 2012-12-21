@@ -106,23 +106,6 @@ public:
 private:
 	HttpServer();
 	HttpServer(const HttpServer&);
-	// Some event handlers re-definition
-	void beforeStart()
-	{
-		isl::debugLog().log(isl::LogMessage(SOURCE_LOCATION_ARGS, "Starting server"));
-	}
-	void afterStart()
-	{
-		isl::debugLog().log(isl::LogMessage(SOURCE_LOCATION_ARGS, "Server has been started"));
-	}
-	void beforeStop()
-	{
-		isl::debugLog().log(isl::LogMessage(SOURCE_LOCATION_ARGS, "Stopping server"));
-	}
-	void afterStop()
-	{
-		isl::debugLog().log(isl::LogMessage(SOURCE_LOCATION_ARGS, "Server has been stopped"));
-	}
 
 	HttpService _httpService;
 };

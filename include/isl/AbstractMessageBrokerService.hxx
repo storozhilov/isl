@@ -28,7 +28,7 @@ namespace isl
   has been thrown during AbstractMessageBrokerService::AbstractTask::receiveMessage() or
   AbstractMessageBrokerService::AbstractTask::sendMessage() methods execution. You can terminate
   client connection task implicitly by calling
-  AbstractMessageBrokerService::AbstractTask::setShouldTerminate() method.
+  AbstractMessageBrokerService::AbstractTask::appointTermination() method.
 
   \tparam Msg Message class
   \tparam Cloner Message cloner class with static <tt>Msg * Cloner::clone(const Msg& msg)</tt> method for cloning the message
@@ -144,14 +144,14 @@ protected:
 			ReadLocker locker(_runtimeRwLock);
 			return _shouldTerminate;
 		}
-		//! Sets a new value to the should terminate flag
+		//! Appoints a task execution termination
 		/*!
 		  \param newValue New should terminate flag's value
 		*/
-		void setShouldTerminate(bool newValue)
+		void appointTermination()
 		{
 			WriteLocker locker(_runtimeRwLock);
-			_shouldTerminate = newValue;
+			_shouldTerminate = true;
 		}
 		//! Returns a reference to the internal input message queue
 		inline MessageQueueType& inputQueue()
@@ -240,7 +240,13 @@ protected:
 		  \param timeout Data read timeout
 		  \return Pointer to the received message or to 0 if no message have been received
 		*/
-		virtual MessageType * receiveMessage(TcpSocket& socket, const Timeout& timeout) = 0;
+		//virtual MessageType * receiveMessage(TcpSocket& socket, const Timeout& timeout) = 0;
+		//! Receiving message from transport abstract virtual method
+		/*!
+		  \param timeout Data read timeout
+		  \return Pointer to the received message or to 0 if no message have been received
+		*/
+		virtual MessageType * receiveMessage(const Timeout& timeout) = 0;
 		//! Sending message to transport abstract method
 		/*!
 		  \param msg Constant reference to message to send
@@ -248,7 +254,14 @@ protected:
 		  \param timeout Data send timeout
 		  \return True if the message has been sent
 		*/
-		virtual bool sendMessage(const MessageType& msg, TcpSocket& socket, const Timeout& timeout) = 0;
+		//virtual bool sendMessage(const MessageType& msg, TcpSocket& socket, const Timeout& timeout) = 0;
+		//! Sending message to transport abstract method
+		/*!
+		  \param msg Constant reference to message to send
+		  \param timeout Data send timeout
+		  \return True if the message has been sent
+		*/
+		virtual bool sendMessage(const MessageType& msg, const Timeout& timeout) = 0;
 	private:
 		//! Receive data task execution virtual method
 		/*!
@@ -273,12 +286,13 @@ protected:
 				// Reading message from the transport
 				std::auto_ptr<MessageType> msgAutoPtr;
 				try {
-					msgAutoPtr.reset(receiveMessage(socket(), _service.clockTimeout()));
+					//msgAutoPtr.reset(receiveMessage(socket(), _service.clockTimeout()));
+					msgAutoPtr.reset(receiveMessage(_service.clockTimeout()));
 				} catch (Exception& e) {
 					if (e.error().instanceOf<TcpSocket::ConnectionAbortedError>()) {
 						// Terminating the task if the connection has been aborted
 						isl::debugLog().log(isl::LogMessage(SOURCE_LOCATION_ARGS, "Client connection has been aborted -> exiting from the receiver thread execution"));
-						setShouldTerminate(true);
+						appointTermination();
 						break;
 					} else {
 						throw;
@@ -340,12 +354,13 @@ protected:
 					// Sending message to peer
 					bool messageSent = false;
 					try {
-						messageSent = sendMessage(*currentMessageAutoPtr.get(), socket(), _service.clockTimeout());
+						//messageSent = sendMessage(*currentMessageAutoPtr.get(), socket(), _service.clockTimeout());
+						messageSent = sendMessage(*currentMessageAutoPtr.get(), _service.clockTimeout());
 					} catch (Exception& e) {
 						if (e.error().instanceOf<TcpSocket::ConnectionAbortedError>()) {
 							// Terminating the task if the connection has been aborted
 							isl::debugLog().log(isl::LogMessage(SOURCE_LOCATION_ARGS, "Client connection has been aborted -> exiting from the sender thread execution"));
-							setShouldTerminate(true);
+							appointTermination();
 							break;
 						} else {
 							throw;

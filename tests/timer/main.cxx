@@ -40,7 +40,7 @@ private:
 			"}, expired timestamps: " << expiredTimestamps << ", task execution timeout: {" << timeout.timeSpec().tv_sec << ", " <<
 			timeout.timeSpec().tv_nsec << "}";
 		isl::debugLog().log(isl::LogMessage(SOURCE_LOCATION_ARGS, msg.str()));
-		// Sleep alittle
+		// Sleep a little
 		/*struct timespec ts;
 		ts.tv_sec = 0;
 		ts.tv_nsec = 500000000;
@@ -81,23 +81,6 @@ public:
 private:
 	TimerServer();
 	TimerServer(const TimerServer&);
-	// Some event handlers re-definition
-	void beforeStart()
-	{
-		isl::debugLog().log(isl::LogMessage(SOURCE_LOCATION_ARGS, "Starting server"));
-	}
-	void afterStart()
-	{
-		isl::debugLog().log(isl::LogMessage(SOURCE_LOCATION_ARGS, "Server has been started"));
-	}
-	void beforeStop()
-	{
-		isl::debugLog().log(isl::LogMessage(SOURCE_LOCATION_ARGS, "Stopping server"));
-	}
-	void afterStop()
-	{
-		isl::debugLog().log(isl::LogMessage(SOURCE_LOCATION_ARGS, "Server has been stopped"));
-	}
 
 	Timer _timer;
 	ScheduledTask _scheduledTask;

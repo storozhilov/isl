@@ -29,6 +29,7 @@ public:
 	/*!
 	  \param timeout Timeout to wait for wake-up
 	  \param timeoutLeft Memory location where time interval which is remains after wake up is to be put or 0 otherwise
+	  \return TRUE if signal has been occured during the timeout or FALSE if the timeout has been expired
 	*/
 	bool wait(const Timeout& timeout, Timeout * timeoutLeft = 0);
 	//! Wakes up one thread, which waits on condition variable

@@ -32,7 +32,7 @@ void Server::run()
 		errorLog().log(ErrorLogMessage(SOURCE_LOCATION_ARGS, err));
 		throw Exception(err);
 	}
-	debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "UNIX-signals have beed blocked"));
+	debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "UNIX-signals have been blocked"));
 	// Starting children subsystems
 	debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Starting server"));
 	start();
@@ -82,7 +82,7 @@ void Server::run()
 		errorLog().log(ErrorLogMessage(SOURCE_LOCATION_ARGS, err));
 		throw Exception(err);
 	}
-	debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "UNIX-signals have beed unblocked"));
+	debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "UNIX-signals have been unblocked"));
 	//! Firing after run event
 	afterRun();
 }

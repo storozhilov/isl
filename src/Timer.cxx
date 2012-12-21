@@ -12,8 +12,7 @@ namespace isl
 
 Timer::Timer(Subsystem * owner, const Timeout& clockTimeout, const Timeout& adjustmentTimeout,
 			size_t maxScheduledTaskAmount) :
-	Subsystem(owner),
-	_clockTimeout(clockTimeout),
+	Subsystem(owner, clockTimeout),
 	_adjustmentTimeout(adjustmentTimeout),
 	_maxScheduledTaskAmount(maxScheduledTaskAmount),
 	_lastPeriodicTaskId(0),
@@ -30,7 +29,6 @@ int Timer::registerPeriodicTask(AbstractTask& task, const Timeout& timeout)
 	if (timeout.isZero()) {
 		throw Exception(Error(SOURCE_LOCATION_ARGS, "Zero timeout is not permitted"));
 	}
-	WriteLocker locker(runtimeParamsRWLock);
 	_periodicTaskMap.insert(PeriodicTaskMap::value_type(++_lastPeriodicTaskId, PeriodicTaskMapValue(&task, timeout)));
 	return _lastPeriodicTaskId;
 }
@@ -40,55 +38,41 @@ void Timer::updatePeriodicTask(int taskId, const Timeout& newTimeout)
 	if (newTimeout.isZero()) {
 		throw Exception(Error(SOURCE_LOCATION_ARGS, "Zero timeout is not permitted"));
 	}
-	bool taskNotFound = false;
-	{
-		WriteLocker locker(runtimeParamsRWLock);
-		PeriodicTaskMap::iterator pos = _periodicTaskMap.find(taskId);
-		if (pos == _periodicTaskMap.end()) {
-			taskNotFound = true;
-		} else {
-			pos->second.second = newTimeout;
-		}
-	}
-	if (taskNotFound) {
+	PeriodicTaskMap::iterator pos = _periodicTaskMap.find(taskId);
+	if (pos == _periodicTaskMap.end()) {
 		std::ostringstream msg;
 		msg << "Task (id = " << taskId << ") not found in timer";
 		debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, msg.str()));
+	} else {
+		pos->second.second = newTimeout;
 	}
 }
 
 void Timer::removePeriodicTask(int taskId)
 {
-	bool taskNotFound = false;
-	{
-		WriteLocker locker(runtimeParamsRWLock);
-		PeriodicTaskMap::iterator pos = _periodicTaskMap.find(taskId);
-		if (pos == _periodicTaskMap.end()) {
-			taskNotFound = true;
-		} else {
-			_periodicTaskMap.erase(pos);
-		}
-	}
-	if (taskNotFound) {
+	PeriodicTaskMap::iterator pos = _periodicTaskMap.find(taskId);
+	if (pos == _periodicTaskMap.end()) {
 		std::ostringstream msg;
 		msg << "Task (id = " << taskId << ") not found in timer";
 		debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, msg.str()));
+	} else {
+		_periodicTaskMap.erase(pos);
 	}
 }
 
 void Timer::resetPeriodicTasks()
 {
-	WriteLocker locker(runtimeParamsRWLock);
 	_periodicTaskMap.clear();
 }
 
 bool Timer::scheduleTask(AbstractTask& task, const Timeout& timeout)
 {
-	WriteLocker locker(runtimeParamsRWLock);
+	// TODO
+/*	WriteLocker locker(runtimeParamsRWLock);
 	if (_scheduledTaskMap.size() >= _maxScheduledTaskAmount) {
 		return false;
 	}
-	_scheduledTaskMap.insert(ScheduledTaskMap::value_type(timeout.limit(), &task));
+	_scheduledTaskMap.insert(ScheduledTaskMap::value_type(timeout.limit(), &task));*/
 	return true;
 }
 
@@ -105,16 +89,20 @@ void Timer::Thread::run()
 {
 	debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Timer thread has been started"));
 	try {
-		Timeout clockTimeout;
+/*		Timeout clockTimeout;
 		Timeout adjustmentTimeout;
 		PeriodicTaskContainer periodicTasks;
 		{
 			ReadLocker locker(_timer.runtimeParamsRWLock);
-			clockTimeout = _timer._clockTimeout;
+			clockTimeout = _timer.clockTimeout();
 			adjustmentTimeout = _timer._adjustmentTimeout;
 			for (PeriodicTaskMap::const_iterator i = _timer._periodicTaskMap.begin(); i != _timer._periodicTaskMap.end(); ++i) {
 				periodicTasks.push_back(PeriodicTaskContainerItem(i->second.first, i->second.second));
 			}
+		}*/
+		PeriodicTaskContainer periodicTasks;
+		for (PeriodicTaskMap::const_iterator i = _timer._periodicTaskMap.begin(); i != _timer._periodicTaskMap.end(); ++i) {
+			periodicTasks.push_back(PeriodicTaskContainerItem(i->second.first, i->second.second));
 		}
 		// Calling onStart event handler for any periodic task
 		for (PeriodicTaskContainer::iterator i = periodicTasks.begin(); i != periodicTasks.end(); ++i) {
@@ -133,13 +121,23 @@ void Timer::Thread::run()
 			struct timespec nextTickTimestamp = lastTickTimestamp;
 			do {
 				++ticksExpired;
-				nextTickTimestamp += clockTimeout.timeSpec();
+				nextTickTimestamp += _timer.clockTimeout().timeSpec();
 				// TODO Check out too big delay?
-			} while (nextTickTimestamp - adjustmentTimeout.timeSpec() < BasicDateTime::nowTimeSpec());
+			} while (nextTickTimestamp - _timer._adjustmentTimeout.timeSpec() < BasicDateTime::nowTimeSpec());
 			// Waiting until new tick is coming or termination detected
-			if (awaitShouldTerminate(Timeout::leftToLimit(nextTickTimestamp))) {
-				debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Timer thread termination detected -> exiting from timer thread"));
-				break;
+			const InterThreadRequesterType::PendingRequest * pendingRequestPtr = requester().awaitRequest(Timeout::leftToLimit(nextTickTimestamp));
+			if (pendingRequestPtr) {
+				if (pendingRequestPtr->request().instanceOf<TerminateRequestMessage>()) {
+					debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Timer thread termination detected -> exiting from the timer thread"));
+					if (pendingRequestPtr->responseRequired()) {
+						requester().sendResponse(OkResponseMessage());
+					}
+					break;
+				} else {
+					std::ostringstream msg;
+					msg << "Unknown message has been received by the timer thread: \"" << pendingRequestPtr->request().name() << '"';
+					warningLog().log(LogMessage(SOURCE_LOCATION_ARGS, msg.str()));
+				}
 			}
 			// Reporting if the timer overload has been detected before awaiting
 			if (ticksExpired > 1) {
@@ -158,8 +156,8 @@ void Timer::Thread::run()
 					i->taskPtr->execute(_timer, lastExpiredTimestamp, expiredTimestamps, i->timeout);
 				}
 			}
-			// Executing expired scheduled tasks
-			ScheduledTaskMap expiredScheduledTasks;
+			// TODO Executing expired scheduled tasks
+			/*ScheduledTaskMap expiredScheduledTasks;
 			{
 				ReadLocker locker(_timer.runtimeParamsRWLock);
 				ScheduledTaskMap::iterator pos = _timer._scheduledTaskMap.upper_bound(nextTickTimestamp);
@@ -168,7 +166,7 @@ void Timer::Thread::run()
 			}
 			for (ScheduledTaskMap::iterator i = expiredScheduledTasks.begin(); i != expiredScheduledTasks.end(); ++i) {
 				i->second->execute(_timer, i->first, 1, Timeout());
-			}
+			}*/
 			// Switching to the next tick
 			lastTickTimestamp = nextTickTimestamp;
 		}

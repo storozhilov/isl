@@ -74,71 +74,54 @@ public:
 		friend class Timer;
 	};
 
-	//! Returns timer clock timeout
-	inline Timeout clockTimeout() const
-	{
-		ReadLocker locker(runtimeParamsRWLock);
-		return _clockTimeout;
-	}
-	//! Sets timer clock timeout
-	/*!
-	  Timer's restart needed to activate changes.
-
-	  \param newValue New timer clock timeout
-	*/
-	inline void setClockTimeout(const Timeout& newValue)
-	{
-		WriteLocker locker(runtimeParamsRWLock);
-		_clockTimeout = newValue;
-	}
 	//! Returns timer adjustment timeout
 	inline Timeout adjustmentTimeout() const
 	{
-		ReadLocker locker(runtimeParamsRWLock);
 		return _adjustmentTimeout;
 	}
 	//! Sets timer adjustment timeout
 	/*!
-	  Timer's restart needed to activate changes.
-
 	  \param newValue New timer adjustment timeout
+
+	  \note Thread-unsafe: call it when subsystem is idling only
 	*/
 	inline void setAdjustmentTimeout(const Timeout& newValue)
 	{
-		WriteLocker locker(runtimeParamsRWLock);
 		_adjustmentTimeout = newValue;
 	}
 	//! Registers periodic task in timer
 	/*!
-	  Timer's restart needed to activate changes.
-
 	  \param task Reference to task to register
 	  \param timeout Task execution period timeout
 	  \return Task ID
+
+	  \note Thread-unsafe: call it when subsystem is idling only
 	*/
 	int registerPeriodicTask(AbstractTask& task, const Timeout& timeout);
 	//! Updates registered periodic task in timer
 	/*!
-	  Timer's restart needed to activate changes.
-
 	  \param taskId Task ID to update
 	  \param newTimeout New task execution period timeout
+
+	  \note Thread-unsafe: call it when subsystem is idling only
 	*/
 	void updatePeriodicTask(int taskId, const Timeout& newTimeout);
 	//! Removes registered preiodic task in timer
 	/*!
-	  Timer's restart needed to activate changes.
-
 	  \param taskId Task ID to remove
+
+	  \note Thread-unsafe: call it when subsystem is idling only
 	*/
 	void removePeriodicTask(int taskId);
 	//! Removes all registered tasks from the timer
 	/*!
-	  Timer's restart needed to activate changes.
+	  \note Thread-unsafe: call it when subsystem is idling only
 	*/
 	void resetPeriodicTasks();
 	//! Schedule a task for single execution
 	/*!
+	  TODO Use a requester
+
 	  \param task Reference to task to schedule
 	  \param timeout Timeout to wait for the task execution from now
 	  \return TRUE if task has been successfully scheduled or FALSE if the scheduled task container has been overflowed
@@ -190,15 +173,14 @@ private:
 		};
 		typedef std::list<PeriodicTaskContainerItem> PeriodicTaskContainer;
 
-		bool hasPendingSignals() const;
-		int extractPendingSignal() const;
+		//bool hasPendingSignals() const;
+		//int extractPendingSignal() const;
 
 		virtual void run();
 
 		Timer& _timer;
 	};
 
-	Timeout _clockTimeout;
 	Timeout _adjustmentTimeout;
 	size_t _maxScheduledTaskAmount;
 	int _lastPeriodicTaskId;

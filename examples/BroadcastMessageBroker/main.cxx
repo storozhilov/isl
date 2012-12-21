@@ -54,33 +54,33 @@ private:
 		virtual bool onReceiveMessage(const MessageType& msg)
 		{
 			if (msg == "bye") {
-				setShouldTerminate(true);
+				appointTermination();
 				return false;
 			} else {
 				return true;
 			}
 		}
-		virtual MessageType * receiveMessage(isl::TcpSocket& socket, const isl::Timeout& timeout)
+		virtual MessageType * receiveMessage(const isl::Timeout& timeout)
 		{
 			MessageType * msgPtr = parseMessage(_receiveBuffer);
 			if (msgPtr) {
 				return msgPtr;
 			}
 			char buf[4096];
-			size_t bytesReceived = socket.read(buf, sizeof(buf), timeout);
+			size_t bytesReceived = socket().read(buf, sizeof(buf), timeout);
 			if (bytesReceived <= 0) {
 				return 0;
 			}
 			_receiveBuffer.append(buf, bytesReceived);
 			return parseMessage(_receiveBuffer);
 		}
-		virtual bool sendMessage(const MessageType& msg, isl::TcpSocket& socket, const isl::Timeout& timeout)
+		virtual bool sendMessage(const MessageType& msg, const isl::Timeout& timeout)
 		{
 			if (_sendBuffer.empty()) {
 				_sendBuffer = msg;
 				_sendBuffer += "\r\n";
 			}
-			size_t curBytesSent = socket.write(_sendBuffer.c_str() + _bytesSent, _sendBuffer.size() - _bytesSent, timeout);
+			size_t curBytesSent = socket().write(_sendBuffer.c_str() + _bytesSent, _sendBuffer.size() - _bytesSent, timeout);
 			_bytesSent += curBytesSent;
 			if (_bytesSent >= _sendBuffer.size()) {
 				_sendBuffer.clear();
@@ -196,23 +196,6 @@ public:
 private:
 	BroadcastMessageBrokerServer();
 	BroadcastMessageBrokerServer(const BroadcastMessageBrokerServer&);
-	// Some event handlers re-definition
-	void beforeStart()
-	{
-		isl::debugLog().log(isl::LogMessage(SOURCE_LOCATION_ARGS, "Starting server"));
-	}
-	void afterStart()
-	{
-		isl::debugLog().log(isl::LogMessage(SOURCE_LOCATION_ARGS, "Server has been started"));
-	}
-	void beforeStop()
-	{
-		isl::debugLog().log(isl::LogMessage(SOURCE_LOCATION_ARGS, "Stopping server"));
-	}
-	void afterStop()
-	{
-		isl::debugLog().log(isl::LogMessage(SOURCE_LOCATION_ARGS, "Server has been stopped"));
-	}
 
 	MessageBrokerService _service;
 	MessageBrokerConnection _connection;

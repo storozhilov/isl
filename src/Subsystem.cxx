@@ -7,13 +7,12 @@ namespace isl
 // Subsystem
 //------------------------------------------------------------------------------
 
-Subsystem::Subsystem(Subsystem * owner) :
-	runtimeParamsRWLock(),
+Subsystem::Subsystem(Subsystem * owner, const Timeout& clockTimeout, size_t awaitResponseTimeoutRatio) :
 	_owner(owner),
+	_clockTimeout(clockTimeout),
+	_awaitResponseTimeoutRatio(awaitResponseTimeoutRatio),
 	_children(),
-	_threads(),
-	_shouldTerminate(false),
-	_shouldTerminateCond()
+	_threads()
 {
 	if (_owner) {
 		_owner->registerChild(this);
@@ -31,53 +30,67 @@ Subsystem::~Subsystem()
 	}
 }
 
+void Subsystem::startChildren()
+{
+	for (Children::iterator i = _children.begin(); i != _children.end(); ++i) {
+		(*i)->start();
+	}
+}
+
+void Subsystem::stopChildren()
+{
+	for (Children::iterator i = _children.begin(); i != _children.end(); ++i) {
+		(*i)->stop();
+	}
+}
+
+void Subsystem::startThreads()
+{
+	for (Threads::iterator i = _threads.begin(); i != _threads.end(); ++i) {
+		(*i)->requester().reset();
+		(*i)->start();
+		debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Subsystem's thread has been started"));
+	}
+}
+
+void Subsystem::stopThreads()
+{
+	for (Threads::iterator i = _threads.begin(); i != _threads.end(); ++i) {
+		size_t requestId = (*i)->requester().sendRequest(TerminateRequestMessage());
+		if (requestId > 0) {
+			debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Termination request has been sent to the subsystem's thread"));
+			std::auto_ptr<AbstractInterThreadMessage> responseAutoPtr = (*i)->requester().awaitResponse(requestId, awaitResponseTimeout());
+			if (!responseAutoPtr.get()) {
+				std::ostringstream msg;
+				msg << "No response to termination request have been received from the subsystem's thread";
+				errorLog().log(LogMessage(SOURCE_LOCATION_ARGS, msg.str()));
+			} else if (responseAutoPtr->instanceOf<OkResponseMessage>()) {
+				debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "OK response to the termination request has been received from the subsystem's thread"));
+			} else {
+				std::ostringstream msg;
+				msg << "Invalid response to termination request has been received from the subsystem's thread: \"" << responseAutoPtr->name() << "\"";
+				errorLog().log(LogMessage(SOURCE_LOCATION_ARGS, msg.str()));
+			}
+			debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Joining a subsystem's thread"));
+			(*i)->join();
+			debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Subsystem's thread has been terminated"));
+		} else {
+			errorLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Could not send termination request to the subsystem's thread"));
+			// TODO (*i)->kill();
+		}
+	}
+}
+
 void Subsystem::start()
 {
-	_shouldTerminate = false;
-	beforeStart();
-	startImpl();
-	afterStart();
+	startChildren();
+	startThreads();
 }
 
 void Subsystem::stop()
 {
-	{
-		// Setting termination flag and waking all threads
-		MutexLocker locker(_shouldTerminateCond.mutex());
-		_shouldTerminate = true;
-		_shouldTerminateCond.wakeAll();
-	}
-	beforeStop();
-	stopImpl();
-	afterStop();
-}
-
-void Subsystem::startImpl()
-{
-	// Starting children subsystems
-	for (Children::iterator i = _children.begin(); i != _children.end(); ++i) {
-		(*i)->start();
-	}
-	// Starting threads
-	for (Threads::iterator i = _threads.begin(); i != _threads.end(); ++i) {
-		if ((*i)->autoStart()) {
-			(*i)->start();
-		}
-	}
-}
-
-void Subsystem::stopImpl()
-{
-	// Stopping threads (TODO Timed join & killing thread if it has not been terminated)
-	for (Threads::iterator i = _threads.begin(); i != _threads.end(); ++i) {
-		if ((*i)->autoJoin()) {
-			(*i)->join();
-		}
-	}
-	// Stopping chldren subsystems
-	for (Children::iterator i = _children.begin(); i != _children.end(); ++i) {
-		(*i)->stop();
-	}
+	stopThreads();
+	stopChildren();
 }
 
 void Subsystem::registerChild(Subsystem * child)
@@ -118,11 +131,10 @@ void Subsystem::unregisterThread(Subsystem::AbstractThread * thread)
 // Subsystem::AbstractThread
 //------------------------------------------------------------------------------
 
-Subsystem::AbstractThread::AbstractThread(Subsystem& subsystem, bool autoStart, bool autoJoin, bool isTrackable, bool awaitStartup) :
+Subsystem::AbstractThread::AbstractThread(Subsystem& subsystem, bool isTrackable, bool awaitStartup) :
 	::isl::AbstractThread(isTrackable, awaitStartup),
 	_subsystem(subsystem),
-	_autoStart(autoStart),
-	_autoJoin(autoJoin)
+	_requester()
 {
 	_subsystem.registerThread(this);
 }
@@ -130,22 +142,6 @@ Subsystem::AbstractThread::AbstractThread(Subsystem& subsystem, bool autoStart, 
 Subsystem::AbstractThread::~AbstractThread()
 {
 	_subsystem.unregisterThread(this);
-}
-
-bool Subsystem::AbstractThread::shouldTerminate()
-{
-	MutexLocker locker(_subsystem._shouldTerminateCond.mutex());
-	return _subsystem._shouldTerminate;
-}
-
-bool Subsystem::AbstractThread::awaitShouldTerminate(Timeout timeout)
-{
-	MutexLocker locker(_subsystem._shouldTerminateCond.mutex());
-	if (_subsystem._shouldTerminate) {
-		return true;
-	}
-	_subsystem._shouldTerminateCond.wait(timeout);
-	return _subsystem._shouldTerminate;
 }
 
 } // namespace isl
