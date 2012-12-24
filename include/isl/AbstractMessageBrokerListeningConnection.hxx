@@ -1,41 +1,40 @@
-#ifndef ISL__ABSTRACT_MESSAGE_BROKER_CONNECTION__HXX
-#define ISL__ABSTRACT_MESSAGE_BROKER_CONNECTION__HXX
+#ifndef ISL__ABSTRACT_MESSAGE_BROKER_LISTENING_CONNECTION__HXX
+#define ISL__ABSTRACT_MESSAGE_BROKER_LISTENING_CONNECTION__HXX
 
 #include <isl/common.hxx>
 #include <isl/TcpSocket.hxx>
 #include <isl/TcpAddrInfo.hxx>
 #include <isl/Subsystem.hxx>
 #include <isl/IOError.hxx>
+#include <isl/ReadWriteLock.hxx>
 #include <isl/MessageQueue.hxx>
 #include <isl/MessageBuffer.hxx>
 #include <isl/MessageProvider.hxx>
 #include <isl/MessageBus.hxx>
 #include <isl/Error.hxx>
 #include <isl/LogMessage.hxx>
-#include <isl/ExceptionLogMessage.hxx>
-#include <isl/MemFunThread.hxx>
 #include <memory>
 
 namespace isl
 {
 
-//! Message broker connection subsystem abstract templated class
+//! Message broker listening connection subsystem abstract templated class
 /*!
-  Use this class for your message broker connection implementation. It creates two threads:
+  Use this class for your message broker listening connection implementation. It creates two threads:
   one is for receiving messages and another is for sending ones. So, you should define
   following two abstract virtual methods in your subclass:
 
-  - AbstractMessageBrokerConnection::receiveMessage() - receives message from the transport;
-  - AbstractMessageBrokerConnection::sendMessage() - sends message to the transport.
+  - AbstractMessageBrokerListeningConnection::receiveMessage() - receives message from the transport;
+  - AbstractMessageBrokerListeningConnection::sendMessage() - sends message to the transport.
 
-  TCP-connection control is provided by message receiver thread, which is automatically re-establishes it if aborted.
+  TCP-connection control is provided by message receiver thread, which is automatically re-accepts it if aborted.
   A thrown Exception with TcpSocket::ConnectionAbortedError error from the receiveMessage()/sendMessage()
-  method is used as signal for reopening TCP-connection socket.
+  method is used as signal for re-accepting TCP-connection socket.
 
   \tparam Msg Message class
   \tparam Cloner Message cloner class with static <tt>Msg * Cloner::clone(const Msg& msg)</tt> method for cloning the message
 */
-template <typename Msg, typename Cloner = CopyMessageCloner<Msg> > class AbstractMessageBrokerConnection : public Subsystem
+template <typename Msg, typename Cloner = CopyMessageCloner<Msg> > class AbstractMessageBrokerListeningConnection : public Subsystem
 {
 public:
 	typedef Msg MessageType;							//!< Message type
@@ -74,16 +73,16 @@ public:
 	//! Constructor
 	/*!
 	  \param owner Pointer to the owner subsystem
-	  \param remoteAddr Message broker remote address info
+	  \param localAddr Local address to bind to
 	  \param clockTimeout Subsystem's clock timeout
 	  \param inputQueueFactory Input message queue factory object reference
 	  \param outputBusFactory Output message bus factory object reference
 	*/
-	AbstractMessageBrokerConnection(Subsystem * owner, const TcpAddrInfo& remoteAddr,
+	AbstractMessageBrokerListeningConnection(Subsystem * owner, const TcpAddrInfo& localAddr,
 			const Timeout& clockTimeout = Timeout::defaultTimeout(), const InputQueueFactory& inputQueueFactory = InputQueueFactory(),
 			const OutputBusFactory& outputBusFactory = OutputBusFactory()) :
 		Subsystem(owner, clockTimeout),
-		_remoteAddr(remoteAddr),
+		_localAddr(localAddr),
 		_inputQueueAutoPtr(inputQueueFactory.create()),
 		_providedInputQueuePtr(),
 		_outputBusAutoPtr(outputBusFactory.create()),
@@ -93,6 +92,7 @@ public:
 		_receiverThread(),
 		_senderThread(),
 		_socket(),
+		_transferSocketAutoPtr(),
 		_consumeBuffer(),
 		_providers(),
 		_consumers()
@@ -100,15 +100,15 @@ public:
 	//! Constructor with user provided input message queue
 	/*!
 	  \param owner Pointer to the owner subsystem
-	  \param remoteAddr Message broker remote address info
+	  \param localAddr Local address to bind to
 	  \param inputQueue Reference to the input message queue to fetch messages from
 	  \param clockTimeout Subsystem's clock timeout
 	  \param outputBusFactory Output message bus factory object reference
 	*/
-	AbstractMessageBrokerConnection(Subsystem * owner, const TcpAddrInfo& remoteAddr, MessageQueueType& inputQueue,
+	AbstractMessageBrokerListeningConnection(Subsystem * owner, const TcpAddrInfo& localAddr, MessageQueueType& inputQueue,
 			const Timeout& clockTimeout = Timeout::defaultTimeout(), const OutputBusFactory& outputBusFactory = OutputBusFactory()) :
 		Subsystem(owner, clockTimeout),
-		_remoteAddr(remoteAddr),
+		_localAddr(localAddr),
 		_inputQueueAutoPtr(),
 		_providedInputQueuePtr(&inputQueue),
 		_outputBusAutoPtr(outputBusFactory.create()),
@@ -118,6 +118,7 @@ public:
 		_receiverThread(),
 		_senderThread(),
 		_socket(),
+		_transferSocketAutoPtr(),
 		_consumeBuffer(),
 		_providers(),
 		_consumers()
@@ -125,15 +126,15 @@ public:
 	//! Constructor with user provided output message bus
 	/*!
 	  \param owner Pointer to the owner subsystem
-	  \param remoteAddr Message broker remote address info
+	  \param localAddr Local address to bind to
 	  \param outputBus Reference to the output message bus to provide all received messages to
 	  \param clockTimeout Subsystem's clock timeout
 	  \param inputQueueFactory Input message queue factory object reference
 	*/
-	AbstractMessageBrokerConnection(Subsystem * owner, const TcpAddrInfo& remoteAddr, MessageBusType& outputBus,
+	AbstractMessageBrokerListeningConnection(Subsystem * owner, const TcpAddrInfo& localAddr, MessageBusType& outputBus,
 			const Timeout& clockTimeout = Timeout::defaultTimeout(), const InputQueueFactory& inputQueueFactory = InputQueueFactory()) :
 		Subsystem(owner, clockTimeout),
-		_remoteAddr(remoteAddr),
+		_localAddr(localAddr),
 		_inputQueueAutoPtr(inputQueueFactory.create()),
 		_providedInputQueuePtr(),
 		_outputBusAutoPtr(),
@@ -143,6 +144,7 @@ public:
 		_receiverThread(),
 		_senderThread(),
 		_socket(),
+		_transferSocketAutoPtr(),
 		_consumeBuffer(),
 		_providers(),
 		_consumers()
@@ -150,15 +152,15 @@ public:
 	//! Constructor with user provided input message queue and output message bus
 	/*!
 	  \param owner Pointer to the owner subsystem
-	  \param remoteAddr Message broker remote address info
+	  \param localAddr Local address to bind to
 	  \param inputQueue Reference to the input message queue to fetch messages from
 	  \param outputBus Reference to the output message bus to provide all received messages to
 	  \param clockTimeout Subsystem's clock timeout
 	*/
-	AbstractMessageBrokerConnection(Subsystem * owner, const TcpAddrInfo& remoteAddr, MessageQueueType& inputQueue,
+	AbstractMessageBrokerListeningConnection(Subsystem * owner, const TcpAddrInfo& localAddr, MessageQueueType& inputQueue,
 			MessageBusType& outputBus, const Timeout& clockTimeout = Timeout::defaultTimeout()) :
 		Subsystem(owner, clockTimeout),
-		_remoteAddr(remoteAddr),
+		_localAddr(localAddr),
 		_inputQueueAutoPtr(),
 		_providedInputQueuePtr(&inputQueue),
 		_outputBusAutoPtr(),
@@ -168,6 +170,7 @@ public:
 		_receiverThread(),
 		_senderThread(),
 		_socket(),
+		_transferSocketAutoPtr(),
 		_consumeBuffer(),
 		_providers(),
 		_consumers()
@@ -194,20 +197,20 @@ public:
 			throw Exception(Error(SOURCE_LOCATION_ARGS, "Output message bus have not been initialized"));
 		}
 	}
-	//! Returns message broker remote address
-	TcpAddrInfo remoteAddr() const
+	//! Returns local address to bind to
+	TcpAddrInfo localAddr() const
 	{
-		return _remoteAddr;
+		return _localAddr;
 	}
-	//! Sets message broker remote address
+	//! Sets the local address to bind to
 	/*!
 	  \param newValue New message broker address
 
 	  \note Thread-unsafe: call it when subsystem is idling only
 	*/
-	void setRemoteAddr(const TcpAddrInfo& newValue)
+	void setLocalAddr(const TcpAddrInfo& newValue)
 	{
-		_remoteAddr = newValue;
+		_localAddr = newValue;
 	}
 	//! Adds message provider to subscribe input queue to while running
 	/*!
@@ -305,9 +308,9 @@ public:
 		_senderRequester.reset();
 		_receiverRequester.reset();
 		debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Starting receiver thread"));
-		_receiverThread.start(*this, &AbstractMessageBrokerConnection<Msg, Cloner>::receive);
+		_receiverThread.start(*this, &AbstractMessageBrokerListeningConnection<Msg, Cloner>::receive);
 		debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Starting sender thread"));
-		_senderThread.start(*this, &AbstractMessageBrokerConnection<Msg, Cloner>::send);
+		_senderThread.start(*this, &AbstractMessageBrokerListeningConnection<Msg, Cloner>::send);
 	}
 	//! Stopting subsystem method redefinition
 	virtual void stop()
@@ -379,12 +382,11 @@ protected:
 	*/
 	virtual void onReceiverDisconnected(bool isConnectionAborted)
 	{}
-	//! On failed establishing connection attempt event handler
+	//! On failed accepting connection attempt event handler
 	/*!
-	  \param failedAttempts Current unsuccessful connection attempts amount
-	  \param e Constant reference to the exception object
+	  \param failedAttempts Current unsuccessful accepting connection attempts amount
 	*/
-	void onConnectFailed(size_t failedAttempts, const Exception& e)
+	void onAcceptFailed(size_t failedAttempts)
 	{}
 	//! On receive message from transport event handler
 	/*!
@@ -468,12 +470,12 @@ protected:
 	*/
 	virtual bool sendMessage(const MessageType& msg, TcpSocket& socket, const Timeout& timeout) = 0;
 private:
-	AbstractMessageBrokerConnection();
-	AbstractMessageBrokerConnection(const AbstractMessageBrokerConnection&);						// No copy
+	AbstractMessageBrokerListeningConnection();
+	AbstractMessageBrokerListeningConnection(const AbstractMessageBrokerListeningConnection&);						// No copy
 
-	AbstractMessageBrokerConnection& operator=(const AbstractMessageBrokerConnection&);					// No copy
+	AbstractMessageBrokerListeningConnection& operator=(const AbstractMessageBrokerListeningConnection&);					// No copy
 
-	typedef MemFunThread<AbstractMessageBrokerConnection<Msg, Cloner> > TransmitterThread;
+	typedef MemFunThread<AbstractMessageBrokerListeningConnection<Msg, Cloner> > TransmitterThread;
 	typedef std::list<MessageProviderType *> ProvidersContainer;
 	typedef std::list<AbstractMessageConsumerType *> ConsumersContainer;
 
@@ -510,8 +512,12 @@ private:
 		debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Receiver thread has been started"));
 		_socket.open();
 		debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Socket has been opened"));
+		_socket.bind(_localAddr);
+		debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Socket has been binded"));
+		_socket.listen(1);
+		debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Socket has been switched to the listening state"));
 		bool connected = false;
-		size_t connectionAttempts = 0;
+		size_t acceptingAttempts = 0;
 		while (true) {
 			// Handling incoming inter-thread request
 			const InterThreadRequesterType::PendingRequest * pendingRequestPtr = 0;
@@ -537,7 +543,7 @@ private:
 				// Receiving message if connected
 				std::auto_ptr<MessageType> msgAutoPtr;
 				try {
-					msgAutoPtr.reset(receiveMessage(_socket, clockTimeout()));
+					msgAutoPtr.reset(receiveMessage(*_transferSocketAutoPtr.get(), clockTimeout()));
 				} catch (Exception& e) {
 					if (e.error().instanceOf<TcpSocket::ConnectionAbortedError>()) {
 						connected = false;
@@ -547,7 +553,7 @@ private:
 				}
 				if (!connected) {
 					isl::errorLog().log(isl::LogMessage(SOURCE_LOCATION_ARGS, "Message broker connection has been aborted in the receiver thread"));
-					connectionAttempts = 0;
+					acceptingAttempts = 0;
 					// Sending disconnect request to the sender thread
 					size_t requestId = _senderRequester.sendRequest(DisconnectRequestMessage());
 					if (requestId > 0) {
@@ -572,9 +578,8 @@ private:
 							errorLog().log(LogMessage(SOURCE_LOCATION_ARGS, msg.str()));
 						}
 					}
-					// Reopening socket
-					_socket.close();
-					_socket.open();
+					// Resetting transfer socket autopointer
+					_transferSocketAutoPtr.reset();
 				} else if (msgAutoPtr.get()) {
 					isl::debugLog().log(isl::LogMessage(SOURCE_LOCATION_ARGS, "Message has been received by the receiver thread execution"));
 					// Calling on receive message event callback
@@ -594,10 +599,9 @@ private:
 					}
 				}
 			} else {
-				// Establishing connection if not connected
-				try {
-					_socket.connect(_remoteAddr);
-					debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Message broker connection has been established"));
+				_transferSocketAutoPtr = _socket.accept(clockTimeout());
+				if (_transferSocketAutoPtr.get()) {
+					debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Connection has been accepted"));
 					connected = true;
 					// Sending connect request to the sender thread
 					size_t requestId = _senderRequester.sendRequest(ConnectRequestMessage());
@@ -607,7 +611,7 @@ private:
 						errorLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Could not send connect request to the sender thread"));
 					}
 					// Calling 'on receiver connected' event handler
-					onReceiverConnected(_socket);
+					onReceiverConnected(*_transferSocketAutoPtr.get());
 					// Awaiting for the response from the sender thread
 					if (requestId > 0) {
 						std::auto_ptr<AbstractInterThreadMessage> responseAutoPtr = _senderRequester.awaitResponse(requestId, awaitResponseTimeout());
@@ -623,18 +627,18 @@ private:
 							errorLog().log(LogMessage(SOURCE_LOCATION_ARGS, msg.str()));
 						}
 					}
-				} catch (Exception& e) {
-					++connectionAttempts;
-					//if (connectionAttempts % 10 == 0) {
-					//	errorLog().log(ExceptionLogMessage(SOURCE_LOCATION_ARGS, e, "Establishing message broker connection error"));
+				} else {
+					++acceptingAttempts;
+					//if (acceptingAttempts % 10 == 0) {
+					//	errorLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Accepting connection timeout expired"));
 					//}
-					onConnectFailed(connectionAttempts, e);
+					onAcceptFailed(acceptingAttempts);
 				}
 			}
 		}
 		if (connected) {
-			_socket.close();
-			isl::debugLog().log(isl::LogMessage(SOURCE_LOCATION_ARGS, "Message broker connection has been closed"));
+			_transferSocketAutoPtr.reset();
+			isl::debugLog().log(isl::LogMessage(SOURCE_LOCATION_ARGS, "Connection has been closed"));
 			onReceiverDisconnected(false);
 		}
 	}
@@ -674,7 +678,7 @@ private:
 						_senderRequester.sendResponse(OkResponseMessage());
 					}
 					connected = true;
-					onSenderConnected(_socket);
+					onSenderConnected(*_transferSocketAutoPtr.get());
 				} else if (pendingRequestPtr->request().instanceOf<DisconnectRequestMessage>()) {
 					debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Disconnect request has been received by the sender thread"));
 					if (pendingRequestPtr->responseRequired()) {
@@ -695,7 +699,7 @@ private:
 			}
 			if (sendingMessage) {
 				try {
-					if (sendMessage(*currentMessageAutoPtr.get(), _socket, clockTimeout())) {
+					if (sendMessage(*currentMessageAutoPtr.get(), *_transferSocketAutoPtr.get(), clockTimeout())) {
 						sendingMessage = false;
 					}
 				} catch (Exception& e) {
@@ -732,7 +736,7 @@ private:
 		}
 	}
 
-	TcpAddrInfo _remoteAddr;
+	TcpAddrInfo _localAddr;
 	std::auto_ptr<MessageQueueType> _inputQueueAutoPtr;
 	MessageQueueType * _providedInputQueuePtr;
 	std::auto_ptr<MessageBusType> _outputBusAutoPtr;
@@ -742,6 +746,7 @@ private:
 	TransmitterThread _receiverThread;
 	TransmitterThread _senderThread;
 	TcpSocket _socket;
+	std::auto_ptr<TcpSocket> _transferSocketAutoPtr;
 	MessageBufferType _consumeBuffer;
 	ProvidersContainer _providers;
 	ConsumersContainer _consumers;
