@@ -21,36 +21,6 @@ void BasicDateTime::resetBdts(struct tm& bdts)
 	memset(&bdts, 0, sizeof(bdts));
 }
 
-struct timespec BasicDateTime::emptyTimeSpec()
-{
-	struct timespec ts;
-	resetTimeSpec(ts);
-	return ts;
-}
-
-struct timespec BasicDateTime::makeTimeSpec(time_t sec, long int nsec)
-{
-	struct timespec ts;
-	ts.tv_sec = sec;
-	ts.tv_nsec = nsec;
-	return ts;
-}
-
-struct timespec BasicDateTime::nowTimeSpec()
-{
-	timespec ts;
-	if (clock_gettime(CLOCK_REALTIME, &ts) != 0) {
-		throw Exception(SystemCallError(SOURCE_LOCATION_ARGS, SystemCallError::ClockGetTime, errno, "Fetching current time error"));
-	}
-	return ts;
-}
-
-void BasicDateTime::resetTimeSpec(struct timespec& ts)
-{
-	ts.tv_sec = 0;
-	ts.tv_nsec = 0;
-}
-
 bool BasicDateTime::isLeapYear(int year)
 {
 	if (year < 1582) {
@@ -145,68 +115,6 @@ bool BasicDateTime::bdts2str(const struct tm& bdts, int nanoSecond, const std::s
 		}
 	}
 	return true;
-}
-
-bool operator==(const struct timespec& lhs, const struct timespec& rhs)
-{
-	return lhs.tv_sec == rhs.tv_sec && lhs.tv_nsec == rhs.tv_nsec;
-}
-
-bool operator!=(const struct timespec& lhs, const struct timespec& rhs)
-{
-	return !operator==(lhs, rhs);
-}
-
-bool operator<(const struct timespec& lhs, const struct timespec& rhs)
-{
-	return lhs.tv_sec < rhs.tv_sec || (lhs.tv_sec == rhs.tv_sec && lhs.tv_nsec < rhs.tv_nsec);
-}
-
-bool operator<=(const struct timespec& lhs, const struct timespec& rhs)
-{
-	return operator<(lhs, rhs) || operator==(lhs, rhs);
-}
-
-bool operator>(const struct timespec& lhs, const struct timespec& rhs)
-{
-	return lhs.tv_sec > rhs.tv_sec || (lhs.tv_sec == rhs.tv_sec && lhs.tv_nsec > rhs.tv_nsec);
-}
-
-bool operator>=(const struct timespec& lhs, const struct timespec& rhs)
-{
-	return operator>(lhs, rhs) || operator==(lhs, rhs);
-}
-
-struct timespec operator+(const struct timespec& lhs, const struct timespec& rhs)
-{
-	struct timespec ts;
-	ts.tv_sec = lhs.tv_sec + rhs.tv_sec + (lhs.tv_nsec + rhs.tv_nsec) / 1000000000L;
-	ts.tv_nsec = (lhs.tv_nsec + rhs.tv_nsec) % 1000000000L;
-	return ts;
-}
-
-struct timespec& operator+=(struct timespec& lhs, const struct timespec& rhs)
-{
-	lhs = lhs + rhs;
-	return lhs;
-}
-
-struct timespec operator-(const struct timespec& lhs, const struct timespec& rhs)
-{
-	struct timespec ts;
-	ts.tv_sec = lhs.tv_sec - rhs.tv_sec;
-	ts.tv_nsec = lhs.tv_nsec - rhs.tv_nsec;
-	if (ts.tv_nsec < 0) {
-		--ts.tv_sec;
-		ts.tv_nsec += 1000000000L;
-	}
-	return ts;
-}
-
-struct timespec& operator-=(struct timespec& lhs, const struct timespec& rhs)
-{
-	lhs = lhs - rhs;
-	return lhs;
 }
 
 } // namespace isl

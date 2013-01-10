@@ -1,5 +1,6 @@
 #include <isl/common.hxx>
 #include <isl/DateTime.hxx>
+#include <isl/TimeSpec.hxx>
 #include <isl/Exception.hxx>
 #include <isl/SystemCallError.hxx>
 #include <isl/LogMessage.hxx>
@@ -18,14 +19,14 @@ const char * DateTime::DefaultFormat = "%Y-%m-%d %H:%M:%S.%f";
 DateTime::DateTime() :
 	BasicDateTime(),
 	_isNull(true),
-	_ts(emptyTimeSpec()),
+	_ts(TimeSpec::makeZero()),
 	_bdts(emptyBdts())
 {}
 
 DateTime::DateTime(int year, int month, int day, int hour, int minute, int second, int nanoSec, const TimeZone& tz) :
 	BasicDateTime(),
 	_isNull(true),
-	_ts(emptyTimeSpec()),
+	_ts(TimeSpec::makeZero()),
 	_bdts(emptyBdts())
 {
 	set(year, month, day, hour, minute, second, nanoSec, tz);
@@ -34,7 +35,7 @@ DateTime::DateTime(int year, int month, int day, int hour, int minute, int secon
 DateTime::DateTime(const struct tm& bdts, int nanoSec) :
 	BasicDateTime(),
 	_isNull(true),
-	_ts(emptyTimeSpec()),
+	_ts(TimeSpec::makeZero()),
 	_bdts(emptyBdts())
 {
 	set(bdts, nanoSec);
@@ -43,7 +44,7 @@ DateTime::DateTime(const struct tm& bdts, int nanoSec) :
 DateTime::DateTime(time_t gmtSec, int nanoSec, const TimeZone& tz) :
 	BasicDateTime(),
 	_isNull(true),
-	_ts(emptyTimeSpec()),
+	_ts(TimeSpec::makeZero()),
 	_bdts(emptyBdts())
 {
 	set(gmtSec, nanoSec, tz);
@@ -52,16 +53,25 @@ DateTime::DateTime(time_t gmtSec, int nanoSec, const TimeZone& tz) :
 DateTime::DateTime(const struct timespec& ts, const TimeZone& tz) :
 	BasicDateTime(),
 	_isNull(true),
-	_ts(emptyTimeSpec()),
+	_ts(TimeSpec::makeZero()),
 	_bdts(emptyBdts())
 {
 	set(ts, tz);
 }
 
+DateTime::DateTime(const Timestamp& timestamp, const TimeZone& tz) :
+	BasicDateTime(),
+	_isNull(true),
+	_ts(TimeSpec::makeZero()),
+	_bdts(emptyBdts())
+{
+	set(timestamp, tz);
+}
+
 DateTime::DateTime(const std::string& str, const std::string& fmt, const TimeZone& tz) :
 	BasicDateTime(),
 	_isNull(true),
-	_ts(emptyTimeSpec()),
+	_ts(TimeSpec::makeZero()),
 	_bdts(emptyBdts())
 {
 	set(str, fmt, tz);
@@ -82,7 +92,7 @@ std::string DateTime::toString(const std::string& format) const
 void DateTime::reset()
 {
 	_isNull = true;
-	resetTimeSpec(_ts);
+	TimeSpec::reset(_ts);
 	resetBdts(_bdts);
 }
 
@@ -221,7 +231,7 @@ DateTime DateTime::now(const TimeZone& tz)
 	return DateTime(ts.tv_sec, ts.tv_nsec, tz);
 }
 
-size_t DateTime::expirationsInFrame(const DateTime& startedFrom, const DateTime& finishedBefore, const Timeout& interval)
+/*size_t DateTime::expirationsInFrame(const DateTime& startedFrom, const DateTime& finishedBefore, const Timeout& interval)
 {
 	if (startedFrom >= finishedBefore || interval.isZero() || (interval >= Timeout(SecondsPerDay))) {
 		return 0;
@@ -234,7 +244,7 @@ size_t DateTime::expirationsInFrame(const DateTime& startedFrom, const DateTime&
 		fb.tv_sec += SecondsPerDay;
 	}
 	//std::clog << "sf = {" << sf.tv_sec << ", " << sf.tv_nsec << "}, fb = {" << fb.tv_sec << ", " << fb.tv_nsec << "}" << std::endl;
-	struct timespec ts = emptyTimeSpec();
+	struct timespec ts = TimeSpec::makeZero();
 	size_t expirationsAmount = 0;
 	size_t cyclesAmount = 0;
 	while (ts < fb) {
@@ -252,6 +262,6 @@ size_t DateTime::expirationsInFrame(const DateTime& startedFrom, const DateTime&
 	}
 	//std::clog << "expirationsAmount = " << expirationsAmount << std::endl;
 	return expirationsAmount;
-}
+}*/
 
 } // namespace isl

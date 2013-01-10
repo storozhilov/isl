@@ -41,27 +41,33 @@ void WaitCondition::wait()
 	}
 }
 
-bool WaitCondition::wait(const Timeout& timeout, Timeout * timeoutLeft)
+bool WaitCondition::wait(const Timestamp& limit)
 {
-	if (timeout.isZero()) {
-		return false;
-	}
-	timespec timeoutLimit = timeout.limit();
-	int errorCode = pthread_cond_timedwait(&_cond, &(mutex()._mutex), &timeoutLimit);
+	int errorCode = pthread_cond_timedwait(&_cond, &(mutex()._mutex), &limit.timeSpec());
 	switch (errorCode) {
 		case 0:
-			if (timeoutLeft) {
-				*timeoutLeft = Timeout::leftToLimit(timeoutLimit);
-			}
 			return true;
 		case ETIMEDOUT:
-			if (timeoutLeft) {
-				*timeoutLeft = Timeout();
-			}
 			return false;
 		default:
 			throw Exception(SystemCallError(SOURCE_LOCATION_ARGS, SystemCallError::PThreadCondTimedWait, errorCode));
 	}
+}
+
+bool WaitCondition::wait(const Timeout& timeout, Timeout * timeoutLeft)
+{
+	if (timeout.isZero()) {
+		if (timeoutLeft) {
+			*timeoutLeft = Timeout();
+		}
+		return false;
+	}
+	Timestamp limit = Timestamp::limit(timeout);
+	bool result = wait(limit);
+	if (timeoutLeft) {
+		*timeoutLeft = result ? limit.leftTo() : Timeout();
+	}
+	return result;
 }
 
 void WaitCondition::wakeOne()

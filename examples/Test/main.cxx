@@ -51,12 +51,12 @@
 void testTimeout()
 {
 	//isl::Timeout to1(2, 100000000);
-	isl::Timeout to1(1, 100000000);
+	/*isl::Timeout to1(1, 100000000);
 	std::cout << to1.seconds() << '.' << std::setw(9) << std::setfill('0') << to1.nanoSeconds() << std::endl;
 	timespec limit = to1.limit();
 	sleep(1);
 	isl::Timeout to2 = isl::Timeout::leftToLimit(limit);
-	std::cout << to2.seconds() << '.' << std::setw(9) << std::setfill('0') << to2.nanoSeconds() << std::endl;
+	std::cout << to2.seconds() << '.' << std::setw(9) << std::setfill('0') << to2.nanoSeconds() << std::endl;*/
 }
 
 void testTime()

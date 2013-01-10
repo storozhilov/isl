@@ -3,6 +3,7 @@
 
 #include <isl/common.hxx>
 #include <isl/AbstractAsyncTcpService.hxx>
+#include <isl/StateSet.hxx>
 #include <isl/LogMessage.hxx>
 #include <isl/ExceptionLogMessage.hxx>
 #include <isl/MessageProvider.hxx>
@@ -132,17 +133,16 @@ protected:
 		AbstractTask(AbstractMessageBrokerService& service, TcpSocket& socket) :
 			AbstractAsyncTcpService::AbstractTask(socket),
 			_service(service),
-			_runtimeRwLock(),
-			_shouldTerminate(false),
+			_stateSet(),
 			_consumeBuffer(),
 			_inputQueueAutoPtr(service.createInputQueue(*this)),
 			_outputBusAutoPtr(service.createOutputBus(*this))
 		{}
 		//! Inspects if the task execution should be terminated
-		bool shouldTerminate() const
+		bool shouldTerminate()
 		{
-			ReadLocker locker(_runtimeRwLock);
-			return _shouldTerminate;
+			StateSetType::SetType set = _stateSet.fetch();
+			return set.find(TerminationState) != set.end();
 		}
 		//! Appoints a task execution termination
 		/*!
@@ -150,8 +150,7 @@ protected:
 		*/
 		void appointTermination()
 		{
-			WriteLocker locker(_runtimeRwLock);
-			_shouldTerminate = true;
+			_stateSet.insert(TerminationState);
 		}
 		//! Returns a reference to the internal input message queue
 		inline MessageQueueType& inputQueue()
@@ -180,10 +179,10 @@ protected:
 			return responseQueue.await(timeout);
 		}
 	protected:
-		//! Returns reference to R/W-lock which is to be used for communication b/w receiver and sender threads 
-		ReadWriteLock& runtimeRwLock()
+		//! Returns reference to the state set of the task
+		StateSetType& stateSet()
 		{
-			return _runtimeRwLock;
+			return _stateSet;
 		}
 		//! Before receiver execution event handler
 		virtual void beforeExecuteReceive()
@@ -236,25 +235,10 @@ protected:
 
 		//! Receiving message from transport abstract virtual method
 		/*!
-		  \param socket Socket to read data from
-		  \param timeout Data read timeout
-		  \return Pointer to the received message or to 0 if no message have been received
-		*/
-		//virtual MessageType * receiveMessage(TcpSocket& socket, const Timeout& timeout) = 0;
-		//! Receiving message from transport abstract virtual method
-		/*!
 		  \param timeout Data read timeout
 		  \return Pointer to the received message or to 0 if no message have been received
 		*/
 		virtual MessageType * receiveMessage(const Timeout& timeout) = 0;
-		//! Sending message to transport abstract method
-		/*!
-		  \param msg Constant reference to message to send
-		  \param socket Socket to write data to
-		  \param timeout Data send timeout
-		  \return True if the message has been sent
-		*/
-		//virtual bool sendMessage(const MessageType& msg, TcpSocket& socket, const Timeout& timeout) = 0;
 		//! Sending message to transport abstract method
 		/*!
 		  \param msg Constant reference to message to send
@@ -394,8 +378,7 @@ protected:
 		}
 
 		AbstractMessageBrokerService& _service;
-		mutable ReadWriteLock _runtimeRwLock;
-		bool _shouldTerminate;
+		StateSetType _stateSet;
 		MessageBufferType _consumeBuffer;
 		std::auto_ptr<MessageQueueType> _inputQueueAutoPtr;
 		std::auto_ptr<MessageBusType> _outputBusAutoPtr;

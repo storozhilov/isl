@@ -1,20 +1,16 @@
 #ifndef ISL__TIMER__HXX
 #define ISL__TIMER__HXX
 
-#include <isl/Subsystem.hxx>
+#include <isl/StateSetSubsystem.hxx>
 #include <isl/DateTime.hxx>
+#include <isl/TimeSpec.hxx>
+#include <isl/Timestamp.hxx>
 #include <map>
 #include <list>
 #include <vector>
 
-#ifndef ISL__TIMER_ADJUSTMENT_TIMEOUT_SECONDS
-#define ISL__TIMER_ADJUSTMENT_TIMEOUT_SECONDS 0				// 0 seconds
-#endif
-#ifndef ISL__TIMER_ADJUSTMENT_TIMEOUT_NANO_SECONDS
-#define ISL__TIMER_ADJUSTMENT_TIMEOUT_NANO_SECONDS 10000000		// 10 milliseconds
-#endif
-#ifndef ISL__TIMER_MAX_SCHEDULED_TASK_AMOUNT
-#define ISL__TIMER_MAX_SCHEDULED_TASK_AMOUNT 1024
+#ifndef ISL__TIMER_DEFAULT_MAX_SCHEDULED_TASK_AMOUNT
+#define ISL__TIMER_DEFAULT_MAX_SCHEDULED_TASK_AMOUNT 1024
 #endif
 
 namespace isl
@@ -22,36 +18,40 @@ namespace isl
 
 //! High-precision timer
 /*!
-  Timer starts up one thread and executes any of registered tasks during running. You should
-  implement Timer::AbstractTask class descendant and register it in timer in order to bring
-  it work.
+  Timer executes tasks in a separate thread. A task could be:
 
-  TODO Reset scheduled tasks map after stop?
+  - <strong>Periodic</strong>, which is to be registered during timer idling only and executed periodically;
+  - <strong>Scheduled</strong>, which is to be executed only once.
+
+  To implement a periodic task just make a subclass of Timer::AbstractPeriodicTask class and register it
+  using Timer::registerPeriodicTask() method. To implement a scheduled task just make a subclass of
+  Timer::AbstractScheduledTask class and schedule it using Timer::scheduleTask() method.
 */
-class Timer : public Subsystem
+class Timer : public StateSetSubsystem
 {
 public:
+	enum Constants {
+		DefaultMaxScheduledTasksAmount = ISL__TIMER_DEFAULT_MAX_SCHEDULED_TASK_AMOUNT
+	};
 	//! Constructs timer
 	/*!
 	  \param owner Pointer to owner subsystem
 	  \param clockTimeout Timer clock timeout
-	  \param adjustmentTimeout Timer adjustment timeout which is used in determination of the next unexpired timer tick
-	  \param maxScheduledTaskAmount Maximum amount of scheduled tasks
+	  \param maxScheduledTasksAmount Maximum amount of scheduled tasks
 	*/
 	Timer(Subsystem * owner, const Timeout& clockTimeout = Timeout::defaultTimeout(),
-			const Timeout& adjustmentTimeout = Timeout(ISL__TIMER_ADJUSTMENT_TIMEOUT_SECONDS, ISL__TIMER_ADJUSTMENT_TIMEOUT_NANO_SECONDS),
-			size_t maxScheduledTaskAmount = ISL__TIMER_MAX_SCHEDULED_TASK_AMOUNT);
+			size_t maxScheduledTasksAmount = DefaultMaxScheduledTasksAmount);
 	//! Destructor
 	virtual ~Timer();
-	//! Abstract timer class task
-	class AbstractTask
+	//! Abstract periodic task for the timer
+	class AbstractPeriodicTask
 	{
 	public:
 		//! Constructs task
-		AbstractTask()
+		AbstractPeriodicTask()
 		{}
 		//! Destructor
-		virtual ~AbstractTask()
+		virtual ~AbstractPeriodicTask()
 		{}
 	protected:
 		//! On timer start event handler
@@ -65,30 +65,37 @@ public:
 		  Exception thrown from this method directs timer to terminate it's execution.
 
 		  \param timer Reference to timer
-		  \param lastExpiredTimestamp Last expired timestamp
+		  \param lastExpiredTimestamp Last expired timestamp for the task execution
 		  \param expiredTimestamps Expired timestamps amount
 		  \param timeout Task execution timeout in timer
 		*/
-		virtual void execute(Timer& timer, const struct timespec& lastExpiredTimestamp, size_t expiredTimestamps, const Timeout& timeout) = 0;
+		virtual void execute(Timer& timer, const Timestamp& lastExpiredTimestamp, size_t expiredTimestamps, const Timeout& timeout) = 0;
+	private:
+		friend class Timer;
+	};
+	//! Abstract periodic task for the timer
+	class AbstractScheduledTask
+	{
+	public:
+		//! Constructs task
+		AbstractScheduledTask()
+		{}
+		//! Destructor
+		virtual ~AbstractScheduledTask()
+		{}
+	protected:
+		//! Task execution asbtract virtual method
+		/*!
+		  Exception thrown from this method directs timer to terminate it's execution.
+
+		  \param timer Reference to timer
+		  \param timestamp Task execution timestamp in timer
+		*/
+		virtual void execute(Timer& timer, const Timestamp& timestamp) = 0;
 	private:
 		friend class Timer;
 	};
 
-	//! Returns timer adjustment timeout
-	inline Timeout adjustmentTimeout() const
-	{
-		return _adjustmentTimeout;
-	}
-	//! Sets timer adjustment timeout
-	/*!
-	  \param newValue New timer adjustment timeout
-
-	  \note Thread-unsafe: call it when subsystem is idling only
-	*/
-	inline void setAdjustmentTimeout(const Timeout& newValue)
-	{
-		_adjustmentTimeout = newValue;
-	}
 	//! Registers periodic task in timer
 	/*!
 	  \param task Reference to task to register
@@ -97,7 +104,7 @@ public:
 
 	  \note Thread-unsafe: call it when subsystem is idling only
 	*/
-	int registerPeriodicTask(AbstractTask& task, const Timeout& timeout);
+	int registerPeriodicTask(AbstractPeriodicTask& task, const Timeout& timeout);
 	//! Updates registered periodic task in timer
 	/*!
 	  \param taskId Task ID to update
@@ -120,19 +127,24 @@ public:
 	void resetPeriodicTasks();
 	//! Schedule a task for single execution
 	/*!
-	  TODO Use a requester
-
+	  \param task Reference to task to schedule
+	  \param limit Limit timestamp task execution should be at
+	  \return TRUE if task has been successfully scheduled or FALSE if the scheduled task container has been overflowed
+	  \note Thread-safe. The task will be executed even if the limit timestamp has been passed!
+	*/
+	bool scheduleTask(AbstractScheduledTask& task, const Timestamp& limit);
+	//! Schedule a task for single execution
+	/*!
 	  \param task Reference to task to schedule
 	  \param timeout Timeout to wait for the task execution from now
 	  \return TRUE if task has been successfully scheduled or FALSE if the scheduled task container has been overflowed
+	  \note Thread-safe. The task will be executed even if zero timeout has been supplied!
 	*/
-	bool scheduleTask(AbstractTask& task, const Timeout& timeout);
-protected:
-	//! After stop event handler redefinition
-        inline virtual void afterStop()
+	inline bool scheduleTask(AbstractScheduledTask& task, const Timeout& timeout)
 	{
-		_scheduledTaskMap.clear();
+		return scheduleTask(task, Timestamp::limit(timeout));
 	}
+protected:
 	//! On timer overload event handler
 	/*!
 	  \param ticksExpired Expired ticks amount (always >= 2 - it's an overload)
@@ -145,48 +157,41 @@ private:
 
 	Timer& operator=(const Timer&);							// No copy
 
-	typedef std::pair<AbstractTask *, Timeout> PeriodicTaskMapValue;
-	typedef std::map<int, PeriodicTaskMapValue> PeriodicTaskMap;
-	typedef std::multimap<struct timespec, AbstractTask *, TimeSpecComp> ScheduledTaskMap;
+	struct PeriodicTaskMapValue
+	{
+		AbstractPeriodicTask * taskPtr;
+		Timeout timeout;
+		Timestamp nextExecutionTimestamp;
 
-	class Thread : public AbstractThread
+		PeriodicTaskMapValue(AbstractPeriodicTask * taskPtr, const Timeout& timeout) :
+			taskPtr(taskPtr),
+			timeout(timeout),
+			nextExecutionTimestamp()
+		{}
+	};
+	typedef std::map<int, PeriodicTaskMapValue> PeriodicTasksMap;
+	typedef std::multimap<Timestamp, AbstractScheduledTask *> ScheduledTasksMap;
+
+	class TimerThread : public AbstractThread
 	{
 	public:
-		Thread(Timer& timer);
+		TimerThread(Timer& timer);
 	private:
-		Thread();
-		Thread(const Thread&);							// No copy
+		TimerThread();
+		TimerThread(const TimerThread&);							// No copy
 
-		Thread& operator=(const Thread&);					// No copy
-
-		struct PeriodicTaskContainerItem
-		{
-			AbstractTask * taskPtr;
-			Timeout timeout;
-			struct timespec nextExecutionTimestamp;
-
-			PeriodicTaskContainerItem(AbstractTask * taskPtr, const Timeout& timeout) :
-				taskPtr(taskPtr),
-				timeout(timeout),
-				nextExecutionTimestamp()
-			{}
-		};
-		typedef std::list<PeriodicTaskContainerItem> PeriodicTaskContainer;
-
-		//bool hasPendingSignals() const;
-		//int extractPendingSignal() const;
+		TimerThread& operator=(const TimerThread&);						// No copy
 
 		virtual void run();
 
 		Timer& _timer;
 	};
 
-	Timeout _adjustmentTimeout;
 	size_t _maxScheduledTaskAmount;
 	int _lastPeriodicTaskId;
-	PeriodicTaskMap _periodicTaskMap;
-	ScheduledTaskMap _scheduledTaskMap;
-	Thread _thread;
+	PeriodicTasksMap _periodicTasksMap;
+	ScheduledTasksMap _scheduledTasksMap;
+	TimerThread _thread;
 };
 
 } // namespace isl

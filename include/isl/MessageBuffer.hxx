@@ -74,10 +74,9 @@ public:
 	}
 	//! Fetches all messages to the supplied consumer
 	/*!
-	  NOTE: If the consumer's filter rejects a message it will be discarded!
-
 	  \param consumer Message consumer to store messages to
 	  \return Fetched messages amount
+	  \note If the consumer's filter rejects a message it will be discarded!
 	*/
 	size_t popAll(AbstractMessageConsumerType& consumer)
 	{
@@ -85,7 +84,7 @@ public:
 			return false;
 		}
 		size_t providedMessages = 0;
-		for (typename Messages::const_iterator i = _buffer.begin(); i != _buffer.end(); ++i) {
+		for (typename Messages::const_reverse_iterator i = _buffer.rbegin(); i != _buffer.rend(); ++i) {
 			if (consumer.push(**i)) {
 				++providedMessages;
 			} else {

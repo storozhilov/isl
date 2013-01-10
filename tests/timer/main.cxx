@@ -5,34 +5,32 @@
 #include <isl/FileLogTarget.hxx>
 #include <iostream>
 
-class ScheduledTask : public isl::Timer::AbstractTask
+class ScheduledTask : public isl::Timer::AbstractScheduledTask
 {
 public:
 	ScheduledTask() :
-		isl::Timer::AbstractTask()
+		isl::Timer::AbstractScheduledTask()
 	{}
 private:
-	virtual void execute(isl::Timer& timer, const struct timespec& lastExpiredTimestamp, size_t expiredTimestamps, const isl::Timeout& timeout)
+	virtual void execute(isl::Timer& timer, const isl::Timestamp& timestamp)
 	{
 		std::ostringstream msg;
-		msg << "Scheduled task execution has been fired. Last expired timestamp: {" << isl::DateTime(lastExpiredTimestamp).toString() <<
-			"}, expired timestamps: " << expiredTimestamps << ", task execution timeout: {" << timeout.timeSpec().tv_sec << ", " <<
-			timeout.timeSpec().tv_nsec << "}";
+		msg << "Scheduled task execution has been fired. Task timestamp: " << isl::DateTime(timestamp).toString();
 		isl::debugLog().log(isl::LogMessage(SOURCE_LOCATION_ARGS, msg.str()));
 	}
 };
 
-class PeriodicTask : public isl::Timer::AbstractTask
+class PeriodicTask : public isl::Timer::AbstractPeriodicTask
 {
 public:
 	PeriodicTask(ScheduledTask& scheduledTask) :
-		isl::Timer::AbstractTask(),
+		isl::Timer::AbstractPeriodicTask(),
 		_scheduledTask(scheduledTask)
 	{}
 private:
 	PeriodicTask();
 
-	virtual void execute(isl::Timer& timer, const struct timespec& lastExpiredTimestamp, size_t expiredTimestamps, const isl::Timeout& timeout)
+	virtual void execute(isl::Timer& timer, const isl::Timestamp& lastExpiredTimestamp, size_t expiredTimestamps, const isl::Timeout& timeout)
 	{
 		timer.scheduleTask(_scheduledTask, isl::Timeout(1));
 		std::ostringstream msg;

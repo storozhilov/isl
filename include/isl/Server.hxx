@@ -1,9 +1,8 @@
 #ifndef ISL__SERVER__HXX
 #define ISL__SERVER__HXX
 
-#include <isl/Subsystem.hxx>
+#include <isl/StateSetSubsystem.hxx>
 #include <isl/SignalSet.hxx>
-#include <isl/MessageQueue.hxx>
 #include <vector>
 
 namespace isl
@@ -15,14 +14,14 @@ namespace isl
   thread - this is because UNIX-signals should be blocked in main thread only.
   Main loop is awaits for incoming UNIX-signals or commands and reacts respectively.
 */
-class Server : public Subsystem
+class Server : public StateSetSubsystem
 {
 public:
 	//! Constructor
 	/*!
 	  \param argc Command-line arguments amount
 	  \param argv Command-line arguments array
-	  \param trackSignals UNIX-signals set to track
+	  \param trackSignals UNIX-signals set to track (default is to track SIGHUP, SIGINT and SIGTERM)
 	  \param clockTimeout Subsystem's clock timeout
 	*/
 	Server(int argc, char * argv[], const SignalSet& trackSignals = SignalSet(3, SIGHUP, SIGINT, SIGTERM),
@@ -47,33 +46,24 @@ public:
 	{
 		return _argv;
 	}
-	//! Sends restart command to the server
+	//! Appoints server restart
 	/*!
 	  \return TRUE if the command has been accepted by the server
 	*/
-	inline bool doRestart()
-	{
-		return sendCommand(RestartCommand);
-	}
-	//! Sends terminate command to the server
-	/*!
-	  \return TRUE if the command has been accepted by the server
-	*/
-	inline bool doTerminate()
-	{
-		return sendCommand(TerminateCommand);
-	}
+	void appointRestart();
 protected:
-	//! Starting method redefinition to make in protected
-	inline void start()
+	//! Starting method redefinition to make it protected
+	virtual void start()
 	{
-		Subsystem::start();
+		StateSetSubsystem::start();
 	}
-	//! Stopping method redefinition to make in protected
-	inline void stop()
+	//! Stopping method redefinition to make it protected
+	virtual void stop()
 	{
-		Subsystem::stop();
+		StateSetSubsystem::stop();
 	}
+	//! Restarts server
+	void restart();
 	//! Before run event handler
 	virtual void beforeRun()
 	{}
@@ -87,24 +77,16 @@ protected:
 	*/
 	virtual bool onSignal(int signo);
 private:
-	enum Command {
-		RestartCommand,
-		TerminateCommand
-	};
 	Server();
 	Server(const Server&);						// No copy
 
 	Server& operator=(const Server&);				// No copy
 
-	inline bool sendCommand(Command cmd)
-	{
-		return _commandsQueue.push(cmd);
-	}
+	bool hasPendingSignals() const;
+	int extractPendingSignal() const;
 
 	std::vector<std::string> _argv;
 	SignalSet _trackSignals;
-	Timeout _clockTimeout;
-	MessageQueue<Command> _commandsQueue;
 	sigset_t _initialSignalMask;
 };
 

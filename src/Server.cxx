@@ -1,5 +1,5 @@
-#include <isl/common.hxx>
 #include <isl/Server.hxx>
+#include <isl/common.hxx>
 #include <isl/LogMessage.hxx>
 #include <isl/ErrorLogMessage.hxx>
 
@@ -7,11 +7,9 @@ namespace isl
 {
 
 Server::Server(int argc, char * argv[], const SignalSet& trackSignals, const Timeout& clockTimeout) :
-	Subsystem(0),
+	StateSetSubsystem(0, clockTimeout),
 	_argv(),
 	_trackSignals(trackSignals),
-	_clockTimeout(clockTimeout),
-	_commandsQueue(),
 	_initialSignalMask()
 {
 	_argv.reserve(argc);
@@ -39,8 +37,9 @@ void Server::run()
 	debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Server has been started"));
 	// Server's main loop
 	while (true) {
-		// Checkout for pending signals
-		int pendingSignal = sigtimedwait(&blockedSignalMask, 0, &_clockTimeout.timeSpec());
+		// Handling pending signals. Code below has been commented cause sigtimedwait(2) system
+		// call returns error when the computer recovers from hibernate mode
+		/*int pendingSignal = sigtimedwait(&blockedSignalMask, 0, &clockTimeout().timeSpec());
 		if (pendingSignal > 0) {
 			// Pending signal has been fetched -> firing on signal event
 			if (!onSignal(pendingSignal)) {
@@ -52,23 +51,33 @@ void Server::run()
 			SystemCallError err(SOURCE_LOCATION_ARGS, SystemCallError::SigTimedWait, errno, "Error fetching pending signal");
 			errorLog().log(ErrorLogMessage(SOURCE_LOCATION_ARGS, err));
 			throw Exception(err);
-		}
-		// Checkout for pending commandswith zero timeout
-		std::auto_ptr<Command> pendingCmdAutoPtr = _commandsQueue.pop(Timeout());
-		if (pendingCmdAutoPtr.get()) {
-			if (*pendingCmdAutoPtr.get() == RestartCommand) {
-				debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Restart command received -> restarting server"));
-				stop();
-				debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Server has been stopped"));
-				start();
-				debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Server has been restarted"));
-			} else if (*pendingCmdAutoPtr.get() == TerminateCommand) {
-				debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Restart command received -> exiting from the server's main loop"));
-			} else {
-				std::ostringstream msg;
-				msg << "Unknown server command has been received: " << *pendingCmdAutoPtr.get();
-				errorLog().log(LogMessage(SOURCE_LOCATION_ARGS, msg.str()));
+		}*/
+		// Handling pending signals
+		if (hasPendingSignals()) {
+			int pendingSignal = extractPendingSignal();
+			/*std::ostringstream oss;
+			oss << "Pending signal #" << pendingSignal << " detected";
+			debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, oss.str()));*/
+			if (!onSignal(pendingSignal)) {
+				debugLog().log(LogMessage(SOURCE_LOCATION_ARGS,
+							"Server termintaion requested by the on signal event handler -> exiting from the server's main loop"));
+				break;
 			}
+		}
+		// Handling state
+		StateSetType::SetType trackSet;
+		trackSet.insert(TerminationState);
+		trackSet.insert(RestartState);
+		std::auto_ptr<StateSetType::SetType> setAutoPtr = stateSet().awaitAny(trackSet, Timestamp::limit(clockTimeout()));
+		if (!setAutoPtr.get()) {
+			continue;
+		}
+		if (setAutoPtr->find(TerminationState) != setAutoPtr->end()) {
+			debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Server termination has been detected -> exiting from the server's main loop"));
+			break;
+		} else if (setAutoPtr->find(RestartState) != setAutoPtr->end()) {
+			debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Server restart has been detected -> restarting the server"));
+			restart();
 		}
 	}
 	// Stopping children subsystems
@@ -83,8 +92,21 @@ void Server::run()
 		throw Exception(err);
 	}
 	debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "UNIX-signals have been unblocked"));
-	//! Firing after run event
+	// Firing after run event
 	afterRun();
+}
+
+void Server::appointRestart()
+{
+	stateSet().insert(RestartState);
+}
+
+void Server::restart()
+{
+	stop();
+	debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Server has been stopped"));
+	start();
+	debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Server has been started"));
 }
 
 bool Server::onSignal(int signo)
@@ -94,11 +116,7 @@ bool Server::onSignal(int signo)
 	switch (signo) {
 		case SIGHUP:
 			oss << "restarting server";
-			debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, oss.str()));
-			stop();
-			debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Server has been stopped"));
-			start();
-			debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Server has been restarted"));
+			restart();
 			return true;
 		case SIGINT:
 		case SIGTERM:
@@ -110,6 +128,31 @@ bool Server::onSignal(int signo)
 			errorLog().log(LogMessage(SOURCE_LOCATION_ARGS, oss.str()));
 			return true;
 	}
+}
+
+bool Server::hasPendingSignals() const
+{
+	sigset_t pendingSignals;
+	if (sigpending(&pendingSignals)) {
+		throw Exception(SystemCallError(SOURCE_LOCATION_ARGS, SystemCallError::SigPending, errno));
+	}
+	for (std::set<int>::const_iterator i = _trackSignals.signals().begin();
+			i != _trackSignals.signals().end(); ++i) {
+		if (sigismember(&pendingSignals, *i)) {
+			return true;
+		}
+	}
+	return false;
+}
+
+int Server::extractPendingSignal() const
+{
+	sigset_t blockedSignalMask = _trackSignals.sigset();
+	int pendingSignal;
+	if (sigwait(&blockedSignalMask, &pendingSignal)) {
+		throw Exception(SystemCallError(SOURCE_LOCATION_ARGS, SystemCallError::SigWait, errno));
+	}
+	return pendingSignal;
 }
 
 } // namespace isl

@@ -4,6 +4,7 @@
 #include <isl/common.hxx>
 #include <isl/Subsystem.hxx>
 #include <isl/WaitCondition.hxx>
+#include <isl/MemFunThread.hxx>
 #include <isl/LogMessage.hxx>
 #include <isl/ExceptionLogMessage.hxx>
 #include <deque>
@@ -11,8 +12,6 @@
 #include <exception>
 #include <sstream>
 #include <memory>
-
-#include <isl/MemFunThread.hxx>
 
 namespace isl
 {
@@ -37,8 +36,6 @@ public:
 	//! Task object's method type definition
 	typedef void (T::*Method)(TaskDispatcher<T>&);
 private:
-	typedef MemFunThread<TaskDispatcher<T> > WorkerThread;
-
 	class PendingTask
 	{
 	public:
@@ -67,8 +64,8 @@ public:
 	  \param owner Pointer to the owner subsystem
 	  \param workersAmount Worker threads amount
 	*/
-	TaskDispatcher(Subsystem * owner, size_t workersAmount) :
-		Subsystem(owner),
+	TaskDispatcher(Subsystem * owner, size_t workersAmount, const Timeout& clockTimeout = Timeout::defaultTimeout()) :
+		Subsystem(owner, clockTimeout),
 		_workersAmount(workersAmount),
 		_cond(),
 		_shouldTerminate(false),
@@ -147,8 +144,8 @@ public:
 		_awaitingWorkersCount = 0;
 		debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Creating and starting workers"));
 		for (size_t i = 0; i < _workersAmount; ++i) {
-			std::auto_ptr<WorkerThread> newWorkerAutoPtr(new WorkerThread());
-			WorkerThread * newWorkerPtr = newWorkerAutoPtr.get();
+			std::auto_ptr<MemFunThread> newWorkerAutoPtr(new MemFunThread());
+			MemFunThread * newWorkerPtr = newWorkerAutoPtr.get();
 			_workers.push_back(newWorkerPtr);
 			newWorkerAutoPtr.release();
 			newWorkerPtr->start(*this, &TaskDispatcher<T>::work);
@@ -181,9 +178,9 @@ private:
 	TaskDispatcher();
 	TaskDispatcher(const TaskDispatcher&);						// No copy
 
-	TaskDispatcher& operator=(const TaskDispatcher&);					// No copy
+	TaskDispatcher& operator=(const TaskDispatcher&);				// No copy
 
-	typedef std::list<WorkerThread *> WorkersContainer;
+	typedef std::list<MemFunThread *> WorkersContainer;
 
 	void resetWorkers()
 	{
@@ -243,7 +240,7 @@ private:
 	size_t _awaitingWorkersCount;
 	PendingTasksQueue _pendingTasksQueue;
 
-	friend class MemFunThread<TaskDispatcher<T> >;
+	friend class MemFunThread;
 };
 
 } // namespace isl

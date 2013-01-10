@@ -90,18 +90,17 @@ public:
 	}
 	//! Fetches all messages into the supplied consumer
 	/*!
-	  NOTE: If the consumer's filter rejects a message it will be discarded!
-
 	  \param consumer Message consumer to store messages to
 	  \param timeout Timeout to wait for the messages
 	  \return Fetched messages amount
+	  \note If the consumer's filter rejects a message it will be discarded!
 	*/
 	size_t popAll(AbstractMessageConsumerType& consumer, const Timeout& timeout = Timeout::defaultTimeout())
 	{
 		MutexLocker locker(_queueCond.mutex());
 		if (!_queue.empty()) {
 			size_t providedMessages = 0;
-			for (typename Messages::const_iterator i = _queue.begin(); i != _queue.end(); ++i) {
+			for (typename Messages::const_reverse_iterator i = _queue.rbegin(); i != _queue.rend(); ++i) {
 				if (consumer.push(**i)) {
 					++providedMessages;
 				} else {
@@ -119,7 +118,7 @@ public:
 			return 0;
 		}
 		size_t providedMessages = 0;
-		for (typename Messages::const_iterator i = _queue.begin(); i != _queue.end(); ++i) {
+		for (typename Messages::const_reverse_iterator i = _queue.rbegin(); i != _queue.rend(); ++i) {
 			if (consumer.push(**i)) {
 				++providedMessages;
 			} else {

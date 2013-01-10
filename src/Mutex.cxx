@@ -45,13 +45,9 @@ bool Mutex::tryLock()
 	}
 }
 
-bool Mutex::tryLock(const Timeout& timeout)
+bool Mutex::tryLock(const Timestamp& limit)
 {
-	if (timeout.isZero()) {
-		return tryLock();
-	}
-	timespec timeoutLimit = timeout.limit();
-	int errorCode = pthread_mutex_timedlock(&_mutex, &timeoutLimit);
+	int errorCode = pthread_mutex_timedlock(&_mutex, &limit.timeSpec());
 	switch (errorCode) {
 		case 0:
 			return true;
@@ -60,6 +56,22 @@ bool Mutex::tryLock(const Timeout& timeout)
 		default:
 			throw Exception(SystemCallError(SOURCE_LOCATION_ARGS, SystemCallError::PThreadMutexTimedLock, errorCode));
 	}
+}
+
+bool Mutex::tryLock(const Timeout& timeout, Timeout * timeoutLeft)
+{
+	if (timeout.isZero()) {
+		if (timeoutLeft) {
+			*timeoutLeft = Timeout();
+		}
+		return tryLock();
+	}
+	Timestamp limit = Timestamp::limit(timeout);
+	bool result = tryLock(limit);
+	if (timeoutLeft) {
+		*timeoutLeft = result ? limit.leftTo() : Timeout();
+	}
+	return result;
 }
 
 void Mutex::unlock()

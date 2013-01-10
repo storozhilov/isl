@@ -2,6 +2,7 @@
 #define ISL__READ_WRITE_LOCK__HXX
 
 #include <isl/Timeout.hxx>
+#include <isl/Timestamp.hxx>
 #include <pthread.h>
 
 #include <set>
@@ -24,23 +25,37 @@ public:
 	  \return TRUE if the lock has been successfully obtained
 	*/
 	bool tryLockForRead();
+	//! Tries to lock R/W-lock for read until the limit timestamp
+	/*!
+	  \param limit Limit timestamp to wait until lock to be available
+	  \return TRUE if the lock has been successfully obtained ot FALSE if the limit timestamp has been reached
+	*/
+	bool tryLockForRead(const Timestamp& limit);
 	//! Tries to lock R/W-lock for read during the supplied timeout
 	/*!
 	  \param timeout Timeout to wait for lock to be available
+	  \param timeoutLeft Memory location where time interval which is remains after lock has been acquired or 0 otherwise
 	  \return TRUE if the lock has been successfully obtained ot FALSE if the timeout has been expired
 	*/
-	bool tryLockForRead(const Timeout& timeout);
+	bool tryLockForRead(const Timeout& timeout, Timeout * timeoutLeft = 0);
 	//! Tries to lock R/W-lock for write
 	/*!
 	  \return TRUE if the lock has been successfully obtained
 	*/
 	bool tryLockForWrite();
+	//! Tries to lock R/W-lock for write until the limit timestamp
+	/*!
+	  \param limit Limit timestamp to wait until lock to be available
+	  \return TRUE if the lock has been successfully obtained ot FALSE if the limit timestamp has been reached
+	*/
+	bool tryLockForWrite(const Timestamp& limit);
 	//! Tries to lock R/W-lock for write during the supplied timeout
 	/*!
 	  \param timeout Timeout to wait for lock to be available
+	  \param timeoutLeft Memory location where time interval which is remains after lock has been acquired or 0 otherwise
 	  \return TRUE if the lock has been successfully obtained ot FALSE if the timeout has been expired
 	*/
-	bool tryLockForWrite(const Timeout& timeout);
+	bool tryLockForWrite(const Timeout& timeout, Timeout * timeoutLeft = 0);
 	//! Unlocks R/W-lock
 	void unlock();
 private:

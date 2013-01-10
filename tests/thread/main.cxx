@@ -42,7 +42,7 @@ public:
 		isl::MutexLocker locker(consoleMutex);
 		std::cout << "Hello from \"" << _name << "\"'s ThreadMemFun::threadFunction0() member function!" << std::endl;
 	}
-	void threadFunction1(isl::MemFunThread<ThreadMemFun>& thread)
+	void threadFunction1(isl::MemFunThread& thread)
 	{
 		isl::MutexLocker locker(consoleMutex);
 		std::cout << "Hello from \"" << _name << "\"'s ThreadMemFun::threadFunction1() member function!" << std::endl;
@@ -91,13 +91,13 @@ public:
 		PingRequest,
 		PongResponse
 	};
-	typedef isl::InterThreadRequester<Message> InterThreadRequesterType;
+	typedef isl::BasicInterThreadRequester<Message> InterThreadRequester;
 
 	RespondentThread() :
 		isl::AbstractThread(),
 		_requester()
 	{}
-	InterThreadRequesterType& requester()
+	InterThreadRequester& requester()
 	{
 		return _requester;
 	}
@@ -126,7 +126,7 @@ private:
 	virtual void run()
 	{
 		while (true) {
-			const InterThreadRequesterType::PendingRequest * pendingRequestPtr = _requester.awaitRequest(isl::Timeout::defaultTimeout());
+			const InterThreadRequester::PendingRequest * pendingRequestPtr = _requester.awaitRequest(isl::Timeout::defaultTimeout());
 			if (!pendingRequestPtr) {
 				continue;
 			}
@@ -143,7 +143,7 @@ private:
 		}
 	}
 
-	InterThreadRequesterType _requester;
+	InterThreadRequester _requester;
 };
 
 int main(int argc, char *argv[])
@@ -199,7 +199,7 @@ int main(int argc, char *argv[])
 	mtd.perform(taskAutoPtr, &Task::execute1, &Task::execute2, &Task::execute3, &Task::execute4);
 	if (taskAutoPtr.get()) {
 		isl::MutexLocker locker(consoleMutex);
-		std::cout << "Task auto-pointer has not been released" << std::endl;
+		std::cout << "Task auto-pointer have not been released" << std::endl;
 	} else {
 		isl::MutexLocker locker(consoleMutex);
 		std::cout << "Task auto-pointer has been released" << std::endl;
@@ -212,13 +212,13 @@ int main(int argc, char *argv[])
 	td.perform(taskAutoPtr, &Task::execute);
 	td.stop();
 
-	isl::FunctionThread thr1;
-	isl::FunctorThread<ThreadFunctor> thr2;
-	isl::FunctorThread<ThreadFunctor> thr3(true);
-	isl::FunctorThread<ThreadFunctor> thr4(true, true);
-	isl::FunctorThread<ThreadFunctor> thr5(true, true, true);
-	isl::MemFunThread<ThreadMemFun> thr6;
-	isl::MemFunThread<ThreadMemFun> thr7;
+	isl::FunctorThread thr1;
+	isl::FunctorThread thr2;
+	isl::FunctorThread thr3(true);
+	isl::FunctorThread thr4(true, true);
+	isl::FunctorThread thr5(true, true, true);
+	isl::MemFunThread thr6;
+	isl::MemFunThread thr7;
 	ThreadFunctor tf1("01");
 	ThreadFunctor tf2("02");
 	ThreadFunctor tf3("03");

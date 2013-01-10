@@ -26,22 +26,6 @@ public:
 	  \param bdts UNIX breakdown time structure to reset
 	*/
 	static void resetBdts(struct tm& bdts);
-	//! Returns an empty libc timespec structure
-	static struct timespec emptyTimeSpec();
-	//! Makes a libc timespec structure
-	/*!
-	  \param sec Seconds
-	  \param nsec Nanoseconds
-	  \return libc timespec structure
-	*/
-	static struct timespec makeTimeSpec(time_t sec, long int nsec);
-	//! Returns current timestamp as libc timespec structure
-	static struct timespec nowTimeSpec();
-	//! Resets libc timespec structure
-	/*!
-	  \param ts libc timespec structure to reset
-	*/
-	static void resetTimeSpec(struct timespec& ts);
 	//! Inspects for leap year
 	/*!
 	    \param year Year to inspect
@@ -90,97 +74,6 @@ protected:
 	static bool bdts2str(const struct tm& bdts, int nanoSecond, const std::string& fmt, std::string& str);
 private:
 	const static int _monthDays[];
-};
-
-//! POSIX.1b structure comparison operator
-/*!
-  \param lhs Left handed side argument
-  \param rhs Right handed side argument
-  \return TRUE if comparison is truly
-*/
-bool operator==(const struct timespec& lhs, const struct timespec& rhs);
-//! POSIX.1b structure comparison operator
-/*!
-  \param lhs Left handed side argument
-  \param rhs Right handed side argument
-  \return TRUE if comparison is truly
-*/
-bool operator!=(const struct timespec& lhs, const struct timespec& rhs);
-//! POSIX.1b structure comparison operator
-/*!
-  \param lhs Left handed side argument
-  \param rhs Right handed side argument
-  \return TRUE if comparison is truly
-*/
-bool operator<(const struct timespec& lhs, const struct timespec& rhs);
-//! POSIX.1b structure comparison operator
-/*!
-  \param lhs Left handed side argument
-  \param rhs Right handed side argument
-  \return TRUE if comparison is truly
-*/
-bool operator<=(const struct timespec& lhs, const struct timespec& rhs);
-//! POSIX.1b structure comparison operator
-/*!
-  \param lhs Left handed side argument
-  \param rhs Right handed side argument
-  \return TRUE if comparison is truly
-*/
-bool operator>(const struct timespec& lhs, const struct timespec& rhs);
-//! POSIX.1b structure comparison operator
-/*!
-  \param lhs Left handed side argument
-  \param rhs Right handed side argument
-  \return TRUE if comparison is truly
-*/
-bool operator>=(const struct timespec& lhs, const struct timespec& rhs);
-//! POSIX.1b structure arithmetic operator
-/*!
-  \param lhs Left handed side argument
-  \param rhs Right handed side argument
-  \return Arithmetic operatoin result
-*/
-struct timespec operator+(const struct timespec& lhs, const struct timespec& rhs);
-//! POSIX.1b structure arithmetic operator
-/*!
-  \param lhs Left handed side argument
-  \param rhs Right handed side argument
-  \return Arithmetic operatoin result
-*/
-struct timespec& operator+=(struct timespec& lhs, const struct timespec& rhs);
-//! POSIX.1b structure arithmetic operator
-/*!
-  \param lhs Left handed side argument
-  \param rhs Right handed side argument
-  \return Arithmetic operatoin result
-*/
-struct timespec operator-(const struct timespec& lhs, const struct timespec& rhs);
-//! POSIX.1b structure arithmetic operator
-/*!
-  \param lhs Left handed side argument
-  \param rhs Right handed side argument
-  \return Arithmetic operatoin result
-*/
-struct timespec& operator-=(struct timespec& lhs, const struct timespec& rhs);
-
-//! POSIX.1b time structure comparison helper class
-/*!
-  Use it in <tt>std::map</tt> or <tt>std::multimap</tt> instantiation when
-  <tt>struct timespec</tt> value is used as key.
-*/
-class TimeSpecComp
-{
-public:
-	//! Comparison &quot;less than&quot; operator
-	/*!
-	  \param lhs Left handed side argument
-	  \param rhs Right handed side argument
-	  \return TRUE if lhs is less than rhs
-	*/
-	inline bool operator()(const struct timespec& lhs, const struct timespec& rhs)
-	{
-		return lhs < rhs;
-	}
 };
 
 } // namespace isl

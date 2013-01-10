@@ -2,6 +2,7 @@
 #define ISL__DATE_TIME__HXX
 
 #include <isl/TimeZone.hxx>
+#include <isl/Timestamp.hxx>
 #include <isl/Timeout.hxx>
 
 namespace isl
@@ -9,13 +10,15 @@ namespace isl
 
 //! Nanosecond-precision datetime
 /*!
+  A "human-readable Timestamp". :)
+
   UNIX datetime API is quite tricky and little difficult to use so I've invented another wheel,
   but this one has a relatively simple design. Basically, this is <tt>timespec</tt> value
   (GMT-second from Epoch and nanosecond) which has been broken down in <tt>struct tm</tt>
   UNIX breakdown time structure with partucular timezone applied to. This class is something
   like a wrapper for the libc datetime functions set to make them usable from C++.
 
-  \sa TimeZone, Timeout
+  \sa TimeZone, Timestamp, Timeout
 */
 class DateTime : public BasicDateTime
 {
@@ -57,6 +60,13 @@ public:
 	  \return TRUE if no error occured
 	*/
 	DateTime(const struct timespec& ts, const TimeZone& tz = TimeZone::local());
+	//! Constructs datetime value from the timestamp
+	/*!
+	  \param timestamp Timestamp
+	  \param tz Timezone
+	  \return TRUE if no error occured
+	*/
+	DateTime(const Timestamp& timestamp, const TimeZone& tz = TimeZone::local());
 	//! Constructs datetime value from the string using supplied format
 	/*!
 	  \param str String to parse
@@ -201,6 +211,16 @@ public:
 	{
 		return set(ts.tv_sec, ts.tv_nsec, tz);
 	}
+	//! Sets datetime value from timestamp
+	/*!
+	  \param timestamp Timestamp
+	  \param tz Timezone
+	  \return TRUE if no error occured
+	*/
+	inline bool set(const Timestamp& timestamp, const TimeZone& tz = TimeZone::local())
+	{
+		return set(timestamp.timeSpec().tv_sec, timestamp.timeSpec().tv_nsec, tz);
+	}
 	//! Sets datetime from the string using supplied format
 	/*!
 	  \param str String to parse
@@ -312,10 +332,10 @@ public:
 	*/
 	static DateTime now(const TimeZone& tz = TimeZone::local());
 	//! Returns time limit (current timestamp plus timeout) as DateTime value
-	inline static DateTime limit(const Timeout& timeout)
+	/*inline static DateTime limit(const Timeout& timeout)
 	{
 		return DateTime(timeout.limit());
-	}
+	}*/
 	//! Returns an amount of interval expirations during the time frame
 	/*!
 	  Use this method in periodic job execution.
@@ -326,7 +346,7 @@ public:
 	  \param finishedBefore Right boundary of the timeframe (excluded)
 	  \param interval Time interval
 	*/
-	static size_t expirationsInFrame(const DateTime& startedFrom, const DateTime& finishedBefore, const Timeout& interval);
+	//static size_t expirationsInFrame(const DateTime& startedFrom, const DateTime& finishedBefore, const Timeout& interval);
 private:
 
 	inline bool isEqualsTo(const DateTime& rhs) const

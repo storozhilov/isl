@@ -2,7 +2,7 @@
 #define ISL__ABSTRACT_SYNC_TCP_SERVICE__HXX
 
 #include <isl/common.hxx>
-#include <isl/Subsystem.hxx>
+#include <isl/StateSetSubsystem.hxx>
 #include <isl/TaskDispatcher.hxx>
 #include <isl/TcpAddrInfo.hxx>
 #include <isl/TcpSocket.hxx>
@@ -13,7 +13,7 @@ namespace isl
 {
 
 //! Base class for synchronous TCP-service, which reads from and writes to the client connection socket in the same thread
-class AbstractSyncTcpService : public Subsystem
+class AbstractSyncTcpService : public StateSetSubsystem
 {
 public:
 	//! Synchronous TCP-service abstract task

@@ -1,16 +1,16 @@
 #ifndef ISL__TIMEOUT__HXX
 #define ISL__TIMEOUT__HXX
 
-#include <isl/BasicDateTime.hxx>
+#include <isl/TimeSpec.hxx>
 
 namespace isl
 {
 
-//! Time interval representation class
+//! Nanosecond-precision time interval
 /*!
-  \sa DateTime
+  \sa Timestamp
 */
-class Timeout : public BasicDateTime
+class Timeout
 {
 public:
 	//! Constructs timeout from seconds and nanoseconds
@@ -22,18 +22,12 @@ public:
 	  \param secs Seconds amount
 	  \param nsecs Nanoseconds amount
 	*/
-	Timeout(time_t secs = 0, long int nsecs = 0) :
-		BasicDateTime(),
-		_ts(initialTimeSpec(secs, nsecs))
-	{}
+	Timeout(time_t secs = 0, long int nsecs = 0);
 	//! Constructs timeout from the POSIX.1b structure
 	/*!
 	  \param ts Libc timespec structure
 	*/
-	Timeout(const struct timespec& ts) :
-		BasicDateTime(),
-		_ts(initialTimeSpec(ts.tv_sec, ts.tv_nsec))
-	{}
+	Timeout(const struct timespec& ts);
 	//! Returns seconds of the timeout
 	inline time_t seconds() const
 	{
@@ -49,8 +43,6 @@ public:
 	{
 		return _ts;
 	}
-	//! Returns time limit (current timestamp plus timeout) as POSIX.1b structure
-	struct timespec limit() const;
 	//! Returns TRUE if the timeout is holding zero values
 	inline bool isZero() const
 	{
@@ -59,7 +51,7 @@ public:
 	//! Resets timeout to zero value
 	inline void reset()
 	{
-		resetTimeSpec(_ts);
+		TimeSpec::reset(_ts);
 	}
 	//! Comparison operator
 	/*!
@@ -115,19 +107,93 @@ public:
 	  <tt>ISL__DEFAULT_TIMEOUT_NANO_SECONDS</tt> macros during it's build.
 	*/
 	static Timeout defaultTimeout();
-	//! Returns a timeout which is left from now to the time limit
-	/*!
-	  \param limit Time limit as POSIX.1b structure
-	  \return Timeout left to the time limit
-	*/
-	static Timeout leftToLimit(const struct timespec& limit);
 private:
-	static struct timespec initialTimeSpec(time_t secs, long int nsecs);
-
 	struct timespec _ts;
 };
 
-Timeout operator*(const Timeout& lhs, size_t rhs);
+//! Addition operator
+/*!
+  \param lhs Timeout to add to
+  \param rhs Timeout to add
+  \return Addition result
+*/
+inline Timeout operator+(const Timeout& lhs, const Timeout& rhs)
+{
+	return Timeout(TimeSpec::makeTimeout(lhs.timeSpec().tv_sec + rhs.timeSpec().tv_sec,
+				lhs.timeSpec().tv_nsec + rhs.timeSpec().tv_nsec));
+}
+//! Increment operator
+/*!
+  \param lhs Timeout to add to
+  \param rhs Timeout to add
+  \return Reference to increment result
+*/
+inline Timeout& operator+=(Timeout& lhs, const Timeout& rhs)
+{
+	lhs = lhs + rhs;
+	return lhs;
+}
+//! Subtration operator
+/*!
+  \param lhs Timeout to subtract from
+  \param rhs Timeout to subtract
+  \return Subtraction result
+*/
+inline Timeout operator-(const Timeout& lhs, const Timeout& rhs)
+{
+	return Timeout(TimeSpec::makeTimeout(lhs.timeSpec().tv_sec - rhs.timeSpec().tv_sec,
+				lhs.timeSpec().tv_nsec - rhs.timeSpec().tv_nsec));
+}
+//! Decrement operator
+/*!
+  \param lhs Timestamp to subtract from
+  \param rhs Timeout to subtract
+  \return Reference to decrement result
+*/
+inline Timeout& operator-=(Timeout& lhs, const Timeout& rhs)
+{
+	lhs = lhs - rhs;
+	return lhs;
+}
+//! Multiplication operator
+/*!
+  \param lhs Timeout to multiply
+  \param rhs Multiplier
+  \return Multiplication result
+*/
+inline Timeout operator*(const Timeout& lhs, size_t rhs)
+{
+	return Timeout(TimeSpec::makeTimeout(lhs.timeSpec().tv_sec * rhs, lhs.timeSpec().tv_nsec * rhs));
+}
+//! Compound assignment multiplication operator
+/*!
+  \param lhs Timeout to multiply
+  \param rhs Multiplier
+  \return Reference to the result
+*/
+inline Timeout& operator*=(Timeout& lhs, size_t rhs)
+{
+	lhs = lhs * rhs;
+	return lhs;
+}
+//! Division operator
+/*!
+  \param lhs Timeout to divide
+  \param rhs Divisor
+  \return Division result
+*/
+Timeout operator/(const Timeout& lhs, size_t rhs);
+//! Compound assignment division operator
+/*!
+  \param lhs Timeout to divide
+  \param rhs Divisor
+  \return Reference to the result
+*/
+inline Timeout& operator/=(Timeout& lhs, size_t rhs)
+{
+	lhs = lhs / rhs;
+	return lhs;
+}
 
 } // namespace isl
 

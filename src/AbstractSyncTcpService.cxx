@@ -8,7 +8,7 @@ namespace isl
 //------------------------------------------------------------------------------
 
 AbstractSyncTcpService::AbstractSyncTcpService(Subsystem * owner, size_t maxClients, const Timeout& clockTimeout) :
-	Subsystem(owner, clockTimeout),
+	StateSetSubsystem(owner, clockTimeout),
 	_taskDispatcher(this, maxClients),
 	_lastListenerConfigId(),
 	_listenerConfigs(),
@@ -63,13 +63,13 @@ void AbstractSyncTcpService::start()
 	}
 	debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Listeners have been created"));
 	// Calling base class method
-	Subsystem::start();
+	StateSetSubsystem::start();
 }
 
 void AbstractSyncTcpService::stop()
 {
 	// Calling base class method
-	Subsystem::stop();
+	StateSetSubsystem::stop();
 	// Diposing listeners
 	debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Disposing listeners"));
 	resetListenerThreads();
@@ -101,36 +101,14 @@ void AbstractSyncTcpService::ListenerThread::run()
 		serverSocket.listen(_backLog);
 		debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Server socket has been switched to the listening state"));
 		while (true) {
-			// Handling incoming request
-			const InterThreadRequesterType::PendingRequest * pendingRequestPtr = requester().fetchRequest();
-			if (pendingRequestPtr) {
-				if (pendingRequestPtr->request().instanceOf<TerminateRequestMessage>()) {
-					debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Listener thread termination detected before accepting TCP-connection -> exiting from the listener thread"));
-					if (pendingRequestPtr->responseRequired()) {
-						requester().sendResponse(OkResponseMessage());
-					}
-					break;
-				} else {
-					std::ostringstream msg;
-					msg << "Unknown message has been received by the listener thread: \"" << pendingRequestPtr->request().name() << '"';
-					warningLog().log(LogMessage(SOURCE_LOCATION_ARGS, msg.str()));
-				}
+			if (shouldTerminate()) {
+				debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Listener thread termination detected before accepting TCP-connection -> exiting from the listener thread"));
+				break;
 			}
 			std::auto_ptr<TcpSocket> socketAutoPtr(serverSocket.accept(_service.clockTimeout()));
-			// Handling incoming request
-			pendingRequestPtr = requester().fetchRequest();
-			if (pendingRequestPtr) {
-				if (pendingRequestPtr->request().instanceOf<TerminateRequestMessage>()) {
-					debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Listener thread termination detected after accepting TCP-connection -> exiting from the listener thread"));
-					if (pendingRequestPtr->responseRequired()) {
-						requester().sendResponse(OkResponseMessage());
-					}
-					break;
-				} else {
-					std::ostringstream msg;
-					msg << "Unknown message has been received by the listener thread: \"" << pendingRequestPtr->request().name() << '"';
-					warningLog().log(LogMessage(SOURCE_LOCATION_ARGS, msg.str()));
-				}
+			if (shouldTerminate()) {
+				debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Listener thread termination detected after accepting TCP-connection -> exiting from the listener thread"));
+				break;
 			}
 			if (!socketAutoPtr.get()) {
 				// Accepting TCP-connection timeout expired

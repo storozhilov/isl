@@ -7,6 +7,7 @@
 #include <isl/Exception.hxx>
 #include <isl/Error.hxx>
 #include <isl/LogMessage.hxx>
+#include <isl/InterThreadMessage.hxx>
 #include <list>
 #include <deque>
 #include <map>
@@ -26,7 +27,7 @@ namespace isl
   \tparam Msg Message class
   \tparam Cloner Message cloner class with static <tt>Msg * Cloner::clone(const Msg& msg)</tt> method for cloning the message
 */
-template <typename Msg, typename Cloner = CopyMessageCloner<Msg> > class InterThreadRequester
+template <typename Msg, typename Cloner = CopyMessageCloner<Msg> > class BasicInterThreadRequester
 {
 public:
 	typedef Msg MessageType;							//!< Message type
@@ -95,10 +96,10 @@ public:
 		const bool _responseRequired;
 		bool _responseSent;
 
-		friend class InterThreadRequester<Msg, Cloner>;
+		friend class BasicInterThreadRequester<Msg, Cloner>;
 	};
 	//! Constructor
-	InterThreadRequester() :
+	BasicInterThreadRequester() :
 		_maxContainerSize(MaxContainerSize),
 		_cond(),
 		_lastRequestId(0),
@@ -107,7 +108,7 @@ public:
 		_pendingRequestAutoPtr()
 	{}
 	//! Constructor
-	InterThreadRequester(size_t maxContainerSize) :
+	BasicInterThreadRequester(size_t maxContainerSize) :
 		_maxContainerSize(maxContainerSize),
 		_cond(),
 		_lastRequestId(0),
@@ -116,7 +117,7 @@ public:
 		_pendingRequestAutoPtr()
 	{}
 	//! Destructor
-	~InterThreadRequester()
+	~BasicInterThreadRequester()
 	{
 		reset();
 	}
@@ -212,6 +213,25 @@ public:
 			curTimeout = timeoutLeft;
 		}
 		return std::auto_ptr<MessageType>();
+	}
+	//! Awaits for the response from the respondent thread and returns it
+	/*!
+	  \param requestId ID of the request to await/fetch a response to
+	  \return Auto-pointer to the response
+
+	  \note Call it from requesting thread only!
+	*/
+	std::auto_ptr<MessageType> awaitResponse(size_t requestId)
+	{
+		MutexLocker locker(_cond.mutex());
+		while (true) {
+			if (_responsesMap.find(requestId) != _responsesMap.end()) {
+				std::auto_ptr<MessageType> responseAutoPtr(_responsesMap[requestId]);
+				_responsesMap.erase(requestId);
+				return responseAutoPtr;
+			}
+			_cond.wait();
+		}
 	}
 	//! Returns a pointer to the current pending request w/o fetching the new one
 	/*!
@@ -346,6 +366,9 @@ private:
 	ResponsesMap _responsesMap;
 	std::auto_ptr<PendingRequest> _pendingRequestAutoPtr;
 };
+
+//! Inter-thread reaquester for use in ISL
+typedef BasicInterThreadRequester<AbstractInterThreadMessage, CloneMessageCloner<AbstractInterThreadMessage> > InterThreadRequester;
 
 } // namespace isl
 

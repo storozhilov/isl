@@ -2,6 +2,7 @@
 #define ISL__ABSTRACT_MESSAGE_BROKER_CONNECTION__HXX
 
 #include <isl/common.hxx>
+#include <isl/InterThreadRequester.hxx>
 #include <isl/TcpSocket.hxx>
 #include <isl/TcpAddrInfo.hxx>
 #include <isl/Subsystem.hxx>
@@ -329,7 +330,8 @@ public:
 		}
 		// Awaiting for sender thread termination
 		if (senderRequestId > 0) {
-			std::auto_ptr<AbstractInterThreadMessage> responseAutoPtr = _senderRequester.awaitResponse(senderRequestId, awaitResponseTimeout());
+			// TODO Add timeout to wait for the response
+			std::auto_ptr<AbstractInterThreadMessage> responseAutoPtr = _senderRequester.awaitResponse(senderRequestId);
 			if (!responseAutoPtr.get()) {
 				std::ostringstream msg;
 				msg << "No response to termination request have been received from the sender thread";
@@ -347,7 +349,8 @@ public:
 		}
 		// Awaiting for receiver thread termination
 		if (receiverRequestId > 0) {
-			std::auto_ptr<AbstractInterThreadMessage> responseAutoPtr = _receiverRequester.awaitResponse(receiverRequestId, awaitResponseTimeout());
+			// TODO Add timeout to wait for the response
+			std::auto_ptr<AbstractInterThreadMessage> responseAutoPtr = _receiverRequester.awaitResponse(receiverRequestId);
 			if (!responseAutoPtr.get()) {
 				std::ostringstream msg;
 				msg << "No response to termination request have been received from the receiver thread";
@@ -473,7 +476,6 @@ private:
 
 	AbstractMessageBrokerConnection& operator=(const AbstractMessageBrokerConnection&);					// No copy
 
-	typedef MemFunThread<AbstractMessageBrokerConnection<Msg, Cloner> > TransmitterThread;
 	typedef std::list<MessageProviderType *> ProvidersContainer;
 	typedef std::list<AbstractMessageConsumerType *> ConsumersContainer;
 
@@ -514,7 +516,7 @@ private:
 		size_t connectionAttempts = 0;
 		while (true) {
 			// Handling incoming inter-thread request
-			const InterThreadRequesterType::PendingRequest * pendingRequestPtr = 0;
+			const InterThreadRequester::PendingRequest * pendingRequestPtr = 0;
 			if (connected) {
 				pendingRequestPtr = _receiverRequester.fetchRequest();
 			} else {
@@ -559,7 +561,8 @@ private:
 					onReceiverDisconnected(true);
 					// Awaiting for the response from the sender thread
 					if (requestId > 0) {
-						std::auto_ptr<AbstractInterThreadMessage> responseAutoPtr = _senderRequester.awaitResponse(requestId, awaitResponseTimeout());
+						// TODO Add timeout to wait for the response
+						std::auto_ptr<AbstractInterThreadMessage> responseAutoPtr = _senderRequester.awaitResponse(requestId);
 						if (!responseAutoPtr.get()) {
 							std::ostringstream msg;
 							msg << "No response to disconnect request have been received from the sender thread";
@@ -610,7 +613,8 @@ private:
 					onReceiverConnected(_socket);
 					// Awaiting for the response from the sender thread
 					if (requestId > 0) {
-						std::auto_ptr<AbstractInterThreadMessage> responseAutoPtr = _senderRequester.awaitResponse(requestId, awaitResponseTimeout());
+						// TODO Add timeout to wait for the response
+						std::auto_ptr<AbstractInterThreadMessage> responseAutoPtr = _senderRequester.awaitResponse(requestId);
 						if (!responseAutoPtr.get()) {
 							std::ostringstream msg;
 							msg << "No response to connect request have been received from the sender thread";
@@ -655,7 +659,7 @@ private:
 		}
 		while (true) {
 			// Handling incoming inter-thread request
-			const InterThreadRequesterType::PendingRequest * pendingRequestPtr = 0;
+			const InterThreadRequester::PendingRequest * pendingRequestPtr = 0;
 			if (connected) {
 				pendingRequestPtr = _senderRequester.fetchRequest();
 			} else {
@@ -737,10 +741,10 @@ private:
 	MessageQueueType * _providedInputQueuePtr;
 	std::auto_ptr<MessageBusType> _outputBusAutoPtr;
 	MessageBusType * _providedOutputBusPtr;
-	InterThreadRequesterType _receiverRequester;
-	InterThreadRequesterType _senderRequester;
-	TransmitterThread _receiverThread;
-	TransmitterThread _senderThread;
+	InterThreadRequester _receiverRequester;
+	InterThreadRequester _senderRequester;
+	MemFunThread _receiverThread;
+	MemFunThread _senderThread;
 	TcpSocket _socket;
 	MessageBufferType _consumeBuffer;
 	ProvidersContainer _providers;

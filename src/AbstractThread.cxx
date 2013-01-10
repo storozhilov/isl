@@ -49,13 +49,12 @@ void AbstractThread::join()
 	}
 }
 
-bool AbstractThread::join(const Timeout& timeout)
+bool AbstractThread::join(const Timestamp& limit)
 {
 	if (pthread_equal(_thread, pthread_self())) {
 		return true;
 	}
-	timespec timeoutLimit = timeout.limit();
-	int errorCode = pthread_timedjoin_np(_thread, NULL, &timeoutLimit);
+	int errorCode = pthread_timedjoin_np(_thread, NULL, &limit.timeSpec());
 	switch (errorCode) {
 		case 0:
 			return true;
@@ -64,6 +63,16 @@ bool AbstractThread::join(const Timeout& timeout)
 		default:
 			throw Exception(SystemCallError(SOURCE_LOCATION_ARGS, SystemCallError::PThreadTimedJoinNp, errorCode));
 	}
+}
+
+bool AbstractThread::join(const Timeout& timeout, Timeout * timeoutLeft)
+{
+	Timestamp limit = Timestamp::limit(timeout);
+	bool result = join(limit);
+	if (timeoutLeft) {
+		*timeoutLeft = result ? limit.leftTo() : Timeout();
+	}
+	return result;
 }
 
 bool AbstractThread::isRunning() const

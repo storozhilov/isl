@@ -10,30 +10,59 @@
 #include <isl/SystemCallError.hxx>
 #include <isl/LogMessage.hxx>
 #include <isl/ExceptionLogMessage.hxx>
+#include <new>
 #include <pthread.h>
 #include <errno.h>
 
 namespace isl
 {
 
-//! Templated class for object's member function execution in a separate thread
+//! Class for object's member function execution in a separate thread
 /*!
   Use this class if you want an object's method to be executed in the separate thread.
   
   \note The behaviour is undefined when the new thread has been started before the completion of the previous one.
 
-  \tparam T Class, which member function is to be executed in a separate thread
-
   \sa AbstractThread, FunctorThread
 */
-template <typename T> class MemFunThread
+class MemFunThread
 {
-public:
-	//! Pointer to member function type definition (no argumants)
-	typedef void (T::*MemFunPtr0)();
-	//! Pointer to member function type definition (one argument)
-	typedef void (T::*MemFunPtr1)(MemFunThread<T>& thread);
+private:
+	template <typename T> class Functor
+	{
+	public:
+		Functor(MemFunThread& thread, T& obj, void (T::*fun)()) :
+			_thread(thread),
+			_obj(&obj),
+			_fun0(fun),
+			_fun1(0)
+		{}
+		Functor(MemFunThread& thread, T& obj, void (T::*fun)(MemFunThread&)) :
+			_thread(thread),
+			_obj(&obj),
+			_fun0(0),
+			_fun1(fun)
+		{}
 
+		void operator()()
+		{
+			if (_fun0) {
+				((_obj)->*(_fun0))();
+			} else if (_fun1) {
+				((_obj)->*(_fun1))(_thread);
+			} else {
+				throw Exception(Error(SOURCE_LOCATION_ARGS, "No pointer to member function to execute in separate thread"));
+			}
+		}
+	private:
+		Functor();
+
+		MemFunThread& _thread;
+		T * _obj;
+		void (T::*_fun0)();
+		void (T::*_fun1)(MemFunThread&);
+	};
+public:
 	//! Constructs a thread
 	/*!
 	  \param catchException If TRUE then to catch exceptions occured during function/functor execution (TODO Remove it?)
@@ -41,9 +70,7 @@ public:
 	  \param awaitStartup If TRUE, then launching thread will wait until new thread is started for the cost of condition variable and mutex
 	*/
 	MemFunThread(bool catchException = false, bool isTrackable = false, bool awaitStartup = false) :
-		_obj(),
-		_fun0(),
-		_fun1(),
+		_functor(0),
 		_thread(),
 		_catchException(catchException),
 		_isTrackable(isTrackable),
@@ -54,7 +81,11 @@ public:
 	{}
 	//! Virtual destructor
 	virtual ~MemFunThread()
-	{}
+	{
+		if (_functor) {
+			operator delete(_functor);
+		}
+	}
 
 	//! Returns thread's opaque handle
 	inline pthread_t handle() const
@@ -90,9 +121,11 @@ public:
 	  \param obj Reference to object
 	  \param fun Pointer to object's member function to execute
 
+	  \tparam T Class, which member function is to be executed in a separate thread
+
 	  \note Thread-unsafe
 	*/
-	void start(T& obj, MemFunPtr0 fun)
+	template <typename T> void start(T& obj, void (T::*fun)())
 	{
 		std::auto_ptr<WriteLocker> isRunningLockerAutoPtr;
 		if (_isTrackable) {
@@ -102,17 +135,19 @@ public:
 			}
 			_isRunning = true;
 		}
-		_obj = &obj;
-		_fun0 = fun;
-		_fun1 = 0;
+		if (_functor) {
+			operator delete(_functor);
+		}
+		_functor = operator new(sizeof(Functor<T>));
+		new (_functor) Functor<T>(*this, obj, fun);
 		if (_awaitStartup) {
 			MutexLocker locker(_awaitStartupCondAutoPtr->mutex());
-			if (int errorCode = pthread_create(&_thread, NULL, execute, this)) {
+			if (int errorCode = pthread_create(&_thread, NULL, execute<T>, this)) {
 				throw Exception(SystemCallError(SOURCE_LOCATION_ARGS, SystemCallError::PThreadCreate, errorCode));
 			}
 			_awaitStartupCondAutoPtr->wait();
 		} else {
-			if (int errorCode = pthread_create(&_thread, NULL, execute, this)) {
+			if (int errorCode = pthread_create(&_thread, NULL, execute<T>, this)) {
 				throw Exception(SystemCallError(SOURCE_LOCATION_ARGS, SystemCallError::PThreadCreate, errorCode));
 			}
 		}
@@ -122,9 +157,11 @@ public:
 	  \param obj Reference to object
 	  \param fun Pointer to object's member function to execute
 
+	  \tparam T Class, which member function is to be executed in a separate thread
+
 	  \note Thread-unsafe
 	*/
-	void start(T& obj, MemFunPtr1 fun)
+	template <typename T> void start(T& obj, void (T::*fun)(MemFunThread&))
 	{
 		std::auto_ptr<WriteLocker> isRunningLockerAutoPtr;
 		if (_isTrackable) {
@@ -134,17 +171,19 @@ public:
 			}
 			_isRunning = true;
 		}
-		_obj = &obj;
-		_fun0 = 0;
-		_fun1 = fun;
+		if (_functor) {
+			operator delete(_functor);
+		}
+		_functor = operator new(sizeof(Functor<T>));
+		new (_functor) Functor<T>(*this, obj, fun);
 		if (_awaitStartup) {
 			MutexLocker locker(_awaitStartupCondAutoPtr->mutex());
-			if (int errorCode = pthread_create(&_thread, NULL, execute, this)) {
+			if (int errorCode = pthread_create(&_thread, NULL, execute<T>, this)) {
 				throw Exception(SystemCallError(SOURCE_LOCATION_ARGS, SystemCallError::PThreadCreate, errorCode));
 			}
 			_awaitStartupCondAutoPtr->wait();
 		} else {
-			if (int errorCode = pthread_create(&_thread, NULL, execute, this)) {
+			if (int errorCode = pthread_create(&_thread, NULL, execute<T>, this)) {
 				throw Exception(SystemCallError(SOURCE_LOCATION_ARGS, SystemCallError::PThreadCreate, errorCode));
 			}
 		}
@@ -164,18 +203,17 @@ public:
 	}
 	//! Join a thread and wait for it's termination until timeout expired
 	/*!
-	  \param timeout Timeout to wait for thread's termination
-	  \return TRUE if the thread to join has been finished it's execution during timeout
+	  \param limit Limit timestamp to wait until thread's termination
+	  \return TRUE if the thread to join has been finished it's execution until limit timestamp
 
 	  \note Thread-unsafe
 	*/
-	bool join(const Timeout& timeout)
+	bool join(const Timestamp& limit)
 	{
 		if (pthread_equal(_thread, pthread_self())) {
 			return true;
 		}
-		timespec timeoutLimit = timeout.limit();
-		int errorCode = pthread_timedjoin_np(_thread, NULL, &timeoutLimit);
+		int errorCode = pthread_timedjoin_np(_thread, NULL, &limit.timeSpec());
 		switch (errorCode) {
 			case 0:
 				return true;
@@ -184,6 +222,23 @@ public:
 			default:
 				throw Exception(SystemCallError(SOURCE_LOCATION_ARGS, SystemCallError::PThreadTimedJoinNp, errorCode));
 		}
+	}
+	//! Join a thread and wait for it's termination until timeout expired
+	/*!
+	  \param timeout Timeout to wait for thread's termination
+	  \param timeoutLeft Memory location where time interval which is remains after thread's termination or 0 otherwise
+	  \return TRUE if the thread to join has been finished it's execution during timeout
+
+	  \note Thread-unsafe
+	*/
+	bool join(const Timeout& timeout, Timeout * timeoutLeft = 0)
+	{
+		Timestamp limit = Timestamp::limit(timeout);
+		bool result = join(limit);
+		if (timeoutLeft) {
+			*timeoutLeft = result ? limit.leftTo() : Timeout();
+		}
+		return result;
 	}
 	//! Inspects if the thread is in running state
 	/*!
@@ -198,33 +253,25 @@ public:
 		return _isRunning;
 	}
 private:
-	static void * execute(void * arg)
+	template <typename T> static void * execute(void * arg)
 	{
-		//MemFunThreadType * threadPtr = reinterpret_cast<MemFunThreadType *>(arg);
-		MemFunThread<T> * threadPtr = reinterpret_cast<MemFunThread<T> *>(arg);
+		MemFunThread * threadPtr = reinterpret_cast<MemFunThread *>(arg);
 		if (threadPtr->_awaitStartup) {
 			MutexLocker locker(threadPtr->_awaitStartupCondAutoPtr->mutex());
 			threadPtr->_awaitStartupCondAutoPtr->wakeOne();
 		}
 		bool isTrackable = threadPtr->_isTrackable;
+		Functor<T> * f = reinterpret_cast<Functor<T> *>(threadPtr->_functor);
 		if (threadPtr->_catchException) {
 			try {
-				if (threadPtr->_fun0) {
-					((threadPtr->_obj)->*(threadPtr->_fun0))();
-				} else {
-					((threadPtr->_obj)->*(threadPtr->_fun1))(*threadPtr);
-				}
+				(*f)();
 			} catch (std::exception& e) {
 				errorLog().log(ExceptionLogMessage(SOURCE_LOCATION_ARGS, e, "Thread execution exception occured"));
 			} catch (...) {
 				errorLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Thread execution unknown exception occured"));
 			}
 		} else {
-			if (threadPtr->_fun0) {
-				((threadPtr->_obj)->*(threadPtr->_fun0))();
-			} else {
-				((threadPtr->_obj)->*(threadPtr->_fun1))(*threadPtr);
-			}
+			(*f)();
 		}
 		if (isTrackable) {
 			WriteLocker locker(*threadPtr->_isRunningRWLockAutoPtr.get());
@@ -233,9 +280,7 @@ private:
 		return 0;
 	}
 
-	T * _obj;
-	MemFunPtr0 _fun0;
-	MemFunPtr1 _fun1;
+	void * _functor;
 	pthread_t _thread;
 	const bool _catchException;
 	const bool _isTrackable;

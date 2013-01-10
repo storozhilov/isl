@@ -52,13 +52,9 @@ bool ReadWriteLock::tryLockForRead()
 	}
 }
 
-bool ReadWriteLock::tryLockForRead(const Timeout& timeout)
+bool ReadWriteLock::tryLockForRead(const Timestamp& limit)
 {
-	if (timeout.isZero()) {
-		return tryLockForRead();
-	}
-	timespec timeoutLimit = timeout.limit();
-	int errorCode = pthread_rwlock_timedrdlock(&_lock, &timeoutLimit);
+	int errorCode = pthread_rwlock_timedrdlock(&_lock, &limit.timeSpec());
 	switch (errorCode) {
 		case 0:
 			return true;
@@ -67,6 +63,22 @@ bool ReadWriteLock::tryLockForRead(const Timeout& timeout)
 		default:
 			throw Exception(SystemCallError(SOURCE_LOCATION_ARGS, SystemCallError::PThreadRWLockTimedRdLock, errorCode));
 	}
+}
+
+bool ReadWriteLock::tryLockForRead(const Timeout& timeout, Timeout * timeoutLeft)
+{
+	if (timeout.isZero()) {
+		if (timeoutLeft) {
+			*timeoutLeft = Timeout();
+		}
+		return tryLockForRead();
+	}
+	Timestamp limit = Timestamp::limit(timeout);
+	bool result = tryLockForRead(limit);
+	if (timeoutLeft) {
+		*timeoutLeft = result ? limit.leftTo() : Timeout();
+	}
+	return result;
 }
 
 bool ReadWriteLock::tryLockForWrite()
@@ -82,13 +94,9 @@ bool ReadWriteLock::tryLockForWrite()
 	}
 }
 
-bool ReadWriteLock::tryLockForWrite(const Timeout& timeout)
+bool ReadWriteLock::tryLockForWrite(const Timestamp& limit)
 {
-	if (timeout.isZero()) {
-		return tryLockForWrite();
-	}
-	timespec timeoutLimit = timeout.limit();
-	int errorCode = pthread_rwlock_timedwrlock(&_lock, &timeoutLimit);
+	int errorCode = pthread_rwlock_timedwrlock(&_lock, &limit.timeSpec());
 	switch (errorCode) {
 		case 0:
 			return true;
@@ -97,6 +105,22 @@ bool ReadWriteLock::tryLockForWrite(const Timeout& timeout)
 		default:
 			throw Exception(SystemCallError(SOURCE_LOCATION_ARGS, SystemCallError::PThreadRWLockTimedWrLock, errorCode));
 	}
+}
+
+bool ReadWriteLock::tryLockForWrite(const Timeout& timeout, Timeout * timeoutLeft)
+{
+	if (timeout.isZero()) {
+		if (timeoutLeft) {
+			*timeoutLeft = Timeout();
+		}
+		return tryLockForWrite();
+	}
+	Timestamp limit = Timestamp::limit(timeout);
+	bool result = tryLockForWrite(limit);
+	if (timeoutLeft) {
+		*timeoutLeft = result ? limit.leftTo() : Timeout();
+	}
+	return result;
 }
 
 void ReadWriteLock::unlock()

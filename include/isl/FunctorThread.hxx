@@ -16,23 +16,17 @@
 namespace isl
 {
 
-typedef void (ThreadFunction)();
-
 //! Templated class for function/functor execution in a separate thread
 /*!
   Use this class if you want a regular C-finction or Functor's object to be executed in the separate thread.
 
   \note The behaviour is undefined when the new thread has been started before the completion of the previous one.
 
-  \tparam F C-function or functor which <tt>void operator()()</tt> is to be executed in a separate thread
-
   \sa AbstractThread, MemFunThread
 */
-template <typename F> class FunctorThread
+class FunctorThread
 {
 public:
-	typedef FunctorThread<F> ThreadType;
-
 	//! Constructs a thread
 	/*!
 	  \param catchException If TRUE then to catch exceptions occured during function/functor execution (TODO Remove it?)
@@ -40,7 +34,7 @@ public:
 	  \param awaitStartup If TRUE, then launching thread will wait until new thread is started for the cost of condition variable and mutex
 	*/
 	FunctorThread(bool catchException = false, bool isTrackable = false, bool awaitStartup = false) :
-		_f(),
+		_f(0),
 		_thread(),
 		_catchException(catchException),
 		_isTrackable(isTrackable),
@@ -86,9 +80,11 @@ public:
 	/*!
 	  \param f Function/functor to execute
 
+	  \tparam F C-function or functor which <tt>void operator()()</tt> is to be executed in a separate thread
+
 	  \note Thread-unsafe
 	*/
-	void start(F& f)
+	template <typename F> void start(F& f)
 	{
 		std::auto_ptr<WriteLocker> isRunningLockerAutoPtr;
 		if (_isTrackable) {
@@ -98,15 +94,15 @@ public:
 			}
 			_isRunning = true;
 		}
-		_f = &f;
+		_f = reinterpret_cast<void *>(&f);
 		if (_awaitStartup) {
 			MutexLocker locker(_awaitStartupCondAutoPtr->mutex());
-			if (int errorCode = pthread_create(&_thread, NULL, execute, this)) {
+			if (int errorCode = pthread_create(&_thread, NULL, execute<F>, this)) {
 				throw Exception(SystemCallError(SOURCE_LOCATION_ARGS, SystemCallError::PThreadCreate, errorCode));
 			}
 			_awaitStartupCondAutoPtr->wait();
 		} else {
-			if (int errorCode = pthread_create(&_thread, NULL, execute, this)) {
+			if (int errorCode = pthread_create(&_thread, NULL, execute<F>, this)) {
 				throw Exception(SystemCallError(SOURCE_LOCATION_ARGS, SystemCallError::PThreadCreate, errorCode));
 			}
 		}
@@ -126,18 +122,17 @@ public:
 	}
 	//! Join a thread and wait for it's termination until timeout expired
 	/*!
-	  \param timeout Timeout to wait for thread's termination
-	  \return TRUE if the thread to join has been finished it's execution during timeout
+	  \param limit Limit timestamp to wait until thread's termination
+	  \return TRUE if the thread to join has been finished it's execution until limit timestamp
 
 	  \note Thread-unsafe
 	*/
-	bool join(const Timeout& timeout)
+	bool join(const Timestamp& limit)
 	{
 		if (pthread_equal(_thread, pthread_self())) {
 			return true;
 		}
-		timespec timeoutLimit = timeout.limit();
-		int errorCode = pthread_timedjoin_np(_thread, NULL, &timeoutLimit);
+		int errorCode = pthread_timedjoin_np(_thread, NULL, &limit.timeSpec());
 		switch (errorCode) {
 			case 0:
 				return true;
@@ -146,6 +141,23 @@ public:
 			default:
 				throw Exception(SystemCallError(SOURCE_LOCATION_ARGS, SystemCallError::PThreadTimedJoinNp, errorCode));
 		}
+	}
+	//! Join a thread and wait for it's termination until timeout expired
+	/*!
+	  \param timeout Timeout to wait for thread's termination
+	  \param timeoutLeft Memory location where time interval which is remains after thread's termination or 0 otherwise
+	  \return TRUE if the thread to join has been finished it's execution during timeout
+
+	  \note Thread-unsafe
+	*/
+	bool join(const Timeout& timeout, Timeout * timeoutLeft = 0)
+	{
+		Timestamp limit = Timestamp::limit(timeout);
+		bool result = join(limit);
+		if (timeoutLeft) {
+			*timeoutLeft = result ? limit.leftTo() : Timeout();
+		}
+		return result;
 	}
 	//! Inspects if the thread is in running state
 	/*!
@@ -160,24 +172,25 @@ public:
 		return _isRunning;
 	}
 private:
-	static void * execute(void * arg)
+	template <typename F> static void * execute(void * arg)
 	{
-		ThreadType * threadPtr = reinterpret_cast<ThreadType *>(arg);
+		FunctorThread * threadPtr = reinterpret_cast<FunctorThread *>(arg);
 		if (threadPtr->_awaitStartup) {
 			MutexLocker locker(threadPtr->_awaitStartupCondAutoPtr->mutex());
 			threadPtr->_awaitStartupCondAutoPtr->wakeOne();
 		}
 		bool isTrackable = threadPtr->_isTrackable;
+		F * functorPtr = reinterpret_cast<F *>(threadPtr->_f);
 		if (threadPtr->_catchException) {
 			try {
-				(*(threadPtr->_f))();
+				(*(functorPtr))();
 			} catch (std::exception& e) {
 				errorLog().log(ExceptionLogMessage(SOURCE_LOCATION_ARGS, e, "FunctorThread execution exception occured"));
 			} catch (...) {
 				errorLog().log(LogMessage(SOURCE_LOCATION_ARGS, "FunctorThread execution unknown exception occured"));
 			}
 		} else {
-			(*(threadPtr->_f))();
+			(*(functorPtr))();
 		}
 		if (isTrackable) {
 			WriteLocker locker(*threadPtr->_isRunningRWLockAutoPtr.get());
@@ -186,7 +199,7 @@ private:
 		return 0;
 	}
 
-	F * _f;
+	void * _f;
 	pthread_t _thread;
 	const bool _catchException;
 	const bool _isTrackable;
@@ -195,9 +208,6 @@ private:
 	mutable std::auto_ptr<ReadWriteLock> _isRunningRWLockAutoPtr;
 	std::auto_ptr<WaitCondition> _awaitStartupCondAutoPtr;
 };
-
-//! FunctorThread template specification for regular C-function execution in a separate thread
-typedef FunctorThread<ThreadFunction> FunctionThread;
 
 } // namespace isl
 

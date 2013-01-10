@@ -1,6 +1,7 @@
 #ifndef ISL__ABSTRACT_ASYNC_TCP_SERVICE__HXX
 #define ISL__ABSTRACT_ASYNC_TCP_SERVICE__HXX
 
+#include <isl/StateSetSubsystem.hxx>
 #include <isl/MultiTaskDispatcher.hxx>
 #include <isl/TcpAddrInfo.hxx>
 #include <isl/TcpSocket.hxx>
@@ -11,7 +12,7 @@ namespace isl
 {
 
 //! Base class for asynchronous TCP-service, which reads from and writes data to client connection socket in two different threads per client connection
-class AbstractAsyncTcpService : public Subsystem
+class AbstractAsyncTcpService : public StateSetSubsystem
 {
 public:
 	//! Asynchronous TCP-service abstract task

@@ -35,8 +35,6 @@ public:
 	//! Task object's methods container type definition
 	typedef std::list<Method> MethodsContainer;
 private:
-	typedef MemFunThread<MultiTaskDispatcher<T> > WorkerThread;
-
 	class TaskDisposer
 	{
 	public:
@@ -105,8 +103,8 @@ public:
 	  \param owner Pointer to the owner subsystem
 	  \param workersAmount Worker threads amount
 	*/
-	MultiTaskDispatcher(Subsystem * owner, size_t workersAmount) :
-		Subsystem(owner),
+	MultiTaskDispatcher(Subsystem * owner, size_t workersAmount, const Timeout& clockTimeout = Timeout::defaultTimeout()) :
+		Subsystem(owner, clockTimeout),
 		_workersAmount(workersAmount),
 		_cond(),
 		_shouldTerminate(false),
@@ -257,8 +255,8 @@ public:
 		_awaitingWorkersCount = 0;
 		debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Creating and starting workers"));
 		for (size_t i = 0; i < _workersAmount; ++i) {
-			std::auto_ptr<WorkerThread> newWorkerAutoPtr(new WorkerThread());
-			WorkerThread * newWorkerPtr = newWorkerAutoPtr.get();
+			std::auto_ptr<MemFunThread> newWorkerAutoPtr(new MemFunThread());
+			MemFunThread * newWorkerPtr = newWorkerAutoPtr.get();
 			_workers.push_back(newWorkerPtr);
 			newWorkerAutoPtr.release();
 			newWorkerPtr->start(*this, &MultiTaskDispatcher<T>::work);
@@ -293,7 +291,7 @@ private:
 
 	MultiTaskDispatcher& operator=(const MultiTaskDispatcher&);					// No copy
 
-	typedef std::list<WorkerThread *> WorkersContainer;
+	typedef std::list<MemFunThread *> WorkersContainer;
 
 	void resetWorkers()
 	{
@@ -351,7 +349,7 @@ private:
 	size_t _awaitingWorkersCount;
 	PendingTasksQueue _pendingTasksQueue;
 
-	friend class MemFunThread<MultiTaskDispatcher<T> >;
+	friend class MemFunThread;
 };
 
 } // namespace isl

@@ -49,9 +49,21 @@ public:
 	void join();
 	//! Join a thread and wait for it's termination until timeout expired
 	/*!
-	  \param timeout Timeout to wait for thread's termination
+	  \param limit Limit timestamp to wait until thread's termination
+	  \return TRUE if the thread to join has been finished it's execution until limit timestamp
+
+	  \note Thread-unsafe
 	*/
-	bool join(const Timeout& timeout);
+	bool join(const Timestamp& limit);
+	//! Join a thread and wait for it's termination until timeout expired
+	/*!
+	  \param timeout Timeout to wait for thread's termination
+	  \param timeoutLeft Memory location where time interval which is remains after thread's termination or 0 otherwise
+	  \return TRUE if the thread to join has been finished it's execution during timeout
+
+	  \note Thread-unsafe
+	*/
+	bool join(const Timeout& timeout, Timeout * timeoutLeft = 0);
 	//! Inspects if the thread is in running state
 	bool isRunning() const;
 protected:
