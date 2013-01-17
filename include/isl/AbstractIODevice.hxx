@@ -7,6 +7,7 @@
 namespace isl
 {
 
+// TODO Remove it
 //! I/O device abstraction
 class AbstractIODevice
 {
@@ -85,6 +86,40 @@ private:
 	AbstractIODevice& operator=(const AbstractIODevice&);						// No copy
 
 	bool _isOpen;
+};
+
+// TODO Migrate to it
+//! I/O device abstraction
+class AbstractIODevice_NEW
+{
+public:
+	//! Constructor
+	AbstractIODevice_NEW()
+	{}
+	// Destructor
+	virtual ~AbstractIODevice_NEW()
+	{}
+
+	//! Reads data to buffer from the I/O device
+	/*!
+	    \param buffer Pointer to buffer
+	    \param bufferSize Buffer size
+	    \param timeout Read timeout
+	    \return Count of the actually received bytes
+	*/
+	virtual size_t read(char * buffer, size_t bufferSize, const Timeout& timeout = Timeout()) = 0;
+	//! Writes data buffer to the I/O device
+	/*!
+	    \param buffer Pointer to the buffer
+	    \param bufferSize Buffer size
+	    \param timeout Write timeout
+	    \return Count of the actually sent bytes
+	*/
+	virtual size_t write(const char * buffer, size_t bufferSize, const Timeout& timeout = Timeout()) = 0;
+private:
+	AbstractIODevice_NEW(const AbstractIODevice_NEW&);							// No copy
+
+	AbstractIODevice_NEW& operator=(const AbstractIODevice_NEW&);						// No copy
 };
 
 } // namespace isl

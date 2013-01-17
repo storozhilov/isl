@@ -93,9 +93,6 @@ private:
 	int _descriptor;
 	std::auto_ptr<TcpAddrInfo> _localAddrAutoPtr;
 	std::auto_ptr<TcpAddrInfo> _remoteAddrAutoPtr;
-
-	friend class AbstractTcpListener;
-
 };
 
 } // namespace isl

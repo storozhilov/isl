@@ -286,17 +286,17 @@ public:
 	/*!
 	  \param request Constant reference to request message to send
 	  \param responseQueue Reference to response-filtering message queue to save a response(-s) to
-	  \param timeout Timeout to wait for response
+	  \param limit Time limit to wait for response
 	  \return True if the message has been accepted by input message queue
 	*/
-	inline bool sendRequest(const MessageType& request, MessageQueueType& responseQueue, const Timeout& timeout = Timeout::defaultTimeout())
+	inline bool sendRequest(const MessageType& request, MessageQueueType& responseQueue, const Timestamp& limit)
 	{
 		responseQueue.clear();
 		typename MessageProviderType::Subscriber subscriber(outputBus(), responseQueue);
 		if (!inputQueue().push(request)) {
 			return false;
 		}
-		return responseQueue.await(timeout);
+		return responseQueue.await(limit);
 	}
 	//! Starting subsystem method redefinition
 	virtual void start()

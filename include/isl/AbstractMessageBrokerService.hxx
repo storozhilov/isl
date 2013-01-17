@@ -167,17 +167,17 @@ protected:
 		/*!
 		  \param request Constant reference to the request message to send
 		  \param responseQueue Reference to response-filtering message queue to save a response(-s) to
-		  \param timeout Timeout to wait for response(-s)
+		  \param limit Time limit to wait for response
 		  \return TRUE if the request has been accepted by the input message queue and the response(-s) has been fetched during timeout
 		*/
-		inline bool sendRequest(const MessageType& request, MessageQueueType& responseQueue, const Timeout& timeout = Timeout::defaultTimeout())
+		inline bool sendRequest(const MessageType& request, MessageQueueType& responseQueue, const Timestamp& limit)
 		{
 			responseQueue.clear();
 			typename MessageProviderType::Subscriber subscriber(outputBus(), responseQueue);
 			if (!inputQueue().push(request)) {
 				return false;
 			}
-			return responseQueue.await(timeout);
+			return responseQueue.await(limit);
 		}
 	protected:
 		//! Returns reference to the state set of the task

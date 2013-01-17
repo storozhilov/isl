@@ -100,6 +100,25 @@ public:
 		} while (_queueCond.wait(limit));
 		return std::auto_ptr<Msg>();
 	}
+	//! Awaits for messages
+	/*!
+	  \param limit Time limit to wait for the messages
+	  \param queueSize Pointer to value where queue size should be saved or NULL pointer if not
+	  \return True ia messages appeared in the queue
+	*/
+	bool await(const Timestamp& limit, size_t * queueSize = 0)
+	{
+		if (queueSize) {
+			*queueSize = 0;
+		}
+		MutexLocker locker(_queueCond.mutex());
+		do {
+			if (!_queue.empty()) {
+				return true;
+			}
+		} while (_queueCond.wait(limit));
+		return false;
+	}
 	//! Fetches all available messages into the supplied consumer
 	/*!
 	  Method will wait for at least one message to be available in queue.
