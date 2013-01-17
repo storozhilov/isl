@@ -2,6 +2,7 @@
 #define ISL__LOG_MESSAGE__HXX
 
 #include <isl/AbstractLogMessage.hxx>
+#include <sstream>
 
 namespace isl
 {
@@ -12,18 +13,28 @@ class LogMessage : public AbstractLogMessage
 public:
 	//! Constructs log message
 	/*!
-	  You should use SOURCE_LOCATION_ARGS macro as a value for the first parameter
-
+	  \param SOURCE_LOCATION_ARGS_DECLARATION Put SOURCE_LOCATION_ARGS macro here
 	  \param msg Message text
 	*/
 	LogMessage(SOURCE_LOCATION_ARGS_DECLARATION, const std::string& msg);
+	//! Stream output operator templated redefinition
+	/*!
+	  \param val Value to append to message text internal string stream
+	  \return Reference to log message object
+	  \tparam T Value type
+	*/
+	template <typename T> LogMessage& operator<<(const T& val)
+	{
+		_msg << val;
+		return *this;
+	}
 private:
 	LogMessage();
 	
 	//! Composes and returns notification log message
 	virtual std::string compose() const;
 
-	const std::string _msg;
+	std::ostringstream _msg;
 };
 
 } // namespace isl

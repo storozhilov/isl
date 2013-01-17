@@ -126,7 +126,6 @@ public:
 	/*!
 	  \param request Message to send
 	  \return TRUE if the request has been accepted or FALSE if the requests container has been overflowed
-
 	  \note Call it from requesting thread only!
 	*/
 	bool sendMessage(const MessageType& msg)
@@ -148,7 +147,6 @@ public:
 	/*!
 	  \param request Request message to send
 	  \return Request ID if the request has been accepted or 0 if the requests container has been overflowed
-
 	  \note Call it from requesting thread only!
 	*/
 	size_t sendRequest(const MessageType& request)
@@ -169,7 +167,6 @@ public:
 	/*!
 	  \param requestId ID of the request to fetch a response to
 	  \return Auto-pointer to the response or to zero if no response available
-
 	  \note Call it from requesting thread only!
 	*/
 	std::auto_ptr<MessageType> fetchResponse(size_t requestId)
@@ -185,40 +182,28 @@ public:
 	//! Awaits for the response from the respondent thread and returns it if available
 	/*!
 	  \param requestId ID of the request to await/fetch a response to
-	  \param timeout Timeout to await
+	  \param limit Time limit to await for the response
 	  \return Auto-pointer to the response or to zero if no response available
 
 	  \note Call it from requesting thread only!
 	*/
-	std::auto_ptr<MessageType> awaitResponse(size_t requestId, const Timeout& timeout)
+	std::auto_ptr<MessageType> awaitResponse(size_t requestId, const Timestamp& limit)
 	{
 		MutexLocker locker(_cond.mutex());
-		if (_responsesMap.find(requestId) != _responsesMap.end()) {
+		do {
+			if (_responsesMap.find(requestId) == _responsesMap.end()) {
+				continue;
+			}
 			std::auto_ptr<MessageType> responseAutoPtr(_responsesMap[requestId]);
 			_responsesMap.erase(requestId);
 			return responseAutoPtr;
-		}
-		Timeout curTimeout = timeout;
-		while (true) {
-			Timeout timeoutLeft;
-			bool timeoutExpired = !_cond.wait(curTimeout, &timeoutLeft);
-			if (_responsesMap.find(requestId) != _responsesMap.end()) {
-				std::auto_ptr<MessageType> responseAutoPtr(_responsesMap[requestId]);
-				_responsesMap.erase(requestId);
-				return responseAutoPtr;
-			}
-			if (timeoutExpired) {
-				break;
-			}
-			curTimeout = timeoutLeft;
-		}
+		} while (_cond.wait(limit));
 		return std::auto_ptr<MessageType>();
 	}
 	//! Awaits for the response from the respondent thread and returns it
 	/*!
 	  \param requestId ID of the request to await/fetch a response to
 	  \return Auto-pointer to the response
-
 	  \note Call it from requesting thread only!
 	*/
 	std::auto_ptr<MessageType> awaitResponse(size_t requestId)
@@ -236,7 +221,6 @@ public:
 	//! Returns a pointer to the current pending request w/o fetching the new one
 	/*!
 	  \return Pointer to the current pending request or zero if no pending request at the moment
-
 	  \note Call it from respondent thread only!
 	*/
 	const PendingRequest * pendingRequest() const
@@ -246,7 +230,6 @@ public:
 	//! Fetches next pending request from requesting thread
 	/*!
 	  \return Pointer to the next pending request or zero if no pending request at the moment
-
 	  \note Call it from respondent thread only!
 	*/
 	const PendingRequest * fetchRequest()
@@ -269,12 +252,11 @@ public:
 	}
 	//! Awaits for the next pending request from the requesting thread and returns a pointer to it if available
 	/*!
-	  \param timeout Timeout to await
+	  \param limit Time limit to await
 	  \return Pointer to the next pending request or zero if no pending request available
-
 	  \note Call it from respondent thread only!
 	*/
-	const PendingRequest * awaitRequest(const Timeout& timeout)
+	const PendingRequest * awaitRequest(const Timestamp& limit)
 	{
 		if (_pendingRequestAutoPtr.get()) {
 			if (_pendingRequestAutoPtr->responseRequired() && !_pendingRequestAutoPtr->responseSent()) {
@@ -285,25 +267,14 @@ public:
 			_pendingRequestAutoPtr.reset();
 		}
 		MutexLocker locker(_cond.mutex());
-		if (!_requestsQueue.empty()) {
+		do {
+			if (_requestsQueue.empty()) {
+				continue;
+			}
 			_pendingRequestAutoPtr.reset(new PendingRequest(_requestsQueue.back()));
 			_requestsQueue.pop_back();
 			return _pendingRequestAutoPtr.get();
-		}
-		Timeout curTimeout = timeout;
-		while (true) {
-			Timeout timeoutLeft;
-			bool timeoutExpired = !_cond.wait(curTimeout, &timeoutLeft);
-			if (!_requestsQueue.empty()) {
-				_pendingRequestAutoPtr.reset(new PendingRequest(_requestsQueue.back()));
-				_requestsQueue.pop_back();
-				return _pendingRequestAutoPtr.get();
-			}
-			if (timeoutExpired) {
-				break;
-			}
-			curTimeout = timeoutLeft;
-		}
+		} while (_cond.wait(limit));
 		return 0;
 	}
 	//! Sends a response to the requesting thread

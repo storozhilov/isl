@@ -4,32 +4,37 @@
 namespace isl
 {
 
-Ticker::Ticker(const Timeout& timeout) :
+Ticker::Ticker(const Timeout& timeout, bool tickOnIdle) :
 	_timeout(timeout),
-	_tickStarted(TimeSpec::makeTimestamp()),
-	_tickFinished(TimeSpec::makeTimestamp())
+	_tickOnIdle(tickOnIdle),
+	_nextTickLimit()
 {}
 
-Ticker::~Ticker()
-{}
-
-const Timestamp& Ticker::tick(size_t * ticksSkipped)
+const Timestamp& Ticker::tick(size_t * ticksExpired)
 {
-	if (ticksSkipped) {
-		*ticksSkipped = 0;
+	if (ticksExpired) {
+		*ticksExpired = 0;
 	}
 	Timestamp now = Timestamp::now();
-	if (!_tickFinished.isZero() && ticksSkipped) {
-		// Fetching skipped ticks amount
-		Timestamp t = _tickFinished + _timeout;
-		while (t <= now) {
-			t += _timeout;
-			++(*ticksSkipped);
+	if (_nextTickLimit.isZero()) {
+		// First tick
+		_nextTickLimit = now + _timeout;
+		return _nextTickLimit;
+	}
+	if (now < _nextTickLimit) {
+		// Idling - next tick limit have not been reached
+		if (_tickOnIdle) {
+			_nextTickLimit += _timeout;
+		}
+		return _nextTickLimit;
+	}
+	while (_nextTickLimit <= now) {
+		_nextTickLimit += _timeout;
+		if (ticksExpired) {
+			++(*ticksExpired);
 		}
 	}
-	_tickStarted = now;
-	_tickFinished = now + _timeout;
-	return _tickFinished;
+	return _nextTickLimit;
 }
 
 } // namespace isl

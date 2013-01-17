@@ -39,9 +39,10 @@ void Timer::updatePeriodicTask(int taskId, const Timeout& newTimeout)
 	}
 	PeriodicTasksMap::iterator pos = _periodicTasksMap.find(taskId);
 	if (pos == _periodicTasksMap.end()) {
-		std::ostringstream msg;
-		msg << "Task (id = " << taskId << ") not found in timer";
-		debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, msg.str()));
+		//std::ostringstream msg;
+		//msg << "Task (id = " << taskId << ") not found in timer";
+		//debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, msg.str()));
+		debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Task (id = ") << taskId << ") not found in timer");
 	} else {
 		pos->second.timeout = newTimeout;
 	}
@@ -51,9 +52,10 @@ void Timer::removePeriodicTask(int taskId)
 {
 	PeriodicTasksMap::iterator pos = _periodicTasksMap.find(taskId);
 	if (pos == _periodicTasksMap.end()) {
-		std::ostringstream msg;
-		msg << "Task (id = " << taskId << ") not found in timer";
-		debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, msg.str()));
+		//std::ostringstream msg;
+		//msg << "Task (id = " << taskId << ") not found in timer";
+		//debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, msg.str()));
+		debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Task (id = ") << taskId << ") not found in timer");
 	} else {
 		_periodicTasksMap.erase(pos);
 	}

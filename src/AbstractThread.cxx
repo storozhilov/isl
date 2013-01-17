@@ -98,13 +98,7 @@ void * AbstractThread::execute(void * arg)
 		}
 		threadPtr->_isRunning = true;
 	}
-	try {
-		threadPtr->run();
-	} catch (std::exception& e) {
-		errorLog().log(ExceptionLogMessage(SOURCE_LOCATION_ARGS, e, "Thread execution error"));
-	} catch (...) {
-		errorLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Thread execution unknown error"));
-	}
+	threadPtr->run();
 	if (threadPtr->_isTrackable) {
 		WriteLocker locker(*threadPtr->_isRunningRWLockAutoPtr.get());
 		threadPtr->_isRunning = false;

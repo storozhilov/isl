@@ -52,6 +52,9 @@ public:
 	*/
 	void appointRestart();
 protected:
+	//! Restarts server
+	void restart();
+
 	//! Starting method redefinition to make it protected
 	virtual void start()
 	{
@@ -62,13 +65,39 @@ protected:
 	{
 		StateSetSubsystem::stop();
 	}
-	//! Restarts server
-	void restart();
-	//! Before run event handler
-	virtual void beforeRun()
-	{}
-	//! After run event handler
-	virtual void afterRun()
+	//! On start event handler
+	/*!
+	  Default implementation does nothing and returns TRUE.
+	  \return TRUE if to continue thread execution
+	*/
+	virtual bool onStart()
+	{
+		return true;
+	}
+	//! Doing the work virtual method
+	/*!
+	  Default implementation does nothing and returns TRUE.
+	  \param limit Limit timestamp for doing the work
+	  \param stateSet Current state set of the subsystem
+	  \return TRUE if to continue thread execution
+	*/
+	virtual bool doLoad(const Timestamp& limit, const StateSetType::SetType& stateSet)
+	{
+		return true;
+	}
+	//! On overload event handler
+	/*!
+	  Default implementation does nothing and returns TRUE.
+	  \param Ticks expired (always > 2)
+	  \param stateSet Current state set of the subsystem
+	  \return TRUE if to continue server execution
+	*/
+	virtual bool onOverload(size_t ticksExpired, const StateSetType::SetType& stateSet)
+	{
+		return true;
+	}
+	//! On stop event handler
+	virtual void onStop()
 	{}
 	//! On signal event handler
 	/*!

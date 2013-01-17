@@ -54,30 +54,17 @@ public:
 	{
 		return _maxSize;
 	}
-	//! Pops message from the queue
+	//! Pops message from the queue if available
 	/*!
-	  \param timeout Timeout to wait for the message
 	  \param queueSize Pointer to value where queue size after message fetching should be saved or NULL pointer if not
 	  \return Auto-pointer to the fetched message
 	*/
-	std::auto_ptr<Msg> pop(const Timeout& timeout = Timeout::defaultTimeout(), size_t * queueSize = 0)
+	std::auto_ptr<Msg> pop(size_t * queueSize = 0)
 	{
 		if (queueSize) {
 			*queueSize = 0;
 		}
 		MutexLocker locker(_queueCond.mutex());
-		if (!_queue.empty()) {
-			std::auto_ptr<Msg> msg(_queue.back());
-			_queue.pop_back();
-			if (queueSize) {
-				*queueSize = _queue.size();
-			}
-			return msg;
-		}
-		if (timeout.isZero()) {
-			return std::auto_ptr<Msg>();
-		}
-		_queueCond.wait(timeout);
 		if (_queue.empty()) {
 			return std::auto_ptr<Msg>();
 		}
@@ -88,17 +75,46 @@ public:
 		}
 		return msg;
 	}
-	//! Fetches all messages into the supplied consumer
+	//! Pops message from the queue or awaits for it if not available
 	/*!
+	  \param limit Time limit to wait for the messages
+	  \param queueSize Pointer to value where queue size after message fetching should be saved or NULL pointer if not
+	  \return Auto-pointer to the fetched message
+	*/
+	std::auto_ptr<Msg> pop(const Timestamp& limit, size_t * queueSize = 0)
+	{
+		if (queueSize) {
+			*queueSize = 0;
+		}
+		MutexLocker locker(_queueCond.mutex());
+		do {
+			if (_queue.empty()) {
+				continue;
+			}
+			std::auto_ptr<Msg> msg(_queue.back());
+			_queue.pop_back();
+			if (queueSize) {
+				*queueSize = _queue.size();
+			}
+			return msg;
+		} while (_queueCond.wait(limit));
+		return std::auto_ptr<Msg>();
+	}
+	//! Fetches all available messages into the supplied consumer
+	/*!
+	  Method will wait for at least one message to be available in queue.
 	  \param consumer Message consumer to store messages to
-	  \param timeout Timeout to wait for the messages
+	  \param limit Time limit to wait for the messages
 	  \return Fetched messages amount
 	  \note If the consumer's filter rejects a message it will be discarded!
 	*/
-	size_t popAll(AbstractMessageConsumerType& consumer, const Timeout& timeout = Timeout::defaultTimeout())
+	size_t popAll(AbstractMessageConsumerType& consumer, const Timestamp& limit)
 	{
 		MutexLocker locker(_queueCond.mutex());
-		if (!_queue.empty()) {
+		do {
+			if (_queue.empty()) {
+				continue;
+			}
 			size_t providedMessages = 0;
 			for (typename Messages::const_reverse_iterator i = _queue.rbegin(); i != _queue.rend(); ++i) {
 				if (consumer.push(**i)) {
@@ -109,48 +125,8 @@ public:
 			}
 			resetQueue();
 			return providedMessages;
-		}
-		if (timeout.isZero()) {
-			return 0;
-		}
-		_queueCond.wait(timeout);
-		if (_queue.empty()) {
-			return 0;
-		}
-		size_t providedMessages = 0;
-		for (typename Messages::const_reverse_iterator i = _queue.rbegin(); i != _queue.rend(); ++i) {
-			if (consumer.push(**i)) {
-				++providedMessages;
-			} else {
-				errorLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Message has been discarded cause it has been rejected by the target consumer"));
-			}
-		}
-		resetQueue();
-		return providedMessages;
-	}
-	//! Awaits for messages
-	/*!
-	  \param timeout Timeout to wait for the messages
-	  \param queueSize Pointer to value where queue size should be saved or NULL pointer if not
-	  \return True if messages appeared in the queue
-	*/
-	bool await(const Timeout& timeout = Timeout::defaultTimeout(), size_t * queueSize = 0)
-	{
-		if (queueSize) {
-			*queueSize = 0;
-		}
-		MutexLocker locker(_queueCond.mutex());
-		if (!_queue.empty()) {
-			if (queueSize) {
-				*queueSize = _queue.size();
-			}
-			return true;
-		}
-		if (timeout.isZero()) {
-			return false;
-		}
-		_queueCond.wait(timeout);
-		return !_queue.empty();
+		} while (_queueCond.wait(limit));
+		return 0;
 	}
 	//! Clears message queue
 	void clear()
@@ -187,7 +163,6 @@ public:
 			errorLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Maximum size of queue has been exceeded"));
 			return false;
 		}
-		//std::auto_ptr<Msg> clonedMsgAutoPtr(msg.clone());
 		std::auto_ptr<Msg> clonedMsgAutoPtr(Cloner::clone(msg));
 		if (!clonedMsgAutoPtr.get()) {
 			errorLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Message cloner returns null pointer"));

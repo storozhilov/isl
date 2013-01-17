@@ -14,41 +14,41 @@ public:
 	//! Creates clock ticker
 	/*!
 	  \param ticker Clock ticker timeout
+	  \param tickOnIdle To tick even if the next tick finalization timestamp have not been reached
 	*/
-	Ticker(const Timeout& timeout);
-	virtual ~Ticker();
+	Ticker(const Timeout& timeout, bool tickOnIdle = false);
 	//! Returnd clock ticker timeout
 	inline const Timeout& timeout() const
 	{
 		return _timeout;
 	}
-	//! Returns tick starting timestamp
-	inline const Timestamp& tickStarted() const
+	//! Returns 'tick on ilde' flag value
+	inline bool tickOnIdle() const
 	{
-		return _tickStarted;
+		return _tickOnIdle;
 	}
-	//! Returns tick finalization timestamp
-	inline const Timestamp& tickFinished() const
+	//! Returns next tick finalization timestamp or zero timestamp if the ticker have not been started
+	inline const Timestamp& nextTickLimit() const
 	{
-		return _tickFinished;
+		return _nextTickLimit;
 	}
+	//! Resets ticker
 	inline void reset()
 	{
-		_tickStarted.reset();
-		_tickFinished.reset();
+		_nextTickLimit.reset();
 	}
 	//! Makes next tick
 	/*!
-	  \param ticksSkipped Pointer where to place skipped ticks amount or 0
+	  \param ticksExpired Pointer where to place expired ticks amount or 0
 	  \return Next tick finalization timestamp
 	*/
-	const Timestamp& tick(size_t * ticksSkipped);
+	const Timestamp& tick(size_t * ticksExpired = 0);
 private:
 	Ticker();
 
-	Timeout _timeout;
-	Timestamp _tickStarted;
-	Timestamp _tickFinished;
+	const Timeout _timeout;
+	const bool _tickOnIdle;
+	Timestamp _nextTickLimit;
 };
 
 } // namespace isl

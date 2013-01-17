@@ -29,14 +29,12 @@ class FunctorThread
 public:
 	//! Constructs a thread
 	/*!
-	  \param catchException If TRUE then to catch exceptions occured during function/functor execution (TODO Remove it?)
 	  \param isTrackable If TRUE isRunning() method could be used for inspecting if the thread is running for the cost of R/W-lock
 	  \param awaitStartup If TRUE, then launching thread will wait until new thread is started for the cost of condition variable and mutex
 	*/
-	FunctorThread(bool catchException = false, bool isTrackable = false, bool awaitStartup = false) :
+	FunctorThread(bool isTrackable = false, bool awaitStartup = false) :
 		_f(0),
 		_thread(),
-		_catchException(catchException),
 		_isTrackable(isTrackable),
 		_awaitStartup(awaitStartup),
 		_isRunning(false),
@@ -51,14 +49,6 @@ public:
 	inline pthread_t handle() const
 	{
 		return _thread;
-	}
-	//! Inspects if the thread is catching exceptions occured during function/functor execution
-	/*!
-	  \note Thread-safe
-	*/
-	inline bool catchException() const
-	{
-		return _catchException;
 	}
 	//! Inspects if the thread is trackable
 	/*!
@@ -181,17 +171,7 @@ private:
 		}
 		bool isTrackable = threadPtr->_isTrackable;
 		F * functorPtr = reinterpret_cast<F *>(threadPtr->_f);
-		if (threadPtr->_catchException) {
-			try {
-				(*(functorPtr))();
-			} catch (std::exception& e) {
-				errorLog().log(ExceptionLogMessage(SOURCE_LOCATION_ARGS, e, "FunctorThread execution exception occured"));
-			} catch (...) {
-				errorLog().log(LogMessage(SOURCE_LOCATION_ARGS, "FunctorThread execution unknown exception occured"));
-			}
-		} else {
-			(*(functorPtr))();
-		}
+		(*(functorPtr))();
 		if (isTrackable) {
 			WriteLocker locker(*threadPtr->_isRunningRWLockAutoPtr.get());
 			threadPtr->_isRunning = false;
@@ -201,7 +181,6 @@ private:
 
 	void * _f;
 	pthread_t _thread;
-	const bool _catchException;
 	const bool _isTrackable;
 	const bool _awaitStartup;
 	bool _isRunning;

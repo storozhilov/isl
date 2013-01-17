@@ -41,49 +41,60 @@ public:
 	//! Awaits for state set condition to be satisfied
 	/*!
 	  \param c Condition functor
-	  \param limit Timestamp limit to wait for
-	  \return Auto-pointer to state set or to 0 if the condition have not been satisfied
+	  \param limit Time limit to await
+	  \param isSatisfied Pointer to boolean memory location where condition result is to be put or 0 otherwise
+	  \return Current state set
 	  \tparam C Condition functor type
 	*/
-	template <typename C> std::auto_ptr<SetType> await(const C& c, const Timestamp& limit)
+	template <typename C> SetType await(const C& c, const Timestamp& limit, bool * isSatisfied = 0)
 	{
 		MutexLocker locker(_cond.mutex());
 		do {
-			if (c(_set)) {
-				return std::auto_ptr<SetType>(new SetType(_set));
+			if (!c(_set)) {
+				continue;
 			}
+			if (isSatisfied) {
+				*isSatisfied = true;
+			}
+			return _set;
 		} while (_cond.wait(limit));
-		return std::auto_ptr<SetType>();
+		if (isSatisfied) {
+			*isSatisfied = false;
+		}
+		return _set;
 	}
 	//! Awaits for state to be in state set
 	/*!
 	  \param state Constant reference to state to await for
 	  \param limit Timestamp limit to wait for
-	  \return Auto-pointer to state set or to 0 if the condition have not been satisfied
+	  \param isSatisfied Pointer to boolean memory location where condition result is to be put or 0 otherwise
+	  \return Current state set
 	*/
-	inline std::auto_ptr<SetType> await(const StateType& state, const Timestamp& limit)
+	inline SetType await(const StateType& state, const Timestamp& limit, bool * isSatisfied = 0)
 	{
-		return await(std::bind2nd(IsInSet(), state), limit);
+		return await(std::bind2nd(IsInSet(), state), limit, isSatisfied);
 	}
 	//! Awaits for any of the set items to be in state set
 	/*!
 	  \param set A constant reference to set which items are to be checked against state set (empty one is always satisfies a condition)
 	  \param limit Timestamp limit to wait for
-	  \return Auto-pointer to state set or to 0 if the condition have not been satisfied
+	  \param isSatisfied Pointer to boolean memory location where condition result is to be put or 0 otherwise
+	  \return Current state set
 	*/
-	inline std::auto_ptr<SetType> awaitAny(const SetType& set, const Timestamp& limit)
+	inline SetType awaitAny(const SetType& set, const Timestamp& limit, bool * isSatisfied = 0)
 	{
-		return await(std::bind2nd(AnyInSet(), set), limit);
+		return await(std::bind2nd(AnyInSet(), set), limit, isSatisfied);
 	}
 	//! Awaits for all of the set items to be in state set
 	/*!
 	  \param set A constant reference to set which items are to be checked against state set (empty one does not satisfy a condition)
 	  \param limit Timestamp limit to wait for
-	  \return Auto-pointer to state set or to 0 if the condition have not been satisfied
+	  \param isSatisfied Pointer to boolean memory location where condition result is to be put or 0 otherwise
+	  \return Current state set
 	*/
-	inline std::auto_ptr<SetType> awaitAll(const SetType& set, const Timestamp& limit)
+	inline SetType awaitAll(const SetType& set, const Timestamp& limit, bool * isSatisfied = 0)
 	{
-		return await(std::bind2nd(AllInSet(), set), limit);
+		return await(std::bind2nd(AllInSet(), set), limit, isSatisfied);
 	}
 	//! Returns current state set
 	SetType fetch()

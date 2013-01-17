@@ -2,6 +2,7 @@
 #include <isl/Exception.hxx>
 #include <isl/Error.hxx>
 #include <isl/LogMessage.hxx>
+#include <isl/Ticker.hxx>
 #include <isl/common.hxx>
 #include <algorithm>
 
@@ -40,7 +41,7 @@ void StateSetSubsystem::startThreads()
 {
 	for (Threads::iterator i = _threads.begin(); i != _threads.end(); ++i) {
 		(*i)->start();
-		debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Threaded subsystem's thread has been started"));
+		debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "State set subsystem's thread has been started"));
 	}
 }
 
@@ -52,16 +53,16 @@ void StateSetSubsystem::stopThreads()
 	appointTermination();
 	debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Termination has been appointed"));
 	for (Threads::iterator i = _threads.begin(); i != _threads.end(); ++i) {
-		debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Joining a threaded subsystem's thread"));
+		debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Joining a state set subsystem's thread"));
 		(*i)->join();
-		debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Threaded subsystem's thread has been terminated"));
+		debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "State set subsystem's thread has been terminated"));
 	}
 }
 
 void StateSetSubsystem::registerThread(StateSetSubsystem::AbstractThread * thread)
 {
 	if (std::find(_threads.begin(), _threads.end(), thread) != _threads.end()) {
-		throw Exception(Error(SOURCE_LOCATION_ARGS, "Thread has been already registered in threaded subsystem"));
+		throw Exception(Error(SOURCE_LOCATION_ARGS, "Thread has been already registered in state set subsystem"));
 	}
 	_threads.push_back(thread);
 }
@@ -70,7 +71,7 @@ void StateSetSubsystem::unregisterThread(StateSetSubsystem::AbstractThread * thr
 {
 	Threads::iterator threadPos = std::find(_threads.begin(), _threads.end(), thread);
 	if (threadPos == _threads.end()) {
-		throw Exception(Error(SOURCE_LOCATION_ARGS, "Thread have not been registered in threaded subsystem"));
+		throw Exception(Error(SOURCE_LOCATION_ARGS, "Thread have not been registered in state set subsystem"));
 	}
 	_threads.erase(threadPos);
 }
@@ -99,8 +100,9 @@ bool StateSetSubsystem::AbstractThread::shouldTerminate()
 
 bool StateSetSubsystem::AbstractThread::awaitTermination(const Timestamp& limit)
 {
-	std::auto_ptr<StateSetType::SetType> setAutoPtr = _subsystem.stateSet().await(TerminationState, limit);
-	return setAutoPtr.get() ? (setAutoPtr->find(TerminationState) != setAutoPtr->end()) : false;
+	bool shouldTerminate;
+	_subsystem.stateSet().await(TerminationState, limit, &shouldTerminate);
+	return shouldTerminate;
 }
 
 bool StateSetSubsystem::AbstractThread::awaitTermination(const Timeout& timeout, Timeout * timeoutLeft)
@@ -111,6 +113,57 @@ bool StateSetSubsystem::AbstractThread::awaitTermination(const Timeout& timeout,
 		*timeoutLeft = result ? limit.leftTo() : Timeout();
 	}
 	return result;
+}
+
+//------------------------------------------------------------------------------
+// StateSetSubsystem::Thread
+//------------------------------------------------------------------------------
+
+StateSetSubsystem::Thread::Thread(StateSetSubsystem& subsystem, bool isTrackable, bool awaitStartup) :
+	StateSetSubsystem::AbstractThread(subsystem, isTrackable, awaitStartup)
+{}
+
+void StateSetSubsystem::Thread::run()
+{
+	if (!onStart()) {
+		debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "State set subsystem thread has been terminated by onStart() event handler -> exiting from the thread execution"));
+		return;
+	}
+	StateSetType::SetType currentStateSet = subsystem()._stateSet.fetch();
+	Ticker ticker(subsystem().clockTimeout());
+	bool firstTick = true;
+	while (true) {
+		size_t ticksExpired;
+		Timestamp nextTickLimit = ticker.tick(&ticksExpired);
+		if (firstTick) {
+			firstTick = false;
+			if (shouldTerminate()) {
+				// Termination state has been detected
+				debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "State set subsystem termination has been detected on first tick -> exiting from the thread execution"));
+				break;
+			}
+		} else if (ticksExpired > 1) {
+			// Overload has been detected
+			warningLog().log(LogMessage(SOURCE_LOCATION_ARGS, "State set subsystem thread execution overload has been detected: ") << ticksExpired << " ticks expired");
+			if (!onOverload(ticksExpired, currentStateSet)) {
+				debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "State set subsystem thread has been terminated by onOverload() event handler -> exiting from the thread execution"));
+			}
+		}
+		// Doing the job
+		if (!doLoad(nextTickLimit, currentStateSet)) {
+			debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "State set subsystem thread has been terminated by doLoad() method -> exiting from the thread execution"));
+			break;
+		}
+		// Awaiting for the termination
+		bool shouldTerminate;
+		currentStateSet = subsystem()._stateSet.await(TerminationState, nextTickLimit, &shouldTerminate);
+		if (shouldTerminate) {
+			// Termination state has been detected
+			debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "State set subsystem termination has been detected -> exiting from the thread execution"));
+			break;
+		}
+	}
+	onStop();
 }
 
 } // namespace isl

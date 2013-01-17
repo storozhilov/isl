@@ -54,9 +54,8 @@ bool BasicDateTime::str2bdts(const std::string& str, const std::string& fmt, str
 		std::string fmtPart = fmt.substr(fmtStartPos, nanoSecondFmtPos == std::string::npos ? std::string::npos : nanoSecondFmtPos - fmtStartPos);
 		strPtr = strptime(strPtr, fmtPart.c_str(), &bdts);
 		if (!strPtr) {
-			std::ostringstream msg;
-			msg << "Error parsing \"" << str << "\" string using \"" << fmt << "\" format with strptime(3) system call";
-			debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, msg.str()));
+			debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Parsing \"") << str << "\" string using \""
+					<< fmt << "\" format error with strptime(3) system call");
 			return false;
 		}
 		if (nanoSecondFmtPos != std::string::npos) {
@@ -65,9 +64,8 @@ bool BasicDateTime::str2bdts(const std::string& str, const std::string& fmt, str
 				if (*strPtr == '\0') {
 					// End of the string encountered
 					if (i == 0) {
-						std::ostringstream msg;
-						msg << "Error parsing \"" << str << "\" string using \"" << fmt << "\" format: premature end of nanoseconds value";
-						debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, msg.str()));
+						debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Parsing \"") << str << "\" string using \"" <<
+								fmt << "\" format error: premature end of nanoseconds value");
 						return false;
 					} else {
 						return true;
@@ -75,9 +73,8 @@ bool BasicDateTime::str2bdts(const std::string& str, const std::string& fmt, str
 				} else if (*strPtr < '0' || *strPtr > '9') {
 					// Not digit encountered
 					if (i == 0) {
-						std::ostringstream msg;
-						msg << "Error parsing \"" << str << "\" string using \"" << fmt << "\" format: premature end of nanoseconds value";
-						debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, msg.str()));
+						debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Parsing \"") << str << "\" string using \"" <<
+								fmt << "\" format error: premature end of nanoseconds value");
 						return false;
 					} else {
 						break;
@@ -98,9 +95,8 @@ bool BasicDateTime::bdts2str(const struct tm& bdts, int nanoSecond, const std::s
 	char buf[FormatBufferSize];
 	size_t len = strftime(buf, FormatBufferSize, fmt.c_str(), &bdts);
 	if (len <= 0) {
-		std::ostringstream msg;
-		msg << "Error formatting datetime value string using \"" << fmt << "\" format with strftime(3) system call";
-		debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, msg.str()));
+		debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Formatting datetime value string using \"") <<
+				fmt << "\" format error with strftime(3) system call");
 		return false;
 	}
 	str.assign(buf, len);

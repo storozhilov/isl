@@ -31,9 +31,7 @@ void AbstractSyncTcpService::updateListener(int id, const TcpAddrInfo& addrInfo,
 {
 	ListenerConfigs::iterator pos = _listenerConfigs.find(id);
 	if (pos == _listenerConfigs.end()) {
-		std::ostringstream oss;
-		oss << "Listener (id = " << id << ") not found";
-		warningLog().log(LogMessage(SOURCE_LOCATION_ARGS, oss.str()));
+		warningLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Listener (id = ") << id << ") not found");
 		return;
 	}
 	pos->second.addrInfo = addrInfo;
@@ -44,9 +42,7 @@ void AbstractSyncTcpService::removeListener(int id)
 {
 	ListenerConfigs::iterator pos = _listenerConfigs.find(id);
 	if (pos == _listenerConfigs.end()) {
-		std::ostringstream oss;
-		oss << "Listener (id = " << id << ") not found";
-		warningLog().log(LogMessage(SOURCE_LOCATION_ARGS, oss.str()));
+		warningLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Listener (id = ") << id << ") not found");
 		return;
 	}
 	_listenerConfigs.erase(pos);
@@ -88,36 +84,46 @@ void AbstractSyncTcpService::resetListenerThreads()
 // AbstractSyncTcpService::ListenerThread
 //------------------------------------------------------------------------------
 
-void AbstractSyncTcpService::ListenerThread::run()
+AbstractSyncTcpService::ListenerThread::ListenerThread(AbstractSyncTcpService& service, const TcpAddrInfo& addrInfo, unsigned int backLog) :
+	Thread(service),
+	_service(service),
+	_addrInfo(addrInfo),
+	_backLog(backLog),
+	_serverSocket()
+{}
+
+bool AbstractSyncTcpService::ListenerThread::onStart()
 {
-	debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Listener thread has been started"));
 	try {
-		TcpSocket serverSocket;
-		debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Server socket has been created"));
-		serverSocket.open();
+		debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Listener thread has been started"));
+		_serverSocket.open();
 		debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Server socket has been opened"));
-		serverSocket.bind(_addrInfo);
+		_serverSocket.bind(_addrInfo);
 		debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Server socket has been binded"));
-		serverSocket.listen(_backLog);
+		_serverSocket.listen(_backLog);
 		debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Server socket has been switched to the listening state"));
-		while (true) {
-			if (shouldTerminate()) {
-				debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Listener thread termination detected before accepting TCP-connection -> exiting from the listener thread"));
-				break;
-			}
-			std::auto_ptr<TcpSocket> socketAutoPtr(serverSocket.accept(_service.clockTimeout()));
-			if (shouldTerminate()) {
-				debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Listener thread termination detected after accepting TCP-connection -> exiting from the listener thread"));
-				break;
-			}
+		return true;
+	} catch (std::exception& e) {
+		errorLog().log(ExceptionLogMessage(SOURCE_LOCATION_ARGS, e, "Synchronous TCP-service listener socket initialization error -> exiting from listener thread"));
+		return false;
+	} catch (...) {
+		errorLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Synchronous TCP-service listener unknown socket initialization error -> exiting from listener thread"));
+		return false;
+	}
+}
+
+bool AbstractSyncTcpService::ListenerThread::doLoad(const Timestamp& limit, const StateSetType::SetType& stateSet)
+{
+	try {
+		while (Timestamp::now() < limit) {
+			std::auto_ptr<TcpSocket> socketAutoPtr(_serverSocket.accept(limit.leftTo()));
 			if (!socketAutoPtr.get()) {
 				// Accepting TCP-connection timeout expired
-				continue;
+				return true;
 			}
-			std::ostringstream msg;
-			msg << "TCP-connection has been received from " << socketAutoPtr.get()->remoteAddr().firstEndpoint().host << ':' <<
-				socketAutoPtr.get()->remoteAddr().firstEndpoint().port;
-			debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, msg.str()));
+			debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "TCP-connection has been received from ") <<
+					socketAutoPtr.get()->remoteAddr().firstEndpoint().host << ':' <<
+					socketAutoPtr.get()->remoteAddr().firstEndpoint().port);
 			std::auto_ptr<AbstractTask> taskAutoPtr(_service.createTask(*socketAutoPtr.get()));
 			if (!taskAutoPtr.get()) {
 				throw Exception(Error(SOURCE_LOCATION_ARGS, "Task creation factory method returned zero pointer"));
@@ -128,10 +134,13 @@ void AbstractSyncTcpService::ListenerThread::run()
 				_service.onOverload(*taskAutoPtr.get());
 			}
 		}
+		return true;
 	} catch (std::exception& e) {
 		errorLog().log(ExceptionLogMessage(SOURCE_LOCATION_ARGS, e, "Synchronous TCP-service listener execution error -> exiting from listener thread"));
+		return false;
 	} catch (...) {
 		errorLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Synchronous TCP-service listener unknown execution error -> exiting from listener thread"));
+		return false;
 	}
 }
 

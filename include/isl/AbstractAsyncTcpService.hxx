@@ -156,26 +156,23 @@ private:
 	};
 	typedef std::map<int, ListenerConfig> ListenerConfigs;
 
-	class ListenerThread : public AbstractThread
+	class ListenerThread : public Thread
 	{
 	public:
-		ListenerThread(AbstractAsyncTcpService& service, const TcpAddrInfo& addrInfo, unsigned int backLog) :
-			AbstractThread(service),
-			_service(service),
-			_addrInfo(addrInfo),
-			_backLog(backLog)
-		{}
+		ListenerThread(AbstractAsyncTcpService& service, const TcpAddrInfo& addrInfo, unsigned int backLog);
 	private:
 		ListenerThread();
 		ListenerThread(const ListenerThread&);								// No copy
 
 		ListenerThread& operator=(const ListenerThread&);						// No copy
 
-		virtual void run();
+		virtual bool onStart();
+		virtual bool doLoad(const Timestamp& limit, const StateSetType::SetType& stateSet);
 
 		AbstractAsyncTcpService& _service;
 		const TcpAddrInfo _addrInfo;
 		const unsigned int _backLog;
+		TcpSocket _serverSocket;
 	};
 
 	typedef std::list<ListenerThread *> ListenersContainer;

@@ -126,7 +126,7 @@ private:
 	virtual void run()
 	{
 		while (true) {
-			const InterThreadRequester::PendingRequest * pendingRequestPtr = _requester.awaitRequest(isl::Timeout::defaultTimeout());
+			const InterThreadRequester::PendingRequest * pendingRequestPtr = _requester.awaitRequest(isl::Timestamp::limit(isl::Timeout::defaultTimeout()));
 			if (!pendingRequestPtr) {
 				continue;
 			}
@@ -157,7 +157,7 @@ int main(int argc, char *argv[])
 	rt.start();
 	size_t requestId = rt.requester().sendRequest(RespondentThread::PingRequest);
 	std::cout << pthread_self() << ": main(): Request id is: " << requestId << std::endl;
-	std::auto_ptr<RespondentThread::Message> responseAutoPtr = rt.requester().awaitResponse(requestId, isl::Timeout::defaultTimeout());
+	std::auto_ptr<RespondentThread::Message> responseAutoPtr = rt.requester().awaitResponse(requestId, isl::Timestamp::limit(isl::Timeout::defaultTimeout()));
 	if (responseAutoPtr.get()) {
 		std::cout << pthread_self() << ": main(): \"" << RespondentThread::messageName(*responseAutoPtr.get()) << "\" message has been received from respondent thread" << std::endl;
 	} else {
@@ -165,7 +165,7 @@ int main(int argc, char *argv[])
 	}
 	requestId = rt.requester().sendRequest(RespondentThread::PingRequest);
 	std::cout << pthread_self() << ": main(): Request id is: " << requestId << std::endl;
-	responseAutoPtr = rt.requester().awaitResponse(requestId, isl::Timeout::defaultTimeout());
+	responseAutoPtr = rt.requester().awaitResponse(requestId, isl::Timestamp::limit(isl::Timeout::defaultTimeout()));
 	if (responseAutoPtr.get()) {
 		std::cout << pthread_self() << ": main(): \"" << RespondentThread::messageName(*responseAutoPtr.get()) << "\" message has been received from respondent thread" << std::endl;
 	} else {
@@ -173,7 +173,7 @@ int main(int argc, char *argv[])
 	}
 	requestId = rt.requester().sendRequest(RespondentThread::StopRequest);
 	std::cout << pthread_self() << ": main(): Request id is: " << requestId << std::endl;
-	responseAutoPtr = rt.requester().awaitResponse(requestId, isl::Timeout::defaultTimeout());
+	responseAutoPtr = rt.requester().awaitResponse(requestId, isl::Timestamp::limit(isl::Timeout::defaultTimeout()));
 	if (responseAutoPtr.get()) {
 		std::cout << pthread_self() << ": main(): \"" << RespondentThread::messageName(*responseAutoPtr.get()) << "\" message has been received from respondent thread" << std::endl;
 	} else {
@@ -216,7 +216,7 @@ int main(int argc, char *argv[])
 	isl::FunctorThread thr2;
 	isl::FunctorThread thr3(true);
 	isl::FunctorThread thr4(true, true);
-	isl::FunctorThread thr5(true, true, true);
+	isl::FunctorThread thr5(/*true, */true, true);
 	isl::MemFunThread thr6;
 	isl::MemFunThread thr7;
 	ThreadFunctor tf1("01");

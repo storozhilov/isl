@@ -9,7 +9,7 @@
 namespace isl
 {
 
-//! Subsystem, which is controlled by StateSet object and is starting/stopping it's threads
+//! Subsystem, which is controlled by StateSet object and starting/stopping it's threads
 class StateSetSubsystem : public Subsystem
 {
 public:
@@ -38,9 +38,9 @@ protected:
 	class AbstractThread : public ::isl::AbstractThread
 	{
 	public:
-		//! Constructs subsystem-controllable thread, which is controlled by the inter-thread 
+		//! Constructs state set subsystem controllable thread
 		/*!
-		  \param subsystem Reference to subsystem object new thread is controlled by
+		  \param subsystem Reference to state set subsystem object new thread is controlled by
 		  \param isTrackable If TRUE isRunning() method could be used for inspecting if the thread is running for the cost of R/W-lock
 		  \param awaitStartup If TRUE, then launching thread will wait until new thread is started for the cost of condition variable and mutex
 		*/
@@ -70,6 +70,55 @@ protected:
 		inline bool awaitTermination(const Timeout& timeout, Timeout * timeoutLeft = 0);
 	private:
 		StateSetSubsystem& _subsystem;
+	};
+	//! State set subsystem controllable thread with main loop
+	class Thread : public AbstractThread
+	{
+	public:
+		//! Constructs state set subsystem controllable thread
+		/*!
+		  \param subsystem Reference to state set subsystem object new thread is controlled by
+		  \param isTrackable If TRUE isRunning() method could be used for inspecting if the thread is running for the cost of R/W-lock
+		  \param awaitStartup If TRUE, then launching thread will wait until new thread is started for the cost of condition variable and mutex
+		*/
+		Thread(StateSetSubsystem& subsystem, bool isTrackable = false, bool awaitStartup = false);
+		//! On start event handler
+		/*!
+		  Default implementation does nothing and returns TRUE.
+		  \return TRUE if to continue thread execution
+		*/
+		virtual bool onStart()
+		{
+			return true;
+		}
+		//! Doing the work virtual method
+		/*!
+		  Default implementation does nothing and returns TRUE.
+		  \param limit Limit timestamp for doing the work
+		  \param stateSet Current state set of the subsystem
+		  \return TRUE if to continue thread execution
+		*/
+		virtual bool doLoad(const Timestamp& limit, const StateSetType::SetType& stateSet)
+		{
+			return true;
+		}
+		//! On overload event handler
+		/*!
+		  Default implementation does nothing and returns TRUE.
+		  \param Ticks expired (always > 2)
+		  \param stateSet Current state set of the subsystem
+		  \return TRUE if to continue thread execution
+		*/
+		virtual bool onOverload(size_t ticksExpired, const StateSetType::SetType& stateSet)
+		{
+			return true;
+		}
+		//! On stop event handler
+		virtual void onStop()
+		{}
+	private:
+		//! Thread execution virtual method redefinition
+		virtual void run();
 	};
 	//! Returns reference to the state set subsystem's state set
 	StateSetType& stateSet()

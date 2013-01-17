@@ -62,35 +62,42 @@ private:
 				return true;
 			}
 		}
-		virtual MessageType * receiveMessage(const isl::Timeout& timeout)
+		virtual MessageType * receiveMessage(const isl::Timestamp& limit)
 		{
 			MessageType * msgPtr = parseMessage(_receiveBuffer);
 			if (msgPtr) {
 				return msgPtr;
 			}
-			char buf[4096];
-			size_t bytesReceived = socket().read(buf, sizeof(buf), timeout);
-			if (bytesReceived <= 0) {
-				return 0;
+			while (isl::Timestamp::now() < limit) {
+				char buf[4096];
+				size_t bytesReceived = socket().read(buf, sizeof(buf), limit.leftTo());
+				if (bytesReceived <= 0) {
+					break;
+				}
+				_receiveBuffer.append(buf, bytesReceived);
+				msgPtr = parseMessage(_receiveBuffer);
+				if (msgPtr) {
+					return msgPtr;
+				}
 			}
-			_receiveBuffer.append(buf, bytesReceived);
-			return parseMessage(_receiveBuffer);
+			return 0;
 		}
-		virtual bool sendMessage(const MessageType& msg, const isl::Timeout& timeout)
+		virtual bool sendMessage(const MessageType& msg, const isl::Timestamp& limit)
 		{
 			if (_sendBuffer.empty()) {
 				_sendBuffer = msg;
 				_sendBuffer += "\r\n";
 			}
-			size_t curBytesSent = socket().write(_sendBuffer.c_str() + _bytesSent, _sendBuffer.size() - _bytesSent, timeout);
-			_bytesSent += curBytesSent;
-			if (_bytesSent >= _sendBuffer.size()) {
-				_sendBuffer.clear();
-				_bytesSent = 0;
-				return true;
-			} else {
-				return false;
+			while (isl::Timestamp::now() < limit) {
+				size_t curBytesSent = socket().write(_sendBuffer.c_str() + _bytesSent, _sendBuffer.size() - _bytesSent, limit.leftTo());
+				_bytesSent += curBytesSent;
+				if (_bytesSent >= _sendBuffer.size()) {
+					_sendBuffer.clear();
+					_bytesSent = 0;
+					return true;
+				}
 			}
+			return false;
 		}
 
 		std::string _receiveBuffer;
@@ -143,35 +150,42 @@ private:
 		}
 	}
 
-	virtual MessageType * receiveMessage(isl::TcpSocket& socket, const isl::Timeout& timeout)
+	virtual MessageType * receiveMessage(isl::TcpSocket& socket, const isl::Timestamp& limit)
 	{
 		MessageType * msgPtr = parseMessage(_receiveBuffer);
 		if (msgPtr) {
 			return msgPtr;
 		}
-		char buf[4096];
-		size_t bytesReceived = socket.read(buf, sizeof(buf), timeout);
-		if (bytesReceived <= 0) {
-			return 0;
+		while (isl::Timestamp::now() < limit) {
+			char buf[4096];
+			size_t bytesReceived = socket.read(buf, sizeof(buf), limit.leftTo());
+			if (bytesReceived <= 0) {
+				break;
+			}
+			_receiveBuffer.append(buf, bytesReceived);
+			msgPtr = parseMessage(_receiveBuffer);
+			if (msgPtr) {
+				return msgPtr;
+			}
 		}
-		_receiveBuffer.append(buf, bytesReceived);
-		return parseMessage(_receiveBuffer);
+		return 0;
 	}
-	virtual bool sendMessage(const MessageType& msg, isl::TcpSocket& socket, const isl::Timeout& timeout)
+	virtual bool sendMessage(const MessageType& msg, isl::TcpSocket& socket, const isl::Timestamp& limit)
 	{
 		if (_sendBuffer.empty()) {
 			_sendBuffer = msg;
 			_sendBuffer += "\r\n";
 		}
-		size_t curBytesSent = socket.write(_sendBuffer.c_str() + _bytesSent, _sendBuffer.size() - _bytesSent, timeout);
-		_bytesSent += curBytesSent;
-		if (_bytesSent >= _sendBuffer.size()) {
-			_sendBuffer.clear();
-			_bytesSent = 0;
-			return true;
-		} else {
-			return false;
+		while (isl::Timestamp::now() < limit) {
+			size_t curBytesSent = socket.write(_sendBuffer.c_str() + _bytesSent, _sendBuffer.size() - _bytesSent, limit.leftTo());
+			_bytesSent += curBytesSent;
+			if (_bytesSent >= _sendBuffer.size()) {
+				_sendBuffer.clear();
+				_bytesSent = 0;
+				return true;
+			}
 		}
+		return false;
 	}
 
 	std::string _receiveBuffer;
@@ -218,35 +232,42 @@ private:
 		}
 	}
 
-	virtual MessageType * receiveMessage(isl::TcpSocket& socket, const isl::Timeout& timeout)
+	virtual MessageType * receiveMessage(isl::TcpSocket& socket, const isl::Timestamp& limit)
 	{
 		MessageType * msgPtr = parseMessage(_receiveBuffer);
 		if (msgPtr) {
 			return msgPtr;
 		}
-		char buf[4096];
-		size_t bytesReceived = socket.read(buf, sizeof(buf), timeout);
-		if (bytesReceived <= 0) {
-			return 0;
+		while (isl::Timestamp::now() < limit) {
+			char buf[4096];
+			size_t bytesReceived = socket.read(buf, sizeof(buf), limit.leftTo());
+			if (bytesReceived <= 0) {
+				break;
+			}
+			_receiveBuffer.append(buf, bytesReceived);
+			msgPtr = parseMessage(_receiveBuffer);
+			if (msgPtr) {
+				return msgPtr;
+			}
 		}
-		_receiveBuffer.append(buf, bytesReceived);
-		return parseMessage(_receiveBuffer);
+		return 0;
 	}
-	virtual bool sendMessage(const MessageType& msg, isl::TcpSocket& socket, const isl::Timeout& timeout)
+	virtual bool sendMessage(const MessageType& msg, isl::TcpSocket& socket, const isl::Timestamp& limit)
 	{
 		if (_sendBuffer.empty()) {
 			_sendBuffer = msg;
 			_sendBuffer += "\r\n";
 		}
-		size_t curBytesSent = socket.write(_sendBuffer.c_str() + _bytesSent, _sendBuffer.size() - _bytesSent, timeout);
-		_bytesSent += curBytesSent;
-		if (_bytesSent >= _sendBuffer.size()) {
-			_sendBuffer.clear();
-			_bytesSent = 0;
-			return true;
-		} else {
-			return false;
+		while (isl::Timestamp::now() < limit) {
+			size_t curBytesSent = socket.write(_sendBuffer.c_str() + _bytesSent, _sendBuffer.size() - _bytesSent, limit.leftTo());
+			_bytesSent += curBytesSent;
+			if (_bytesSent >= _sendBuffer.size()) {
+				_sendBuffer.clear();
+				_bytesSent = 0;
+				return true;
+			}
 		}
+		return false;
 	}
 
 	std::string _receiveBuffer;
