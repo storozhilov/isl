@@ -292,4 +292,203 @@ size_t TcpSocket::writeImplementation(const char * buffer, size_t bufferSize, co
 	return bytesSent;
 }
 
+//------------------------------------------------------------------------------
+
+TcpSocket_NEW::TcpSocket_NEW() :
+	AbstractPosixIODevice(),
+	_localAddrAutoPtr(),
+	_remoteAddrAutoPtr()
+{}
+
+TcpSocket_NEW::TcpSocket_NEW(int handle) :
+	AbstractPosixIODevice(handle),
+	_localAddrAutoPtr(),
+	_remoteAddrAutoPtr()
+{
+	fetchPeersData();
+}
+
+const TcpAddrInfo& TcpSocket_NEW::localAddr() const
+{
+	if (!_localAddrAutoPtr.get()) {
+		throw Exception(Error(SOURCE_LOCATION_ARGS, "Local address info have not been initialized"));
+	}
+	return *_localAddrAutoPtr.get();
+}
+
+const TcpAddrInfo& TcpSocket_NEW::remoteAddr() const
+{
+	if (!_remoteAddrAutoPtr.get()) {
+		throw Exception(Error(SOURCE_LOCATION_ARGS, "Remote address info have not been initialized"));
+	}
+	return *_remoteAddrAutoPtr.get();
+}
+
+void TcpSocket_NEW::bind(const TcpAddrInfo& addrInfo)
+{
+	if (!isOpen()) {
+		//throw Exception(IOError(SOURCE_LOCATION_ARGS, IOError::DeviceIsNotOpen));
+		throw Exception(NotOpenError(SOURCE_LOCATION_ARGS));
+	}
+	// Setting SO_REUSEADDR to true
+	int reuseAddr = 1;
+	if (setsockopt(handle(), SOL_SOCKET, SO_REUSEADDR, &reuseAddr, sizeof(reuseAddr)) < 0) {
+		throw Exception(SystemCallError(SOURCE_LOCATION_ARGS, SystemCallError::SetSockOpt, errno));
+	}
+	// Binding to all endpoints
+	const struct addrinfo * ai = addrInfo.addrinfo();
+	while (ai) {
+		if (::bind(handle(), ai->ai_addr, ai->ai_addrlen) != 0) {
+			throw Exception(SystemCallError(SOURCE_LOCATION_ARGS, SystemCallError::Bind, errno));
+		}
+		ai = ai->ai_next;
+	}
+}
+
+void TcpSocket_NEW::listen(unsigned int backLog)
+{
+	if (!isOpen()) {
+		//throw Exception(IOError(SOURCE_LOCATION_ARGS, IOError::DeviceIsNotOpen));
+		throw Exception(NotOpenError(SOURCE_LOCATION_ARGS));
+	}
+	if (::listen(handle(), backLog) != 0) {
+		throw Exception(SystemCallError(SOURCE_LOCATION_ARGS, SystemCallError::Listen, errno));
+	}
+}
+
+std::auto_ptr<TcpSocket_NEW> TcpSocket_NEW::accept(const Timeout& timeout)
+{
+	if (!isOpen()) {
+		//throw Exception(IOError(SOURCE_LOCATION_ARGS, IOError::DeviceIsNotOpen));
+		throw Exception(NotOpenError(SOURCE_LOCATION_ARGS));
+	}
+	// Waiting for incoming connection
+	timespec selectTimeout = timeout.timeSpec();
+	fd_set descriptorsSet;
+	FD_ZERO(&descriptorsSet);
+	FD_SET(handle(), &descriptorsSet);
+	int descriptorsCount = pselect(handle() + 1, &descriptorsSet, NULL, NULL, &selectTimeout, NULL);
+	if (descriptorsCount == 0) {
+		// Timeout expired
+		return std::auto_ptr<TcpSocket_NEW>();
+	} else if (descriptorsCount < 0) {
+		throw Exception(SystemCallError(SOURCE_LOCATION_ARGS, SystemCallError::PSelect, errno));
+	}
+	// Extracting and returning pending connection
+	int pendingSocketDescriptor = ::accept(handle(), NULL, NULL);
+	if (pendingSocketDescriptor < 0) {
+		throw Exception(SystemCallError(SOURCE_LOCATION_ARGS, SystemCallError::Accept, errno));
+	}
+	// Making the socket non-blocking
+	int pendingSocketFlags = fcntl(pendingSocketDescriptor, F_GETFL, 0);
+	if (pendingSocketFlags < 0) {
+		throw Exception(SystemCallError(SOURCE_LOCATION_ARGS, SystemCallError::Fcntl, errno));
+	}
+	if (!(pendingSocketFlags | O_NONBLOCK)) {
+		pendingSocketFlags |= O_NONBLOCK;
+		if (fcntl(pendingSocketDescriptor, F_SETFL, pendingSocketFlags) < 0) {
+			throw Exception(SystemCallError(SOURCE_LOCATION_ARGS, SystemCallError::Fcntl, errno));
+		}
+	}
+	return std::auto_ptr<TcpSocket_NEW>(new TcpSocket_NEW(pendingSocketDescriptor));
+}
+
+void TcpSocket_NEW::connect(const TcpAddrInfo& addrInfo)
+{
+	if (!isOpen()) {
+		throw Exception(NotOpenError(SOURCE_LOCATION_ARGS));
+	}
+	if (::connect(handle(), addrInfo.addrinfo()->ai_addr, addrInfo.addrinfo()->ai_addrlen)) {
+		throw Exception(SystemCallError(SOURCE_LOCATION_ARGS, SystemCallError::Connect, errno));
+	}
+	fetchPeersData();
+}
+
+void TcpSocket_NEW::fetchPeersData()
+{
+	// Fetching local address info
+	struct sockaddr la;
+	socklen_t las = sizeof(la);
+	if (getsockname(handle(), &la, &las)) {
+		throw Exception(SystemCallError(SOURCE_LOCATION_ARGS, SystemCallError::GetSockName, errno));
+	}
+	if (la.sa_family == AF_INET6) {
+		struct sockaddr_in6 * addrPtr = reinterpret_cast<struct sockaddr_in6 *>(&la);
+		char buf[INET6_ADDRSTRLEN];
+		if (!inet_ntop(AF_INET6, &(addrPtr->sin6_addr), buf, INET6_ADDRSTRLEN)) {
+			throw Exception(SystemCallError(SOURCE_LOCATION_ARGS, SystemCallError::InetNToP, errno));
+		}
+		_localAddrAutoPtr.reset(new TcpAddrInfo(TcpAddrInfo::IpV6, buf, ntohs(addrPtr->sin6_port)));
+	} else {
+		struct sockaddr_in * addrPtr = reinterpret_cast<struct sockaddr_in *>(&la);
+		char buf[INET_ADDRSTRLEN];
+		if (!inet_ntop(AF_INET, &(addrPtr->sin_addr), buf, INET_ADDRSTRLEN)) {
+			throw Exception(SystemCallError(SOURCE_LOCATION_ARGS, SystemCallError::InetNToP, errno));
+		}
+		_localAddrAutoPtr.reset(new TcpAddrInfo(TcpAddrInfo::IpV4, buf, ntohs(addrPtr->sin_port)));
+	}
+	// Fetching remote address info
+	struct sockaddr ra;
+	socklen_t ras = sizeof(ra);
+	if (getpeername(handle(), &ra, &ras)) {
+		throw Exception(SystemCallError(SOURCE_LOCATION_ARGS, SystemCallError::GetPeerName, errno));
+	}
+	if (ra.sa_family == AF_INET6) {
+		struct sockaddr_in6 * addrPtr = reinterpret_cast<struct sockaddr_in6 *>(&ra);
+		char buf[INET6_ADDRSTRLEN];
+		if (!inet_ntop(AF_INET6, &(addrPtr->sin6_addr), buf, INET6_ADDRSTRLEN)) {
+			throw Exception(SystemCallError(SOURCE_LOCATION_ARGS, SystemCallError::InetNToP, errno));
+		}
+		_remoteAddrAutoPtr.reset(new TcpAddrInfo(TcpAddrInfo::IpV6, buf, ntohs(addrPtr->sin6_port)));
+	} else {
+		struct sockaddr_in * addrPtr = reinterpret_cast<struct sockaddr_in *>(&ra);
+		char buf[INET_ADDRSTRLEN];
+		if (!inet_ntop(AF_INET, &(addrPtr->sin_addr), buf, INET_ADDRSTRLEN)) {
+			throw Exception(SystemCallError(SOURCE_LOCATION_ARGS, SystemCallError::InetNToP, errno));
+		}
+		_remoteAddrAutoPtr.reset(new TcpAddrInfo(TcpAddrInfo::IpV4, buf, ntohs(addrPtr->sin_port)));
+	}
+}
+
+int TcpSocket_NEW::openImpl()
+{
+	// Creating the socket
+	int s = socket(PF_INET, SOCK_STREAM, 0);
+	if (s < 0) {
+		throw Exception(SystemCallError(SOURCE_LOCATION_ARGS, SystemCallError::Socket, errno));
+	}
+	// Making the socket non-blocking
+	/*int socketFlags = fcntl(s, F_GETFL, 0);
+	if (socketFlags < 0) {
+		throw Exception(SystemCallError(SOURCE_LOCATION_ARGS, SystemCallError::Fcntl, errno));
+	}
+	if (!(socketFlags | O_NONBLOCK)) {
+		socketFlags |= O_NONBLOCK;
+		if (fcntl(s, F_SETFL, socketFlags) < 0) {
+			throw Exception(SystemCallError(SOURCE_LOCATION_ARGS, SystemCallError::Fcntl, errno));
+		}
+	}*/
+	return s;
+}
+
+void TcpSocket_NEW::onReadException()
+{
+	throw Exception(Error(SOURCE_LOCATION_ARGS, "Exception occured on socket descriptor while reading the data"));
+}
+
+void TcpSocket_NEW::onReadEndOfFile()
+{
+	throw Exception(ConnectionAbortedError(SOURCE_LOCATION_ARGS));
+}
+
+void TcpSocket_NEW::onWriteException()
+{
+	throw Exception(Error(SOURCE_LOCATION_ARGS, "Exception occured on socket descriptor while writing the data"));
+}
+
+void TcpSocket_NEW::onWriteEndOfFile()
+{
+	throw Exception(ConnectionAbortedError(SOURCE_LOCATION_ARGS));
+}
+
 } // namespace isl

@@ -17,6 +17,17 @@ public:
 	  \param msg Message text
 	*/
 	LogMessage(SOURCE_LOCATION_ARGS_DECLARATION, const std::string& msg);
+	//! Copying constructor
+	/*!
+	  \param rhs Log message to copy from
+	*/
+	LogMessage(const LogMessage& rhs);
+	//! Assignment operator
+	/*!
+	  \param rhs Log message to assign from
+	  \return reference to log message object
+	*/
+	LogMessage& operator=(const LogMessage& rhs);
 	//! Stream output operator templated redefinition
 	/*!
 	  \param val Value to append to message text internal string stream

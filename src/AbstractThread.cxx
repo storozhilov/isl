@@ -8,6 +8,9 @@
 #include <isl/LogMessage.hxx>
 #include <isl/ExceptionLogMessage.hxx>
 #include <errno.h>
+#ifdef __FreeBSD__
+#include <pthread_np.h>
+#endif
 
 namespace isl
 {

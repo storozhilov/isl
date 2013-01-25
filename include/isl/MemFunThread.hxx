@@ -12,6 +12,9 @@
 #include <isl/ExceptionLogMessage.hxx>
 #include <new>
 #include <pthread.h>
+#ifdef __FreeBSD__
+#include <pthread_np.h>
+#endif
 #include <errno.h>
 
 namespace isl

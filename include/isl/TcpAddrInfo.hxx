@@ -12,6 +12,9 @@
 #include <errno.h>
 #include <sstream>
 #include <list>
+#ifdef __FreeBSD__
+#include <netinet/in.h>
+#endif
 
 namespace isl
 {

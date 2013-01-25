@@ -2,8 +2,7 @@ import os
 
 env = Environment(
 CCFLAGS = ['-g', '-Wall'],
-CPPPATH = '../include',
-LIBS = 'dl'
+CPPPATH = '../include'
 )
 env.Append(ENV = {'PATH' : os.environ['PATH']})
 if GetOption('core-debugging') or os.environ.get('ISL_CORE_DEBUGGING', '').upper() == 'YES':
