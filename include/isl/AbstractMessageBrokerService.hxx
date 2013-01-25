@@ -209,7 +209,7 @@ protected:
 		{
 			return true;
 		}
-		//! On provide incoming message to the consumer event handler
+		//! On provide incoming message to the consumer in the receiver thread event handler
 		/*!
 		  \param msg Constant reference to the provided message
 		  \param consumer Reference to the message consumer where the message has been provided to
@@ -233,7 +233,7 @@ protected:
 		{
 			return true;
 		}
-		//! On consume message from any provider event handler
+		//! On consume message from any provider in sender thread event handler
 		/*!
 		  Default implementation does nothing and returns true
 

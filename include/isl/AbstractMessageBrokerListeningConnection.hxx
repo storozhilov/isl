@@ -395,7 +395,7 @@ protected:
 	/*!
 	  \param failedAttempts Current unsuccessful accepting connection attempts amount
 	*/
-	void onAcceptFailed(size_t failedAttempts)
+	virtual void onAcceptFailed(size_t failedAttempts)
 	{}
 	//! On receive message from transport event handler
 	/*!
@@ -407,7 +407,7 @@ protected:
 	{
 		return true;
 	}
-	//! On provide incoming message to the consumer event handler
+	//! On provide incoming message to the consumer in the receiver thread event handler
 	/*!
 	  \param msg Constant reference to the provided message
 	  \param consumer Reference to the message consumer where the message has been provided to
@@ -442,7 +442,7 @@ protected:
 	*/
 	virtual void onSenderDisconnected(bool isConnectionAborted)
 	{}
-	//! On consume message from any provider event handler
+	//! On consume message from any provider in the receiver thread event handler
 	/*!
 	  \note Default implementation does nothing and returns TRUE
 	  \param msg Constant reference to the consumed message
