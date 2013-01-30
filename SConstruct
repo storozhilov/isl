@@ -28,6 +28,12 @@ AddOption('--log-debugging',
 		dest = 'log-debugging',
 		action = 'store_true',
 		help = 'Turn on ISL logging subsystem debugging to stdouts (the same as if \'ISL_LOG_DEBUGGING\' environment variable is set to \'yes\')')
+AddOption('--prefix',
+		dest = 'prefix',
+		nargs = 1,
+		type = 'string',
+		action = 'store',
+		help = 'Prefix for installation. Usage: "scons --prefix=<instalation_path> install"')
 
 sconscriptTargets = ['src/SConscript']
 if GetOption('build-scada') or os.environ.get('ISL_BUILD_SCADA', '').upper() == 'YES':

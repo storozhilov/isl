@@ -234,6 +234,23 @@ public:
 	  \return TRUE if the parsed character is the next HTTP-message body byte
 	*/
 	bool parse(char ch);
+	//! Parses buffer for an HTTP-message and puts it's body to the supplied buffer
+	/*!
+	  \param parseBuffer Pointer to the buffer to parse
+	  \param parseBufferSize Size of the buffer to parse
+	  \param bodyBuffer Pointer to buffer where to store HTTP-message body
+	  \param bodyBufferSize Size of the buffer where to store HTTP-message body
+	  \return Pair with parsed bytes amount and the amount of bytes amount, which has been stored in body buffer
+	*/
+	std::pair<size_t, size_t> parse(const char * parseBuffer, size_t parseBufferSize, char * bodyBuffer, size_t bodyBufferSize);
+	//! Parses buffer for an HTTP-message and stores it's body into the supplied stream
+	/*!
+	  \param parseBuffer Pointer to the buffer to parse
+	  \param parseBufferSize Size of the buffer to parse
+	  \param os Output stream where to store HTTP-message body
+	  \return Parsed bytes amount
+	*/
+	size_t parse(const char * parseBuffer, size_t parseBufferSize, std::ostream& os);
 	//! Resets parser
 	virtual void reset();
 protected:

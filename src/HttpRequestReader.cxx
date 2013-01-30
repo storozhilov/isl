@@ -5,13 +5,11 @@
 namespace isl
 {
 
-HttpRequestReader::HttpRequestReader(AbstractIODevice& device, size_t maxBodySize, size_t bufferSize, size_t streamReaderBufferSize) :
-	_streamReader(device, streamReaderBufferSize),
-	_maxBodySize(maxBodySize),
-	_buffer(bufferSize),
+HttpRequestReader::HttpRequestReader(HttpRequestParser& parser, size_t maxBodySize, size_t bufferSize) :
+	HttpMessageReader(parser, maxBodySize, bufferSize),
+	_parser(parser),
 	_path(),
 	_query(),
-	_body(),
 	_get(),
 	_getExtracted(false),
 	_post(),
@@ -23,7 +21,7 @@ HttpRequestReader::HttpRequestReader(AbstractIODevice& device, size_t maxBodySiz
 const Http::RequestCookies& HttpRequestReader::cookies() const
 {
 	if (!_cookiesExtracted) {
-		Http::grabCookies(_streamReader.parser().header(), _cookies);
+		Http::grabCookies(_parser.header(), _cookies);
 		_cookiesExtracted = true;
 	}
 	return _cookies;
@@ -41,8 +39,8 @@ const Http::Params& HttpRequestReader::get() const
 const Http::Params& HttpRequestReader::post() const
 {
 	if (!_postExtracted) {
-		if (Http::hasParam(_streamReader.parser().header(), "Content-Type", "application/x-www-form-urlencoded")) {
-			Http::parseParams(_body, _post);
+		if (Http::hasParam(_parser.header(), "Content-Type", "application/x-www-form-urlencoded")) {
+			Http::parseParams(body(), _post);
 		}
 		_postExtracted = true;
 	}
@@ -51,10 +49,9 @@ const Http::Params& HttpRequestReader::post() const
 
 void HttpRequestReader::reset()
 {
-	_streamReader.reset();
+	HttpMessageReader::reset();
 	_path.clear();
 	_query.clear();
-	_body.clear();
 	_get.clear();
 	_getExtracted = false;
 	_post.clear();
@@ -63,25 +60,16 @@ void HttpRequestReader::reset()
 	_cookiesExtracted = false;
 }
 
-bool HttpRequestReader::receive(Timeout timeout, size_t * bytesReadFromDevice)
+bool HttpRequestReader::read(AbstractIODevice& device, const Timestamp& limit, size_t * bytesReadFromDevice)
 {
-	if (_streamReader.parser().isCompleted()) {
-		reset();
+	bool result = HttpMessageReader::read(device, limit, bytesReadFromDevice);
+	if (result) {
+		_getExtracted = false;
+		_postExtracted = false;
+		_cookiesExtracted = false;
+		Http::parseUri(_parser.uri(), _path, _query);
 	}
-	size_t bodyBytesRead = _streamReader.read(&_buffer[0], _buffer.size(), timeout, bytesReadFromDevice);
-	if (_streamReader.parser().isBad()) {
-		return false;
-	}
-	if ((_body.size() + bodyBytesRead) > _maxBodySize) {
-		throw Exception(Error(SOURCE_LOCATION_ARGS, "Request entity is too long"));	// TODO ???
-	}
-	_body.append(&_buffer[0], bodyBytesRead);
-	if (_streamReader.parser().isCompleted()) {
-		Http::parseUri(_streamReader.uri(), _path, _query);
-		return true;
-	} else {
-		return false;
-	}
+	return result;
 }
 
 } // namespace isl

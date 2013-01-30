@@ -16,9 +16,9 @@ sharedLibraryBuilder = env.SharedLibrary('../lib/isl', Glob('*.cxx'))
 Default([staticLibraryBuilder, sharedLibraryBuilder])
 
 # Install section
-prefix = '/usr/local'
-if 'PREFIX' in os.environ:
-	prefix = os.environ['PREFIX']
+prefix = GetOption('prefix')
+if prefix is None:
+	prefix = '/usr/local'
 libraryInstaller = env.Install(os.path.join(prefix, 'lib'), [staticLibraryBuilder, sharedLibraryBuilder])
 headersInstaller = env.Install(os.path.join(prefix, 'include/isl'), Glob('../include/isl/*.hxx'))
 env.Alias('install', [libraryInstaller, headersInstaller])

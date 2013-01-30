@@ -1,46 +1,27 @@
 #ifndef ISL__HTTP_REQUEST_READER__HXX
 #define ISL__HTTP_REQUEST_READER__HXX
 
-#include <isl/HttpRequestStreamReader.hxx>
-#include <vector>
+#include <isl/HttpMessageReader.hxx>
+#include <isl/HttpRequestParser.hxx>
 
 namespace isl
 {
 
-#ifndef ISL__HTTP_REQUEST_READER_DEFAULT_MAX_BODY_SIZE
-#define ISL__HTTP_REQUEST_READER_DEFAULT_MAX_BODY_SIZE 102400		// 100 Kb
-#endif
-
-#ifndef ISL__HTTP_REQUEST_READER_DEFAULT_BUFFER_SIZE
-#define ISL__HTTP_REQUEST_READER_DEFAULT_BUFFER_SIZE 1024		// 1 Kb
-#endif
-
 //! HTTP-request reader
-/*!
-  TODO File upload support
-*/
-class HttpRequestReader
+class HttpRequestReader : public HttpMessageReader
 {
 public:
-	//! Class constants
-	enum Constants {
-		DefaultMaxBodySize = ISL__HTTP_REQUEST_READER_DEFAULT_MAX_BODY_SIZE,
-		DefaultBufferSize = ISL__HTTP_REQUEST_READER_DEFAULT_BUFFER_SIZE,
-		BufferSize = 1024
-	};
-	//! Constructs a reader
+	//! Constructs an HTTP-request reader
 	/*!
-	  \param device Reference to the I/O-device to fetch data from
+	  \param parser Reference to the HTTP-request parser
 	  \param maxBodySize Maximum body size
-	  \param bufferSize Boby buffer size
-	  \param streamReaderBufferSize Internal stream reader buffer size
+	  \param bufferSize Read data buffer size
 	*/
-	HttpRequestReader(AbstractIODevice& device, size_t maxBodySize = DefaultMaxBodySize, size_t bufferSize = DefaultBufferSize,
-			size_t streamReaderBufferSize = HttpRequestStreamReader::DefaultBufferSize);
-	//! Returns const reference to the internal stream reader
-	inline const HttpRequestStreamReader& streamReader() const
+	HttpRequestReader(HttpRequestParser& parser, size_t maxBodySize = DefaultMaxBodySize, size_t bufferSize = DefaultBufferSize);
+	//! Returns a reference to the HTTP-request parser
+	inline HttpRequestParser& parser()
 	{
-		return _streamReader;
+		return _parser;
 	}
 	//! Returns a path part of the URI of the HTTP-request
 	inline const std::string& path() const
@@ -54,35 +35,27 @@ public:
 	}
 	//! Returns a constant reference to the HTTP-cookies of the HTTP-request
 	const Http::RequestCookies& cookies() const;
-	//! Returns a constant reference to the body of the HTTP-request
-	inline const std::string& body() const
-	{
-		return _body;
-	}
 	//! Returns a constant reference to the GET parameters of the HTTP-request
 	const Http::Params& get() const;
 	//! Returns a constant reference to the POST parameters of the HTTP-request
 	const Http::Params& post() const;
 	//! Resets reader to it's initial state
-	void reset();
+	virtual void reset();
 	//! Fetches a request
 	/*!
-	  \note This method throws an Exception if the message body is too long.
-
-	  \param timeout Read data timeout
+	  \param device Reference to the I/O-device to fetch data from
+	  \param limit Read data limit timestamp
 	  \param bytesReadFromDevice Pointer to memory location where number of bytes have been fetched from the device is to be put
-	  \return TRUE if the complete HTTP-request has been received or FALSE otherwise
+	  \return TRUE if the complete HTTP-message has been received or FALSE otherwise
+	  \note This method throws an Exception if the message body is too long or HTTP-message parser is already in error state.
 	*/
-	bool receive(Timeout timeout = Timeout::defaultTimeout(), size_t * bytesReadFromDevice = 0);
+	virtual bool read(AbstractIODevice& device, const Timestamp& limit, size_t * bytesReadFromDevice = 0);
 private:
 	HttpRequestReader();
 
-	HttpRequestStreamReader _streamReader;
-	size_t _maxBodySize;
-	std::vector<char> _buffer;
+	HttpRequestParser& _parser;
 	std::string _path;
 	std::string _query;
-	std::string _body;
 	mutable Http::Params _get;
 	mutable bool _getExtracted;
 	mutable Http::Params _post;

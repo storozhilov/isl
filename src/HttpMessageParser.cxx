@@ -2,6 +2,7 @@
 #include <isl/common.hxx>
 #include <isl/LogMessage.hxx>
 #include <isl/Char.hxx>
+#include <isl/Error.hxx>
 
 namespace isl
 {
@@ -279,6 +280,40 @@ bool HttpMessageParser::parse(char ch)
 		++_col;
 	}
 	return bodyByteExtracted;
+}
+
+std::pair<size_t, size_t> HttpMessageParser::parse(const char * parseBuffer, size_t parseBufferSize, char * bodyBuffer, size_t bodyBufferSize)
+{
+	size_t bytesParsed = 0;
+	size_t bodyBytes = 0;
+	while (bytesParsed < parseBufferSize) {
+		char ch = *(parseBuffer + bytesParsed++);
+		if (parse(ch)) {
+			if (bodyBytes >= bodyBufferSize) {
+				throw Exception(::isl::Error(SOURCE_LOCATION_ARGS, "Body buffer overflow has been detected"));
+			}
+			*(bodyBuffer + bodyBytes++) = ch;
+		}
+		if (isCompleted() || isBad()) {
+			break;
+		}
+	}
+	return std::pair<size_t, size_t>(bytesParsed, bodyBytes);
+}
+
+size_t HttpMessageParser::parse(const char * parseBuffer, size_t parseBufferSize, std::ostream& os)
+{
+	size_t bytesParsed = 0;
+	while (bytesParsed < parseBufferSize) {
+		char ch = *(parseBuffer + bytesParsed++);
+		if (parse(ch)) {
+			os.put(ch);
+		}
+		if (isCompleted() || isBad()) {
+			break;
+		}
+	}
+	return bytesParsed;
 }
 
 void HttpMessageParser::reset()

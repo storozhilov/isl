@@ -136,55 +136,48 @@ private:
 	{
 	public:
 		HttpTask(isl::TcpSocket& socket) :
-			AbstractTask(socket),
-			_requestReader(socket)
+			AbstractTask(socket)
 		{}
 	private:
 		HttpTask();
 		// Task execution method definition
 		virtual void executeImpl(isl::TaskDispatcher<AbstractTask>& taskDispatcher)
 		{
-			// Reading an HTTP-request and reporting an error if occured
+			isl::HttpRequestParser parser;
+			isl::HttpRequestReader reader(parser);
+			bool requestFetched = false;
 			try {
 				std::clog << "Starting to read HTTP-request" << std::endl;
 				size_t bytesReadFromDevice;
-				bool requestFetched = _requestReader.receive(isl::Timeout(TRANSMISSION_SECONDS_TIMEOUT), &bytesReadFromDevice);
-				std::clog << (requestFetched ? "Request has been completed" : "Request has NOT been completed") << ", bytesReadFromDevice = " << bytesReadFromDevice << std::endl;
-			} catch (isl::Exception& e) {
-				std::cerr << e.what() << std::endl;
-				isl::HttpResponseStreamWriter responseWriter(socket(), "500");
-				responseWriter.setHeaderField("Content-Type", "text/html; charset=utf-8");
-				responseWriter.writeOnce(e.what());
-				return;
+				requestFetched = reader.read(socket(), isl::Timestamp::limit(isl::Timeout(TRANSMISSION_SECONDS_TIMEOUT)), &bytesReadFromDevice);
+				std::clog << (requestFetched ? "Request has been fetched" : "Request has NOT been fetched") << ", bytesReadFromDevice = " << bytesReadFromDevice << std::endl;
 			} catch (std::exception& e) {
 				std::cerr << e.what() << std::endl;
-				isl::HttpResponseStreamWriter responseWriter(socket(), "500");
-				responseWriter.setHeaderField("Content-Type", "text/html; charset=utf-8");
-				responseWriter.writeOnce(e.what());
 				return;
 			} catch (...) {
 				std::cerr << "Unknown error occured." << std::endl;
-				isl::HttpResponseStreamWriter responseWriter(socket(), "500");
-				responseWriter.setHeaderField("Content-Type", "text/html; charset=utf-8");
-				responseWriter.writeOnce("Unknown error occured.");
 				return;
 			}
 			// Composing an HTTP-response
 			std::ostringstream oss;
 			oss << "<html><head><title>HTTP-request has been recieved</title></head><body>";
-			if (_requestReader.streamReader().parser().isBad()) {
-				oss << "<p>Bad request: &quot;" << _requestReader.streamReader().parser().error()->message() << "&quot;</p>";
+			if (!requestFetched) {
+				if (parser.isBad()) {
+					oss << "<p>Bad request: &quot;" << parser.error()->message() << "&quot;</p>";
+				} else {
+					oss << "<p>Timeout expired</p>";
+				}
 			} else {
-				oss << "<p>URI: &quot;" << _requestReader.streamReader().uri() << "&quot;</p>" <<
-					"<p>path: &quot;" << isl::String::decodePercent(_requestReader.path()) << "&quot;</p>" <<
-					"<p>query: &quot;" << _requestReader.query() << "&quot;</p>";
-				for (isl::Http::Params::const_iterator i = _requestReader.get().begin(); i != _requestReader.get().end(); ++i) {
+				oss << "<p>URI: &quot;" << parser.uri() << "&quot;</p>" <<
+					"<p>path: &quot;" << isl::String::decodePercent(reader.path()) << "&quot;</p>" <<
+					"<p>query: &quot;" << reader.query() << "&quot;</p>";
+				for (isl::Http::Params::const_iterator i = reader.get().begin(); i != reader.get().end(); ++i) {
 					oss << "<p>get[&quot;" << i->first << "&quot;] = &quot;" << i->second << "&quot;</p>";
 				}
-				for (isl::Http::Params::const_iterator i = _requestReader.streamReader().parser().header().begin(); i != _requestReader.streamReader().parser().header().end(); ++i) {
+				for (isl::Http::Params::const_iterator i = parser.header().begin(); i != parser.header().end(); ++i) {
 					oss << "<p>header[&quot;" << i->first << "&quot;] = &quot;" << i->second << "&quot;</p>";
 				}
-				for (isl::Http::RequestCookies::const_iterator i = _requestReader.cookies().begin(); i != _requestReader.cookies().end(); ++i) {
+				for (isl::Http::RequestCookies::const_iterator i = reader.cookies().begin(); i != reader.cookies().end(); ++i) {
 					oss << "<p>cookie[&quot;" << i->first << "&quot;] = &quot;" << i->second.value << "&quot;</p>";
 				}
 			}
@@ -194,8 +187,6 @@ private:
 			responseWriter.setHeaderField("Content-Type", "text/html; charset=utf-8");
 			responseWriter.writeOnce(oss.str());
 		}
-
-		isl::HttpRequestReader _requestReader;
 	};
 	// Task creation factory method definition
 	virtual AbstractTask * createTask(isl::TcpSocket& socket)
@@ -215,23 +206,6 @@ public:
 private:
 	HttpServer();
 	HttpServer(const HttpServer&);
-	// Some event handlers re-definition
-	void beforeStart()
-	{
-		isl::debugLog().log(isl::LogMessage(SOURCE_LOCATION_ARGS, "Starting server"));
-	}
-	void afterStart()
-	{
-		isl::debugLog().log(isl::LogMessage(SOURCE_LOCATION_ARGS, "Server has been started"));
-	}
-	void beforeStop()
-	{
-		isl::debugLog().log(isl::LogMessage(SOURCE_LOCATION_ARGS, "Stopping server"));
-	}
-	void afterStop()
-	{
-		isl::debugLog().log(isl::LogMessage(SOURCE_LOCATION_ARGS, "Server has been stopped"));
-	}
 
 	HttpService _httpService;
 };
