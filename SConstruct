@@ -44,6 +44,14 @@ if GetOption('build-tests') or os.environ.get('ISL_BUILD_TESTS', '').upper() == 
 	sconscriptTargets.append('tests/SConscript')
 SConscript(sconscriptTargets)
 
+#SConscript('src/SConscript', variant_dir = 'build/src', duplicate = 0)
+#if GetOption('build-scada') or os.environ.get('ISL_BUILD_SCADA', '').upper() == 'YES':
+#	SConscript('modules/scada/SConscript', variant_dir = 'build/modules/scada', duplicate = 0)
+#if GetOption('build-examples') or os.environ.get('ISL_BUILD_EXAMPLES', '').upper() == 'YES':
+#	SConscript('examples/SConscript', variant_dir = 'build/examples', duplicate = 0)
+#if GetOption('build-tests') or os.environ.get('ISL_BUILD_TESTS', '').upper() == 'YES':
+#	SConscript('tests/SConscript', variant_dir = 'build/tests', duplicate = 0)
+
 # Uninstall section
 env = Environment()
 uninstaller = env.Command('uninstall', None, Delete(env.FindInstalledFiles()))

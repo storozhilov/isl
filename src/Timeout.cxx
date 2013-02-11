@@ -30,7 +30,7 @@ Timeout operator/(const Timeout& lhs, size_t rhs)
 	if (rhs == 0) {
 		throw Exception(Error(SOURCE_LOCATION_ARGS, "Timeout division by zero error"));
 	}
-	return Timeout(TimeSpec::makeTimeout(lhs.timeSpec().tv_sec / rhs, lhs.timeSpec().tv_nsec / rhs));
+	return Timeout(lhs.timeSpec().tv_sec / rhs, lhs.timeSpec().tv_nsec / rhs);
 }
 
 } // namespace isl

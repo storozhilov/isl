@@ -282,16 +282,22 @@ bool HttpMessageParser::parse(char ch)
 	return bodyByteExtracted;
 }
 
+bool HttpMessageParser::bodyExpected() const
+{
+	return _state == ParsingIdentityBody || _state == ParsingChunk;
+}
+
 std::pair<size_t, size_t> HttpMessageParser::parse(const char * parseBuffer, size_t parseBufferSize, char * bodyBuffer, size_t bodyBufferSize)
 {
 	size_t bytesParsed = 0;
 	size_t bodyBytes = 0;
 	while (bytesParsed < parseBufferSize) {
+		if (bodyExpected() && (bodyBytes >= bodyBufferSize)) {
+			// Body buffer has no space for body byte
+			break;
+		}
 		char ch = *(parseBuffer + bytesParsed++);
 		if (parse(ch)) {
-			if (bodyBytes >= bodyBufferSize) {
-				throw Exception(::isl::Error(SOURCE_LOCATION_ARGS, "Body buffer overflow has been detected"));
-			}
 			*(bodyBuffer + bodyBytes++) = ch;
 		}
 		if (isCompleted() || isBad()) {

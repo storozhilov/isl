@@ -25,9 +25,21 @@ struct timespec TimeSpec::makeTimestamp(time_t sec, long int nsec)
 
 struct timespec TimeSpec::makeTimeout(time_t sec, long int nsec)
 {
-	struct timespec ts;
+	/*struct timespec ts;
 	ts.tv_sec = (sec < 0 || nsec < 0) ? 0 : sec + nsec / 1000000000L;
 	ts.tv_nsec = (sec < 0 || nsec < 0) ? 0 : nsec % 1000000000L;
+	return ts;*/
+	struct timespec ts;
+	ts.tv_sec = sec + nsec / 1000000000L;
+	ts.tv_nsec = nsec % 1000000000L;
+	if (ts.tv_nsec < 0) {
+		ts.tv_nsec += 1000000000L;
+		--ts.tv_sec;
+	}
+	if (ts.tv_sec < 0) {
+		ts.tv_sec = 0;
+		ts.tv_nsec = 0L;
+	}
 	return ts;
 }
 

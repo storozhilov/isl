@@ -234,13 +234,17 @@ public:
 	  \return TRUE if the parsed character is the next HTTP-message body byte
 	*/
 	bool parse(char ch);
+	//! Inspects if the next character expected to be of HTTP-message body
+	bool bodyExpected() const;
 	//! Parses buffer for an HTTP-message and puts it's body to the supplied buffer
 	/*!
+	  This method parses a buffer until complete or bad HTTP-message has been parsed or when the
+	  supplied body buffer has no space for the body of the HTTP-message.
 	  \param parseBuffer Pointer to the buffer to parse
 	  \param parseBufferSize Size of the buffer to parse
 	  \param bodyBuffer Pointer to buffer where to store HTTP-message body
 	  \param bodyBufferSize Size of the buffer where to store HTTP-message body
-	  \return Pair with parsed bytes amount and the amount of bytes amount, which has been stored in body buffer
+	  \return Pair with parsed bytes amount and the amount of bytes, which has been stored in body buffer
 	*/
 	std::pair<size_t, size_t> parse(const char * parseBuffer, size_t parseBufferSize, char * bodyBuffer, size_t bodyBufferSize);
 	//! Parses buffer for an HTTP-message and stores it's body into the supplied stream

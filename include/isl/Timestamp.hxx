@@ -143,12 +143,22 @@ inline Timestamp& operator+=(Timestamp& lhs, const Timeout& rhs)
 /*!
   \param lhs Timestamp to subtract from
   \param rhs Timeout to subtract
-  \return Subtraction result
+  \return Subtraction result timestamp
 */
 inline Timestamp operator-(const Timestamp& lhs, const Timeout& rhs)
 {
 	return Timestamp(TimeSpec::makeTimestamp(lhs.timeSpec().tv_sec - rhs.timeSpec().tv_sec,
 				lhs.timeSpec().tv_nsec - rhs.timeSpec().tv_nsec));
+}
+//! Subtration operator
+/*!
+  \param lhs Timestamp to subtract from
+  \param rhs Timestamp to subtract
+  \return Subtraction result timeout
+*/
+inline Timeout operator-(const Timestamp& lhs, const Timestamp& rhs)
+{
+	return Timeout(lhs.timeSpec().tv_sec - rhs.timeSpec().tv_sec, lhs.timeSpec().tv_nsec - rhs.timeSpec().tv_nsec);
 }
 //! Decrement operator
 /*!

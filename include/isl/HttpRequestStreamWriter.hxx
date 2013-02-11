@@ -1,7 +1,7 @@
 #ifndef ISL__HTTP_REQUEST_STREAM_WRITER__HXX
 #define ISL__HTTP_REQUEST_STREAM_WRITER__HXX
 
-#include <isl/HttpMessageStreamWriter.hxx>
+#include <isl/AbstractHttpMessageStreamWriter.hxx>
 
 namespace isl
 {
@@ -10,22 +10,17 @@ namespace isl
 /*!
   TODO <tt>setCookie(...)</tt> method
 */
-class HttpRequestStreamWriter : public HttpMessageStreamWriter
+class HttpRequestStreamWriter : public AbstractHttpMessageStreamWriter
 {
 public:
 	//! Constructs HTTP-request stream writer
 	/*!
-	  \param device Reference to the I/O-device to write data to
 	  \param uri Request URI
 	  \param method HTTP-method
 	  \param version HTTP-version
 	*/
-	HttpRequestStreamWriter(AbstractIODevice& device, const std::string& uri, const std::string& method = std::string("GET"), const std::string& version = std::string("HTTP/1.1")) :
-		HttpMessageStreamWriter(device),
-		_method(method),
-		_uri(uri),
-		_version(version)
-	{}
+	HttpRequestStreamWriter(const std::string& uri, const std::string& method = std::string("GET"),
+			const std::string& version = std::string("HTTP/1.1"));
 	//! Returns HTTP-method of the request
 	inline std::string method() const
 	{
@@ -47,7 +42,7 @@ public:
 	*/
 	inline void reset(const std::string& uri)
 	{
-		HttpMessageStreamWriter::reset();
+		AbstractHttpMessageStreamWriter::reset();
 		_uri = uri;
 	}
 	//! Resets HTTP-request stream writer
@@ -57,7 +52,7 @@ public:
 	*/
 	inline void reset(const std::string& uri, const std::string& method)
 	{
-		HttpMessageStreamWriter::reset();
+		AbstractHttpMessageStreamWriter::reset();
 		_uri = uri;
 		_method = method;
 	}
@@ -69,7 +64,7 @@ public:
 	*/
 	inline void reset(const std::string& uri, const std::string& method, const std::string& version)
 	{
-		HttpMessageStreamWriter::reset();
+		AbstractHttpMessageStreamWriter::reset();
 		_uri = uri;
 		_method = method;
 		_version = version;
@@ -77,16 +72,7 @@ public:
 private:
 	HttpRequestStreamWriter();
 
-	virtual std::string composeFirstLine() const
-	{
-		std::string firstLine(_method);
-		firstLine.append(1, ' ');
-		firstLine.append(_uri);
-		firstLine.append(1, ' ');
-		firstLine.append(_version);
-		firstLine.append("\r\n");
-		return firstLine;
-	}
+	virtual std::string composeFirstLine() const;
 
 	std::string _method;
 	std::string _uri;

@@ -12,7 +12,7 @@
 #include <isl/FileLogTarget.hxx>
 #include <isl/DateTime.hxx>
 //#include <isl/VariantFormatter.hxx>
-#include <isl/HttpRequestStreamReader.hxx>
+//#include <isl/HttpRequestStreamReader.hxx>
 #include <isl/AbstractMessageConsumer.hxx>
 #include <isl/MessageProvider.hxx>
 #include <isl/MessageFan.hxx>

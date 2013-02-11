@@ -2,15 +2,16 @@ import os
 
 env = Environment(
 CCFLAGS = ['-g', '-Wall'],
-CPPPATH = '../include',
+CPPPATH = ['../include', '/usr/src/gtest/'],
 LIBPATH = '../lib',
 LIBS = ['isl', 'pthread', 'rt']
 )
 env.Append(ENV = {'PATH' : os.environ['PATH']})
 
 datetimeTestBuilder = env.Program('datetime/datetime', Glob('datetime/main.cxx'))
+datetimeTestBuilder1 = env.Program('dt', ['datetime.cxx', 'gtest.cxx'])
 timerTestBuilder = env.Program('timer/timer', Glob('timer/main.cxx'))
 httpTestBuilder = env.Program('http/http', Glob('http/main.cxx'))
 threadTestBuilder = env.Program('thread/thread', Glob('thread/main.cxx'))
 
-Default([datetimeTestBuilder, timerTestBuilder, httpTestBuilder, threadTestBuilder])
+Default([datetimeTestBuilder, datetimeTestBuilder1, timerTestBuilder, httpTestBuilder, threadTestBuilder])

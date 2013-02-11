@@ -5,7 +5,8 @@
 #include <isl/Exception.hxx>
 #include <isl/Http.hxx>
 #include <isl/FileLogTarget.hxx>
-#include <isl/HttpRequestStreamReader.hxx>
+#include <isl/HttpMessageStreamReader.hxx>
+#include <isl/HttpRequestParser.hxx>
 #include <isl/HttpResponseStreamWriter.hxx>
 #include <memory>
 #include <iostream>
@@ -24,42 +25,39 @@ int main(int argc, char *argv[])
 	s.open();
 	s.bind(isl::TcpAddrInfo(isl::TcpAddrInfo::IpV4, isl::TcpAddrInfo::WildcardAddress, LISTEN_PORT));
 	s.listen(LISTEN_BACKLOG);
+	const isl::Timeout timeout(TRANSMISSION_SECONDS_TIMEOUT);
 	while (true) {
 		std::auto_ptr<isl::TcpSocket>ss(s.accept(isl::Timeout(ACCEPT_SECONDS_TIMEOUT)));
 		if (!ss.get()) {
 			std::cout << "Listen timeout has been expired" << std::endl;
 			continue;
 		}
-		isl::HttpRequestStreamReader r(*ss.get());
+		isl::HttpRequestParser requestParser;
+		isl::HttpMessageStreamReader r(requestParser);
 		unsigned int totalBytesRead = 0;
 		char buf[BUFFER_SIZE];
 		try {
 			while (!r.parser().isCompleted()) {
-				//bool timeoutExpired;
-				//unsigned int bytesRead = r.read(buf, BUFFER_SIZE, isl::Timeout(TRANSMISSION_SECONDS_TIMEOUT), &timeoutExpired);
-				//if (timeoutExpired) {
-				//	throw isl::Exception(isl::Error(SOURCE_LOCATION_ARGS, "Receiving data timeout expired"));
-				//}
-				size_t rawBytesFetched;
-				size_t bytesRead = r.read(buf, BUFFER_SIZE, isl::Timeout(TRANSMISSION_SECONDS_TIMEOUT), &rawBytesFetched);
-				if (rawBytesFetched <= 0) {
+				size_t bytesReadFromDevice;
+				std::pair<bool, size_t> res = r.read(*ss.get(), isl::Timestamp::limit(timeout), buf, BUFFER_SIZE, &bytesReadFromDevice);
+				if (bytesReadFromDevice <= 0) {
 					throw isl::Exception(isl::Error(SOURCE_LOCATION_ARGS, "Receiving data timeout expired"));
 				}
-				if (bytesRead > 0) {
-					std::cout.write(buf, bytesRead);
+				if (res.second > 0) {
+					std::cout.write(buf, res.second);
 					std::cout.flush();
+					totalBytesRead += res.second;
 				}
-				totalBytesRead += bytesRead;
 			}
-			std::cout << "Source filename is \"" << r.uri() << '"' << std::endl;
-			std::cout << "Current directory is \"" << isl::Http::paramValue(r.parser().header(), "X-Current-Directory") << '"' << std::endl;
-			std::cout << "Target filename/directory is \"" << isl::Http::paramValue(r.parser().header(), "X-Dest-Filename") << '"' << std::endl;
-			isl::HttpResponseStreamWriter w(*ss.get());
+			std::cout << "Source filename is \"" << requestParser.uri() << '"' << std::endl;
+			std::cout << "Current directory is \"" << isl::Http::paramValue(requestParser.header(), "X-Current-Directory") << '"' << std::endl;
+			std::cout << "Target filename/directory is \"" << isl::Http::paramValue(requestParser.header(), "X-Dest-Filename") << '"' << std::endl;
+			isl::HttpResponseStreamWriter w;
 			w.setHeaderField("X-Copy-Status", "OK");
 			/*if (!w.writeBodyless()) {
 				while (!w.flush());
 			}*/
-			w.writeBodyless();
+			w.writeBodyless(*ss.get(), isl::Timestamp::limit(isl::Timeout(TRANSMISSION_SECONDS_TIMEOUT)));
 		} catch (isl::Exception& e) {
 			std::cerr << e.what() << std::endl;
 			std::cerr << "HTTP-request parser state is " << r.parser().state() << std::endl;

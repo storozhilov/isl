@@ -44,20 +44,17 @@ const char buf[] =
 	"0\r\n"
 	"\r\n";
 
-int main(int argc, char *argv[])
+void parseToStream()
 {
-
-
-
-	std::ostringstream body;
 	size_t bytesParsed = 0;
 	isl::HttpMessageParser parser(20, 4096, 20);
+	std::ostringstream body;
 	while (bytesParsed < strlen(buf)) {
 		body.str("");
 		bytesParsed += parser.parse(buf + bytesParsed, sizeof(buf) - bytesParsed, body);
 		if (parser.isBad()) {
 			std::cerr << parser.error()->message() << std::endl;
-			return 1;
+			return;
 		}
 		if (parser.isCompleted()) {
 			std::cout << "-------------------------------------" << std::endl;
@@ -67,10 +64,47 @@ int main(int argc, char *argv[])
 				std::cout << i->first << ": " << i->second << std::endl;
 			}
 			if (!body.str().empty()) {
-				std::cout << std::endl << std::endl << body.str() << std::endl;
+				std::cout << std::endl << body.str() << std::endl;
 			}
 		}
 	}
+}
+
+void parseToBuffer()
+{
+	//std::ostringstream body;
+	size_t bytesParsed = 0;
+	isl::HttpMessageParser parser(20, 4096, 20);
+	char body[sizeof(buf)];
+	while (bytesParsed < strlen(buf)) {
+		//body.str("");
+		//bytesParsed += parser.parse(buf + bytesParsed, sizeof(buf) - bytesParsed, body);
+		std::pair<size_t, size_t> res = parser.parse(buf + bytesParsed, sizeof(buf) - bytesParsed, body, sizeof(body));
+		bytesParsed += res.first;
+		if (parser.isBad()) {
+			std::cerr << parser.error()->message() << std::endl;
+			return;
+		}
+		if (parser.isCompleted()) {
+			std::cout << "-------------------------------------" << std::endl;
+			std::cout << "HTTP-message has been parsed:" << std::endl << std::endl <<
+				parser.firstToken() << ' ' << parser.secondToken() << ' ' << parser.thirdToken() << std::endl;
+			for (isl::Http::Params::const_iterator i = parser.header().begin(); i != parser.header().end(); ++i) {
+				std::cout << i->first << ": " << i->second << std::endl;
+			}
+			if (res.second > 0) {
+				//std::cout << std::endl << body.str() << std::endl;
+				std::cout << std::endl << std::string(body, res.second) << std::endl;
+			}
+		}
+	}
+}
+
+int main(int argc, char *argv[])
+{
+	//parseToStream();
+	parseToBuffer();
+
 
 	/*char * readBuf = buf;
 	char bodyBuf[BUF_SIZE];

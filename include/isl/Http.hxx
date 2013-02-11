@@ -52,8 +52,8 @@ public:
 	//! Parses URI
 	/*!
 	  \param uriStr String to parse
-	  \param path Reference to a string where URI's path should be stored in
-	  \param path Reference to a string where URI's query should be stored in
+	  \param path Reference to a string where percent-decoded URI's path should be stored in
+	  \param path Reference to a string where raw URI's query should be stored in
 	*/
 	static void parseUri(const std::string& uriStr, std::string& path, std::string& query);
 	//! Composes URI
@@ -63,10 +63,10 @@ public:
 	  \return Composed URI
 	*/
 	static std::string composeUri(const std::string& path, const std::string& query = std::string());
-	//! Extracts parameters from the encoded string
+	//! Extracts parameters from the percent-encoded string
 	/*!
 	  \param paramsStr String to parse
-	  \param params Reference to map where params should be stored in
+	  \param params Reference to container where params should be stored in
 	*/
 	static void parseParams(const std::string& paramsStr, Params& params);
 	//! Encodes params

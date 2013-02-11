@@ -60,7 +60,7 @@ private:
 				}
 			} else {
 				oss << "<p>URI: &quot;" << parser.uri() << "&quot;</p>" <<
-					"<p>path: &quot;" << isl::String::decodePercent(reader.path()) << "&quot;</p>" <<
+					"<p>path: &quot;" << reader.path() << "&quot;</p>" <<
 					"<p>query: &quot;" << reader.query() << "&quot;</p>";
 				for (isl::Http::Params::const_iterator i = reader.get().begin(); i != reader.get().end(); ++i) {
 					oss << "<p>get[&quot;" << i->first << "&quot;] = &quot;" << i->second << "&quot;</p>";
@@ -74,9 +74,9 @@ private:
 			}
 			oss << "</body></html>";
 			// Sending an HTTP-response to the client
-			isl::HttpResponseStreamWriter responseWriter(socket());
+			isl::HttpResponseStreamWriter responseWriter;
 			responseWriter.setHeaderField("Content-Type", "text/html; charset=utf-8");
-			responseWriter.writeOnce(oss.str());
+			responseWriter.writeOnce(socket(), oss.str(), isl::Timestamp::limit(isl::Timeout(TRANSMISSION_SECONDS_TIMEOUT)));
 		}
 	};
 	// Task creation factory method definition

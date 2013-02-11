@@ -119,8 +119,7 @@ private:
 */
 inline Timeout operator+(const Timeout& lhs, const Timeout& rhs)
 {
-	return Timeout(TimeSpec::makeTimeout(lhs.timeSpec().tv_sec + rhs.timeSpec().tv_sec,
-				lhs.timeSpec().tv_nsec + rhs.timeSpec().tv_nsec));
+	return Timeout(lhs.timeSpec().tv_sec + rhs.timeSpec().tv_sec, lhs.timeSpec().tv_nsec + rhs.timeSpec().tv_nsec);
 }
 //! Increment operator
 /*!
@@ -141,8 +140,7 @@ inline Timeout& operator+=(Timeout& lhs, const Timeout& rhs)
 */
 inline Timeout operator-(const Timeout& lhs, const Timeout& rhs)
 {
-	return Timeout(TimeSpec::makeTimeout(lhs.timeSpec().tv_sec - rhs.timeSpec().tv_sec,
-				lhs.timeSpec().tv_nsec - rhs.timeSpec().tv_nsec));
+	return Timeout(lhs.timeSpec().tv_sec - rhs.timeSpec().tv_sec, lhs.timeSpec().tv_nsec - rhs.timeSpec().tv_nsec);
 }
 //! Decrement operator
 /*!
@@ -163,7 +161,7 @@ inline Timeout& operator-=(Timeout& lhs, const Timeout& rhs)
 */
 inline Timeout operator*(const Timeout& lhs, size_t rhs)
 {
-	return Timeout(TimeSpec::makeTimeout(lhs.timeSpec().tv_sec * rhs, lhs.timeSpec().tv_nsec * rhs));
+	return Timeout(lhs.timeSpec().tv_sec * rhs, lhs.timeSpec().tv_nsec * rhs);
 }
 //! Compound assignment multiplication operator
 /*!

@@ -2,6 +2,9 @@
 #include <isl/Exception.hxx>
 #include <isl/Error.hxx>
 
+#include <isl/common.hxx>
+#include <isl/LogMessage.hxx>
+
 namespace isl
 {
 
@@ -22,8 +25,8 @@ HttpMessageReader::~HttpMessageReader()
 void HttpMessageReader::reset()
 {
 	_parser.reset();
-	_bytesRead = 0,
-	_bytesParsed = 0,
+	_bytesRead = 0;
+	_bytesParsed = 0;
 	_body.clear();
 }
 
@@ -31,6 +34,9 @@ bool HttpMessageReader::read(AbstractIODevice& device, const Timestamp& limit, s
 {
 	if (bytesReadFromDevice) {
 		*bytesReadFromDevice = 0;
+	}
+	if (_parser.isCompleted()) {
+		reset();
 	}
 	while (true) {
 		if (_bytesParsed < _bytesRead) {
@@ -41,30 +47,26 @@ bool HttpMessageReader::read(AbstractIODevice& device, const Timestamp& limit, s
 				throw Exception(Error(SOURCE_LOCATION_ARGS, "Request entity is too long"));	// Maybe an own error class?
 			}
 			_body.append(&_bodyBuffer[0], res.second);
-			if (_parser.isBad()) {
-				return false;
-			}
 			if (_parser.isCompleted()) {
 				return true;
 			}
-			if (Timestamp::now() >= limit) {
-				// Time limit has been reached
-				break;
+			if (_parser.isBad() || (Timestamp::now() >= limit)) {
+				// Bad request received or the time limit has been reached
+				return false;
 			}
 		} else {
 			// Reading next portion of data from the device into the read buffer
-			_bytesParsed = 0;
 			_bytesRead = device.read(&_readBuffer[0], _bufferSize, limit.leftTo());
 			if (_bytesRead <= 0) {
 				// Data read timeout has been expired
-				break;
+				return false;
 			}
+			_bytesParsed = 0;
 			if (bytesReadFromDevice) {
 				(*bytesReadFromDevice) += _bytesRead;
 			}
 		}
 	}
-	return false;
 }
 
 } // namespace isl

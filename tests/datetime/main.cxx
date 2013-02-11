@@ -4,7 +4,7 @@
 
 int main(int argc, char *argv[])
 {
-	struct timespec ts1 = isl::TimeSpec::now();
+	//struct timespec ts1 = isl::TimeSpec::now();
 	/*struct timespec ts2 = isl::operator+(ts1, isl::Timeout(0, 999999999).timeSpec());
 	struct timespec ts3 = isl::operator-(ts1, isl::Timeout(1, 999999999).timeSpec());
 	std::clog << "ts1 = {" << ts1.tv_sec << ", " << ts1.tv_nsec << "}" << std::endl;

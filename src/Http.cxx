@@ -16,7 +16,7 @@ void Http::parseUri(const std::string& uriStr, std::string& path, std::string& q
 		path = uriStr;
 		query.clear();
 	} else {
-		path = uriStr.substr(0, questionMarkPos);
+		path = String::decodePercent(uriStr.substr(0, questionMarkPos));
 		query = uriStr.substr(questionMarkPos + 1);
 	}
 }

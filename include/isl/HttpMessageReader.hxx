@@ -47,7 +47,7 @@ public:
 	}
 	//! Resets reader to it's initial state
 	virtual void reset();
-	//! Fetches a request
+	//! Fetches an HTTP-message
 	/*!
 	  \param device Reference to the I/O-device to fetch data from
 	  \param limit Read data limit timestamp
