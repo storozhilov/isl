@@ -60,16 +60,21 @@ void HttpRequestReader::reset()
 	_cookiesExtracted = false;
 }
 
-bool HttpRequestReader::read(AbstractIODevice& device, const Timestamp& limit, size_t * bytesReadFromDevice)
+void HttpRequestReader::onNewMessage()
 {
-	bool result = HttpMessageReader::read(device, limit, bytesReadFromDevice);
-	if (result) {
-		_getExtracted = false;
-		_postExtracted = false;
-		_cookiesExtracted = false;
-		Http::parseUri(_parser.uri(), _path, _query);
-	}
-	return result;
+	_path.clear();
+	_query.clear();
+	_get.clear();
+	_getExtracted = false;
+	_post.clear();
+	_postExtracted = false;
+	_cookies.clear();
+	_cookiesExtracted = false;
+}
+
+void HttpRequestReader::onCompleteMessage()
+{
+	Http::parseUri(_parser.uri(), _path, _query);
 }
 
 } // namespace isl

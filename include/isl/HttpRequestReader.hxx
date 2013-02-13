@@ -41,15 +41,9 @@ public:
 	const Http::Params& post() const;
 	//! Resets reader to it's initial state
 	virtual void reset();
-	//! Fetches a request
-	/*!
-	  \param device Reference to the I/O-device to fetch data from
-	  \param limit Read data limit timestamp
-	  \param bytesReadFromDevice Pointer to memory location where number of bytes have been fetched from the device is to be put
-	  \return TRUE if the complete HTTP-message has been received or FALSE otherwise
-	  \note This method throws an Exception if the message body is too long or HTTP-message parser is already in error state.
-	*/
-	virtual bool read(AbstractIODevice& device, const Timestamp& limit, size_t * bytesReadFromDevice = 0);
+protected:
+	virtual void onNewMessage();
+	virtual void onCompleteMessage();
 private:
 	HttpRequestReader();
 

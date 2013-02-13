@@ -22,24 +22,17 @@ HttpMessageReader::HttpMessageReader(HttpMessageParser& parser, size_t maxBodySi
 HttpMessageReader::~HttpMessageReader()
 {}
 
-void HttpMessageReader::reset()
-{
-	_parser.reset();
-	_bytesRead = 0;
-	_bytesParsed = 0;
-	_body.clear();
-}
-
 bool HttpMessageReader::read(AbstractIODevice& device, const Timestamp& limit, size_t * bytesReadFromDevice)
 {
 	if (bytesReadFromDevice) {
 		*bytesReadFromDevice = 0;
 	}
-	if (_parser.isCompleted()) {
-		reset();
-	}
 	while (true) {
 		if (_bytesParsed < _bytesRead) {
+			if (_parser.isCompleted()) {
+				_body.clear();
+				onNewMessage();
+			}
 			// Parsing the rest of the unparsed data in the read buffer
 			std::pair<size_t, size_t> res = _parser.parse(&_readBuffer[0] + _bytesParsed, _bytesRead - _bytesParsed, &_bodyBuffer[0], _bufferSize);
 			_bytesParsed += res.first;
@@ -48,6 +41,7 @@ bool HttpMessageReader::read(AbstractIODevice& device, const Timestamp& limit, s
 			}
 			_body.append(&_bodyBuffer[0], res.second);
 			if (_parser.isCompleted()) {
+				onCompleteMessage();
 				return true;
 			}
 			if (_parser.isBad() || (Timestamp::now() >= limit)) {
@@ -67,6 +61,14 @@ bool HttpMessageReader::read(AbstractIODevice& device, const Timestamp& limit, s
 			}
 		}
 	}
+}
+
+void HttpMessageReader::reset()
+{
+	_parser.reset();
+	_bytesRead = 0;
+	_bytesParsed = 0;
+	_body.clear();
 }
 
 } // namespace isl

@@ -230,7 +230,7 @@ int main(int argc, char *argv[])
   (A.K.A. &quot;FreeBSD License&quot;) terms. It means you can use it in any application/library you want including commercial one
   with minimum restrictions.
  
-  Copyright (c) 2011-2012, <a href="http://storozhilov.com/">Ilya V. Storozhilov</a>. All rights reserved.
+  Copyright (c) 2011-2013, <a href="http://storozhilov.com/">Ilya V. Storozhilov</a>. All rights reserved.
 
   \verbatim
   Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:

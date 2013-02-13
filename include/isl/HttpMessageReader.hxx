@@ -45,8 +45,6 @@ public:
 	{
 		return _body;
 	}
-	//! Resets reader to it's initial state
-	virtual void reset();
 	//! Fetches an HTTP-message
 	/*!
 	  \param device Reference to the I/O-device to fetch data from
@@ -55,7 +53,14 @@ public:
 	  \return TRUE if the complete HTTP-message has been received or FALSE otherwise
 	  \note This method throws an Exception if the message body is too long or HTTP-message parser is already in error state.
 	*/
-	virtual bool read(AbstractIODevice& device, const Timestamp& limit, size_t * bytesReadFromDevice = 0);
+	bool read(AbstractIODevice& device, const Timestamp& limit, size_t * bytesReadFromDevice = 0);
+	//! Resets reader to it's initial state
+	virtual void reset();
+protected:
+	virtual void onNewMessage()
+	{}
+	virtual void onCompleteMessage()
+	{}
 private:
 	HttpMessageParser& _parser;
 	const size_t _maxBodySize;
