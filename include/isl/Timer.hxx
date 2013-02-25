@@ -9,8 +9,8 @@
 #include <list>
 #include <vector>
 
-#ifndef ISL__TIMER_DEFAULT_MAX_SCHEDULED_TASK_AMOUNT
-#define ISL__TIMER_DEFAULT_MAX_SCHEDULED_TASK_AMOUNT 1024
+#ifndef ISL__TIMER_DEFAULT_MAX_SCHEDULED_TASKS_AMOUNT
+#define ISL__TIMER_DEFAULT_MAX_SCHEDULED_TASKS_AMOUNT 1024
 #endif
 
 namespace isl
@@ -18,6 +18,8 @@ namespace isl
 
 //! High-precision timer
 /*!
+  TODO Migration to StateSetSubsystem::Thread class with internal clock ticker.
+
   Timer executes tasks in a separate thread. A task could be:
 
   - <strong>Periodic</strong>, which is to be registered during timer idling only and executed periodically;
@@ -31,7 +33,7 @@ class Timer : public StateSetSubsystem
 {
 public:
 	enum Constants {
-		DefaultMaxScheduledTasksAmount = ISL__TIMER_DEFAULT_MAX_SCHEDULED_TASK_AMOUNT
+		DefaultMaxScheduledTasksAmount = ISL__TIMER_DEFAULT_MAX_SCHEDULED_TASKS_AMOUNT
 	};
 	//! Constructs timer
 	/*!
@@ -62,8 +64,6 @@ public:
 		{}
 		//! Task execution asbtract virtual method
 		/*!
-		  Exception thrown from this method directs timer to terminate it's execution.
-
 		  \param timer Reference to timer
 		  \param lastExpiredTimestamp Last expired timestamp for the task execution
 		  \param expiredTimestamps Expired timestamps amount
@@ -73,7 +73,7 @@ public:
 	private:
 		friend class Timer;
 	};
-	//! Abstract periodic task for the timer
+	//! Abstract scheduled task for the timer
 	class AbstractScheduledTask
 	{
 	public:
@@ -86,8 +86,6 @@ public:
 	protected:
 		//! Task execution asbtract virtual method
 		/*!
-		  Exception thrown from this method directs timer to terminate it's execution.
-
 		  \param timer Reference to timer
 		  \param timestamp Task execution timestamp in timer
 		*/
