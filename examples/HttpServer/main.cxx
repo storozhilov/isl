@@ -23,7 +23,7 @@ public:
 		addListener(isl::TcpAddrInfo(isl::TcpAddrInfo::IpV4, isl::TcpAddrInfo::WildcardAddress, LISTEN_PORT));
 	}
 private:
-	// Returning HTTP-request properties task class to execute in task dispatcher
+	// Task class which is returning to client a web-page with properties of the HTTP-request he/she issued
 	class HttpTask : public AbstractTask
 	{
 	public:
@@ -44,13 +44,14 @@ private:
 				if (requestFetched) {
 					isl::Log::debug().log(isl::LogMessage(SOURCE_LOCATION_ARGS, "Request has been fetched, bytesReadFromDevice = ") << bytesReadFromDevice);
 				} else {
-					isl::Log::warning().log(isl::LogMessage(SOURCE_LOCATION_ARGS, "Request has NOT been fetched, bytesReadFromDevice = ") << bytesReadFromDevice);
+					isl::Log::warning().log(isl::LogMessage(SOURCE_LOCATION_ARGS, "Request have NOT been fetched, bytesReadFromDevice = ") << bytesReadFromDevice);
+					return;
 				}
 			} catch (std::exception& e) {
-				std::cerr << e.what() << std::endl;
+				isl::Log::error().log(isl::ExceptionLogMessage(SOURCE_LOCATION_ARGS, e));
 				return;
 			} catch (...) {
-				std::cerr << "Unknown error occured." << std::endl;
+				isl::Log::error().log(isl::LogMessage(SOURCE_LOCATION_ARGS, "Unknown error occured"));
 				return;
 			}
 			// Composing an HTTP-response
