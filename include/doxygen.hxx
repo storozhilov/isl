@@ -142,7 +142,7 @@ private:
 	private:
 		HttpTask();
 		// Task execution method definition
-		virtual void executeImpl(isl::TaskDispatcher<AbstractTask>& taskDispatcher)
+		virtual void executeImpl(TaskDispatcherType& taskDispatcher)
 		{
 			isl::HttpRequestParser parser;
 			isl::HttpRequestReader reader(parser);

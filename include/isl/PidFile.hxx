@@ -11,8 +11,14 @@ class PidFile
 {
 public:
 	//! Constructor
+	/*!
+	  \param fileName PID file name
+	*/
 	PidFile(const char * fileName);
 	//! Constructor
+	/*!
+	  \param fileName PID file name
+	*/
 	PidFile(const std::string& fileName);
 	//! Destructor
 	~PidFile();
