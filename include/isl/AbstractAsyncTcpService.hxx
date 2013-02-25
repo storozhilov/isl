@@ -16,6 +16,8 @@ namespace isl
 class AbstractAsyncTcpService : public StateSetSubsystem
 {
 public:
+	class AbstractTask;
+	typedef MultiTaskDispatcher<AbstractTask> MultiTaskDispatcherType;
 	//! Asynchronous TCP-service abstract task
 	class AbstractTask
 	{
@@ -39,7 +41,7 @@ public:
 		/*!
 		  \param taskDispatcher Reference to the task dispatcher subsystem
 		*/
-		inline void executeReceive(MultiTaskDispatcher<AbstractTask>& taskDispatcher)
+		inline void executeReceive(MultiTaskDispatcherType& taskDispatcher)
 		{
 			executeReceiveImpl(taskDispatcher);
 		}
@@ -47,7 +49,7 @@ public:
 		/*!
 		  \param taskDispatcher Reference to the task dispatcher subsystem
 		*/
-		inline void executeSend(MultiTaskDispatcher<AbstractTask>& taskDispatcher)
+		inline void executeSend(MultiTaskDispatcherType& taskDispatcher)
 		{
 			executeSendImpl(taskDispatcher);
 		}
@@ -58,14 +60,14 @@ public:
 
 		  \param taskDispatcher Reference to the task dispatcher subsystem
 		*/
-		virtual void executeReceiveImpl(MultiTaskDispatcher<AbstractTask>& taskDispatcher) = 0;
+		virtual void executeReceiveImpl(MultiTaskDispatcherType& taskDispatcher) = 0;
 		//! Send data task execution abstract virtual method to override in subclasses
 		/*!
 		  This method is to be executed in a separate worker thread.
 
 		  \param taskDispatcher Reference to the task dispatcher subsystem
 		*/
-		virtual void executeSendImpl(MultiTaskDispatcher<AbstractTask>& taskDispatcher) = 0;
+		virtual void executeSendImpl(MultiTaskDispatcherType& taskDispatcher) = 0;
 	private:
 		std::auto_ptr<TcpSocket> _socketAutoPtr;
 	};
@@ -180,7 +182,7 @@ private:
 
 	void resetListenerThreads();
 
-	MultiTaskDispatcher<AbstractTask> _taskDispatcher;
+	MultiTaskDispatcherType _taskDispatcher;
 	int _lastListenerConfigId;
 	ListenerConfigs _listenerConfigs;
 	ListenersContainer _listeners;

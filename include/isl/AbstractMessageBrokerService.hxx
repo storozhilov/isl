@@ -274,7 +274,7 @@ protected:
 
 		  \param taskDispatcher Reference to the task dispatcher subsystem
 		*/
-		virtual void executeReceiveImpl(MultiTaskDispatcher<AbstractAsyncTcpService::AbstractTask>& taskDispatcher)
+		virtual void executeReceiveImpl(MultiTaskDispatcherType& taskDispatcher)
 		{
 			isl::Log::debug().log(isl::LogMessage(SOURCE_LOCATION_ARGS, "Receiver thread execution has been started"));
 			// Triggering before execute event
@@ -350,7 +350,7 @@ protected:
 
 		  \param taskDispatcher Reference to the task dispatcher subsystem
 		*/
-		virtual void executeSendImpl(MultiTaskDispatcher<AbstractAsyncTcpService::AbstractTask>& taskDispatcher)
+		virtual void executeSendImpl(MultiTaskDispatcherType& taskDispatcher)
 		{
 			isl::Log::debug().log(isl::LogMessage(SOURCE_LOCATION_ARGS, "Sender thread execution has been started"));
 			// Triggering before execute event

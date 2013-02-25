@@ -16,6 +16,8 @@ namespace isl
 class AbstractSyncTcpService : public StateSetSubsystem
 {
 public:
+	class AbstractTask;
+	typedef TaskDispatcher<AbstractTask> TaskDispatcherType;
 	//! Synchronous TCP-service abstract task
 	class AbstractTask
 	{
@@ -39,7 +41,7 @@ public:
 		/*!
 		  \param taskDispatcher Reference to the task dispatcher subsystem
 		*/
-		inline void execute(TaskDispatcher<AbstractTask>& taskDispatcher)
+		inline void execute(TaskDispatcherType& taskDispatcher)
 		{
 			executeImpl(taskDispatcher);
 		}
@@ -48,7 +50,7 @@ public:
 		/*!
 		  \param taskDispatcher Reference to the task dispatcher subsystem
 		*/
-		virtual void executeImpl(TaskDispatcher<AbstractTask>& taskDispatcher) = 0;
+		virtual void executeImpl(TaskDispatcherType& taskDispatcher) = 0;
 	private:
 		std::auto_ptr<TcpSocket> _socketAutoPtr;
 	};
@@ -163,7 +165,7 @@ private:
 
 	void resetListenerThreads();
 
-	TaskDispatcher<AbstractTask> _taskDispatcher;
+	TaskDispatcherType _taskDispatcher;
 	int _lastListenerConfigId;
 	ListenerConfigs _listenerConfigs;
 	ListenersContainer _listeners;

@@ -6,12 +6,15 @@
 namespace isl
 {
 
-//! Class for savid PID file of the process
+//! Saves a process ID to file in constructor and deletes this file in destructor
 class PidFile
 {
 public:
+	//! Constructor
 	PidFile(const char * fileName);
+	//! Constructor
 	PidFile(const std::string& fileName);
+	//! Destructor
 	~PidFile();
 private:
 	PidFile();

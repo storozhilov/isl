@@ -39,10 +39,13 @@ private:
 			isl::HttpRequestReader reader(parser);
 			bool requestFetched = false;
 			try {
-				std::clog << "Starting to read HTTP-request" << std::endl;
 				size_t bytesReadFromDevice;
 				requestFetched = reader.read(socket(), isl::Timestamp::limit(isl::Timeout(TRANSMISSION_SECONDS_TIMEOUT)), &bytesReadFromDevice);
-				std::clog << (requestFetched ? "Request has been fetched" : "Request has NOT been fetched") << ", bytesReadFromDevice = " << bytesReadFromDevice << std::endl;
+				if (requestFetched) {
+					isl::Log::debug().log(isl::LogMessage(SOURCE_LOCATION_ARGS, "Request has been fetched, bytesReadFromDevice = ") << bytesReadFromDevice);
+				} else {
+					isl::Log::warning().log(isl::LogMessage(SOURCE_LOCATION_ARGS, "Request has NOT been fetched, bytesReadFromDevice = ") << bytesReadFromDevice);
+				}
 			} catch (std::exception& e) {
 				std::cerr << e.what() << std::endl;
 				return;

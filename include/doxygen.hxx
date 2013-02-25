@@ -148,10 +148,13 @@ private:
 			isl::HttpRequestReader reader(parser);
 			bool requestFetched = false;
 			try {
-				std::clog << "Starting to read HTTP-request" << std::endl;
 				size_t bytesReadFromDevice;
 				requestFetched = reader.read(socket(), isl::Timestamp::limit(isl::Timeout(TRANSMISSION_SECONDS_TIMEOUT)), &bytesReadFromDevice);
-				std::clog << (requestFetched ? "Request has been fetched" : "Request has NOT been fetched") << ", bytesReadFromDevice = " << bytesReadFromDevice << std::endl;
+				if (requestFetched) {
+					isl::Log::debug().log(isl::LogMessage(SOURCE_LOCATION_ARGS, "Request has been fetched, bytesReadFromDevice = ") << bytesReadFromDevice);
+				} else {
+					isl::Log::warning().log(isl::LogMessage(SOURCE_LOCATION_ARGS, "Request has NOT been fetched, bytesReadFromDevice = ") << bytesReadFromDevice);
+				}
 			} catch (std::exception& e) {
 				std::cerr << e.what() << std::endl;
 				return;
@@ -216,9 +219,9 @@ int main(int argc, char *argv[])
 	isl::PidFile pidFile("hsd.pid");					// Writing PID of the server to file
 	isl::DirectLogger logger;						// Logging setup
 	isl::StreamLogTarget coutTarget(logger, std::cout);
-	isl::debugLog().connect(coutTarget);
-	isl::warningLog().connect(coutTarget);
-	isl::errorLog().connect(coutTarget);
+	isl::Log::debug().connect(coutTarget);
+	isl::Log::warning().connect(coutTarget);
+	isl::Log::error().connect(coutTarget);
 	HttpServer server(argc, argv);						// Creating server object
 	server.run();								// Running server
 }
