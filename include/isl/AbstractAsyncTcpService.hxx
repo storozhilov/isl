@@ -7,6 +7,7 @@
 #include <isl/TcpSocket.hxx>
 #include <isl/LogMessage.hxx>
 #include <isl/ExceptionLogMessage.hxx>
+#include <map>
 
 namespace isl
 {

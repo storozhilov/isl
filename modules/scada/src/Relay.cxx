@@ -1,5 +1,5 @@
 #include <isl/Relay.hxx>
-#include <isl/common.hxx>
+#include <isl/Log.hxx>
 #include <isl/LogMessage.hxx>
 #include <isl/Exception.hxx>
 #include <isl/Error.hxx>

@@ -1,5 +1,5 @@
 #include <isl/Timer.hxx>
-#include <isl/common.hxx>
+#include <isl/Log.hxx>
 #include <isl/LogMessage.hxx>
 #include <isl/ExceptionLogMessage.hxx>
 #include <isl/Error.hxx>
@@ -41,8 +41,8 @@ void Timer::updatePeriodicTask(int taskId, const Timeout& newTimeout)
 	if (pos == _periodicTasksMap.end()) {
 		//std::ostringstream msg;
 		//msg << "Task (id = " << taskId << ") not found in timer";
-		//debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, msg.str()));
-		debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Task (id = ") << taskId << ") not found in timer");
+		//Log::debug().log(LogMessage(SOURCE_LOCATION_ARGS, msg.str()));
+		Log::debug().log(LogMessage(SOURCE_LOCATION_ARGS, "Task (id = ") << taskId << ") not found in timer");
 	} else {
 		pos->second.timeout = newTimeout;
 	}
@@ -54,8 +54,8 @@ void Timer::removePeriodicTask(int taskId)
 	if (pos == _periodicTasksMap.end()) {
 		//std::ostringstream msg;
 		//msg << "Task (id = " << taskId << ") not found in timer";
-		//debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, msg.str()));
-		debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Task (id = ") << taskId << ") not found in timer");
+		//Log::debug().log(LogMessage(SOURCE_LOCATION_ARGS, msg.str()));
+		Log::debug().log(LogMessage(SOURCE_LOCATION_ARGS, "Task (id = ") << taskId << ") not found in timer");
 	} else {
 		_periodicTasksMap.erase(pos);
 	}
@@ -87,7 +87,7 @@ Timer::TimerThread::TimerThread(Timer& timer) :
 
 void Timer::TimerThread::run()
 {
-	debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Timer thread has been started"));
+	Log::debug().log(LogMessage(SOURCE_LOCATION_ARGS, "Timer thread has been started"));
 	// Calling onStart event handler for any periodic task
 	for (PeriodicTasksMap::iterator i = _timer._periodicTasksMap.begin(); i != _timer._periodicTasksMap.end(); ++i) {
 		i->second.taskPtr->onStart(_timer);
@@ -138,7 +138,7 @@ void Timer::TimerThread::run()
 		}
 		// Awaiting for the next tick
 		if (awaitTermination(nextTickTimestamp)) {
-			debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Timer thread termination detected -> exiting from the timer thread"));
+			Log::debug().log(LogMessage(SOURCE_LOCATION_ARGS, "Timer thread termination detected -> exiting from the timer thread"));
 			break;
 		}
 		// Switching to the next tick

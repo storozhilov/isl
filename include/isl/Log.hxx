@@ -1,66 +1,66 @@
 #ifndef ISL__LOG__HXX
 #define ISL__LOG__HXX
 
-#include <isl/LogDispatcher.hxx>
 #include <isl/AbstractLogMessage.hxx>
-#include <isl/Exception.hxx>
 #include <string>
-#include <sstream>
-#include <ostream>
+#include <set>
 
 namespace isl
 {
 
 class AbstractLogTarget;
 
-//! Thread-safe logging implementation class
+//! Log class
 class Log
 {
 public:
 	//! Default constructor
 	Log();
-	//! Constructs log
 	/*!
 	  \param prefix Log prefix wich is to be printed to log target
-	  \param composeSourceLocation Print source location to log target if TRUE
 	*/
-	Log(const std::string& prefix, bool composeSourceLocation = true);
+	Log(const std::string& prefix);
 	//! Destructor
 	virtual ~Log();
 
-	//! Connects target to log
-	void connectTarget(const AbstractLogTarget& target);
-	//! Disconnects target from the log
-	void disconnectTarget(const AbstractLogTarget& target);
-	//! Disconnects all targets from the log
-	void disconnectTargets();
-	//! Logs a message
-	/*!
-	  \param msg Constant reference to the message to log
-	*/
-	void log(const AbstractLogMessage& msg);
 	//! Returns log prefix
 	inline const std::string& prefix() const
 	{
 		return _prefix;
 	}
-	//! Returns compose source location flag
-	inline bool composeSourceLocation() const
-	{
-		return _copmposeSourceLocation;
-	}
+
+	//! Connects target to log
+	/*!
+	  \param target Log target to connect to log
+	  \note Thread-unsafe
+	*/
+	void connect(AbstractLogTarget& target);
+	//! Disonnects target from log
+	/*!
+	  \param target Log target to disconnect from log
+	  \note Thread-unsafe
+	*/
+	void disconnect(AbstractLogTarget& target);
+	//! Logs a message
+	/*!
+	  \param msg Constant reference to the message to log
+	  \note Thread-safe
+	*/
+	void log(const AbstractLogMessage& msg);
+
+	//! Returns reference to the ISL error log
+	static Log& error();
+	//! Returns reference to the ISL warning log
+	static Log& warning();
+	//! Returns reference to the ISL debug log
+	static Log& debug();
 private:
-	Log(const Log&);							// No copy
+	typedef std::set<AbstractLogTarget *> TargetsContainer;
 
-	Log& operator=(const Log&);						// No copy
-	
-	const std::string _prefix;
-	const bool _copmposeSourceLocation;
-
-	static LogDispatcher dispatcher;
+	std::string _prefix;
+	TargetsContainer _targets;
 };
 
 } // namespace isl
 
 #endif
-

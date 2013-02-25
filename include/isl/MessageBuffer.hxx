@@ -88,7 +88,7 @@ public:
 			if (consumer.push(**i)) {
 				++providedMessages;
 			} else {
-				errorLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Message has been discarded cause it has been rejected by the target consumer"));
+				Log::error().log(LogMessage(SOURCE_LOCATION_ARGS, "Message has been discarded cause it has been rejected by the target consumer"));
 			}
 		}
 		clear();
@@ -120,17 +120,17 @@ public:
 	virtual bool push(const Msg& msg)
 	{
 		if (!isAccepting(msg, _buffer.size())) {
-			debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Message has been rejected by buffer's filter"));
+			Log::debug().log(LogMessage(SOURCE_LOCATION_ARGS, "Message has been rejected by buffer's filter"));
 			return false;
 		}
 		if (_buffer.size() >= _maxSize) {
-			errorLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Maximum size of buffer has been exceeded"));
+			Log::error().log(LogMessage(SOURCE_LOCATION_ARGS, "Maximum size of buffer has been exceeded"));
 			return false;
 		}
 		//_buffer.push_front(msg.clone());
 		std::auto_ptr<Msg> clonedMsgAutoPtr(Cloner::clone(msg));
 		if (!clonedMsgAutoPtr.get()) {
-			errorLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Message cloner returns null pointer"));
+			Log::error().log(LogMessage(SOURCE_LOCATION_ARGS, "Message cloner returns null pointer"));
 			return false;
 		}
 		_buffer.push_front(clonedMsgAutoPtr.get());

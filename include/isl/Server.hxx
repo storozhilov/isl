@@ -51,6 +51,9 @@ public:
 	  \return TRUE if the command has been accepted by the server
 	*/
 	void appointRestart();
+
+	//! Daemonizes current process
+	static void daemonize();
 protected:
 	//! Restarts server
 	void restart();

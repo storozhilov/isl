@@ -1,8 +1,10 @@
-#include <isl/common.hxx>
+#include <isl/PidFile.hxx>
 #include <isl/Server.hxx>
 #include <isl/Timer.hxx>
+#include <isl/Log.hxx>
 #include <isl/LogMessage.hxx>
-#include <isl/FileLogTarget.hxx>
+#include <isl/DirectLogger.hxx>
+#include <isl/StreamLogTarget.hxx>
 #include <iostream>
 
 class ScheduledTask : public isl::Timer::AbstractScheduledTask
@@ -16,7 +18,7 @@ private:
 	{
 		std::ostringstream msg;
 		msg << "Scheduled task execution has been fired. Task timestamp: " << isl::DateTime(timestamp).toString();
-		isl::debugLog().log(isl::LogMessage(SOURCE_LOCATION_ARGS, msg.str()));
+		isl::Log::debug().log(isl::LogMessage(SOURCE_LOCATION_ARGS, msg.str()));
 	}
 };
 
@@ -37,7 +39,7 @@ private:
 		msg << "Periodic task execution has been fired. Last expired timestamp: {" << isl::DateTime(lastExpiredTimestamp).toString() <<
 			"}, expired timestamps: " << expiredTimestamps << ", task execution timeout: {" << timeout.timeSpec().tv_sec << ", " <<
 			timeout.timeSpec().tv_nsec << "}";
-		isl::debugLog().log(isl::LogMessage(SOURCE_LOCATION_ARGS, msg.str()));
+		isl::Log::debug().log(isl::LogMessage(SOURCE_LOCATION_ARGS, msg.str()));
 		// Sleep a little
 		/*struct timespec ts;
 		ts.tv_sec = 0;
@@ -60,7 +62,7 @@ private:
 	{
 		std::ostringstream msg;
 		msg << "Timer overload has been detected: " << ticksExpired << " ticks expired";
-		isl::warningLog().log(isl::LogMessage(SOURCE_LOCATION_ARGS, msg.str()));
+		isl::Log::warning().log(isl::LogMessage(SOURCE_LOCATION_ARGS, msg.str()));
 	}
 };
 
@@ -87,13 +89,12 @@ private:
 
 int main(int argc, char *argv[])
 {
-	isl::writePid("timer.pid");						// Writing PID of the server to file
-	isl::debugLog().connectTarget(isl::FileLogTarget("timer.log"));		// Connecting basic logs to one file target
-	isl::warningLog().connectTarget(isl::FileLogTarget("timer.log"));
-	isl::errorLog().connectTarget(isl::FileLogTarget("timer.log"));
+	isl::PidFile pidFile("timer.pid");					// Writing PID of the server to file
+	isl::DirectLogger logger;						// Logging setup
+	isl::StreamLogTarget coutTarget(logger, std::cout);
+	isl::Log::debug().connect(coutTarget);
+	isl::Log::warning().connect(coutTarget);
+	isl::Log::error().connect(coutTarget);
 	TimerServer server(argc, argv);						// Creating server object
 	server.run();								// Running server
-	isl::debugLog().disconnectTargets();					// Disconnecting basic logs from the targets
-	isl::warningLog().disconnectTargets();
-	isl::errorLog().disconnectTargets();
 }

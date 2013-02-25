@@ -73,6 +73,7 @@ public:
 		SetSockOpt,
 		Connect,
 		ScanDir,
+		Remove,
 		Unlink,
 		// Date & time functions
 		Time,
@@ -248,6 +249,8 @@ protected:
 				return "connect(2)";
 			case ScanDir:
 				return "scandir(3)";
+			case Remove:
+				return "remove(3)";
 			case Unlink:
 				return "unlink(2)";
 			// Date & time functions

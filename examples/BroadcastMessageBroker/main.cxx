@@ -1,9 +1,11 @@
 #include <isl/PidFile.hxx>
 #include <isl/Server.hxx>
-#include <isl/FileLogTarget.hxx>
+#include <isl/DirectLogger.hxx>
+#include <isl/StreamLogTarget.hxx>
 #include <isl/AbstractMessageBrokerService.hxx>
 #include <isl/AbstractMessageBrokerConnection.hxx>
 #include <isl/AbstractMessageBrokerListeningConnection.hxx>
+#include <iostream>
 
 #define MAX_CLIENTS 10
 #define SERVICE_LISTEN_PORT 8888
@@ -123,30 +125,30 @@ public:
 private:
 	virtual void onReceiverConnected(isl::TcpSocket& socket)
 	{
-		isl::debugLog().log(isl::LogMessage(SOURCE_LOCATION_ARGS, "Connection established in the receiver thread"));
+		isl::Log::debug().log(isl::LogMessage(SOURCE_LOCATION_ARGS, "Connection established in the receiver thread"));
 	}
 	virtual void onReceiverDisconnected(bool isConnectionAborted)
 	{
 		if (isConnectionAborted) {
-			isl::debugLog().log(isl::LogMessage(SOURCE_LOCATION_ARGS, "Connection aborted in the receiver thread"));
+			isl::Log::debug().log(isl::LogMessage(SOURCE_LOCATION_ARGS, "Connection aborted in the receiver thread"));
 		} else {
-			isl::debugLog().log(isl::LogMessage(SOURCE_LOCATION_ARGS, "Connection closed in the receiver thread"));
+			isl::Log::debug().log(isl::LogMessage(SOURCE_LOCATION_ARGS, "Connection closed in the receiver thread"));
 		}
 	}
 	/*virtual void onConnectFailed(const isl::Exception& e, size_t failedAttempts)
 	{
-		isl::errorLog().log(isl::ExceptionLogMessage(SOURCE_LOCATION_ARGS, e, "Establishing connection error occured in the receiver thread"));
+		isl::Log::error().log(isl::ExceptionLogMessage(SOURCE_LOCATION_ARGS, e, "Establishing connection error occured in the receiver thread"));
 	}*/
 	virtual void onSenderConnected(isl::TcpSocket& socket)
 	{
-		isl::debugLog().log(isl::LogMessage(SOURCE_LOCATION_ARGS, "Connection established in the sender thread"));
+		isl::Log::debug().log(isl::LogMessage(SOURCE_LOCATION_ARGS, "Connection established in the sender thread"));
 	}
 	virtual void onSenderDisconnected(bool isConnectionAborted)
 	{
 		if (isConnectionAborted) {
-			isl::debugLog().log(isl::LogMessage(SOURCE_LOCATION_ARGS, "Connection aborted in the sender thread"));
+			isl::Log::debug().log(isl::LogMessage(SOURCE_LOCATION_ARGS, "Connection aborted in the sender thread"));
 		} else {
-			isl::debugLog().log(isl::LogMessage(SOURCE_LOCATION_ARGS, "Connection closed in the sender thread"));
+			isl::Log::debug().log(isl::LogMessage(SOURCE_LOCATION_ARGS, "Connection closed in the sender thread"));
 		}
 	}
 
@@ -205,30 +207,30 @@ public:
 private:
 	virtual void onReceiverConnected(isl::TcpSocket& socket)
 	{
-		isl::debugLog().log(isl::LogMessage(SOURCE_LOCATION_ARGS, "Connection established in the receiver thread"));
+		isl::Log::debug().log(isl::LogMessage(SOURCE_LOCATION_ARGS, "Connection established in the receiver thread"));
 	}
 	virtual void onReceiverDisconnected(bool isConnectionAborted)
 	{
 		if (isConnectionAborted) {
-			isl::debugLog().log(isl::LogMessage(SOURCE_LOCATION_ARGS, "Connection aborted in the receiver thread"));
+			isl::Log::debug().log(isl::LogMessage(SOURCE_LOCATION_ARGS, "Connection aborted in the receiver thread"));
 		} else {
-			isl::debugLog().log(isl::LogMessage(SOURCE_LOCATION_ARGS, "Connection closed in the receiver thread"));
+			isl::Log::debug().log(isl::LogMessage(SOURCE_LOCATION_ARGS, "Connection closed in the receiver thread"));
 		}
 	}
 	/*virtual void onAcceptFailed(size_t failedAttempts)
 	{
-		isl::errorLog().log(isl::LogMessage(SOURCE_LOCATION_ARGS, "Accepting connection timeout expired in the receiver thread"));
+		isl::Log::error().log(isl::LogMessage(SOURCE_LOCATION_ARGS, "Accepting connection timeout expired in the receiver thread"));
 	}*/
 	virtual void onSenderConnected(isl::TcpSocket& socket)
 	{
-		isl::debugLog().log(isl::LogMessage(SOURCE_LOCATION_ARGS, "Connection established in the sender thread"));
+		isl::Log::debug().log(isl::LogMessage(SOURCE_LOCATION_ARGS, "Connection established in the sender thread"));
 	}
 	virtual void onSenderDisconnected(bool isConnectionAborted)
 	{
 		if (isConnectionAborted) {
-			isl::debugLog().log(isl::LogMessage(SOURCE_LOCATION_ARGS, "Connection aborted in the sender thread"));
+			isl::Log::debug().log(isl::LogMessage(SOURCE_LOCATION_ARGS, "Connection aborted in the sender thread"));
 		} else {
-			isl::debugLog().log(isl::LogMessage(SOURCE_LOCATION_ARGS, "Connection closed in the sender thread"));
+			isl::Log::debug().log(isl::LogMessage(SOURCE_LOCATION_ARGS, "Connection closed in the sender thread"));
 		}
 	}
 
@@ -307,12 +309,11 @@ private:
 int main(int argc, char *argv[])
 {
 	isl::PidFile pidFile("bmb.pid");					// Writing PID of the server to file
-	isl::debugLog().connectTarget(isl::FileLogTarget("bmb.log"));		// Connecting basic logs to one file target
-	isl::warningLog().connectTarget(isl::FileLogTarget("bmb.log"));
-	isl::errorLog().connectTarget(isl::FileLogTarget("bmb.log"));
+	isl::DirectLogger logger;						// Logging setup
+	isl::StreamLogTarget coutTarget(logger, std::cout);
+	isl::Log::debug().connect(coutTarget);
+	isl::Log::warning().connect(coutTarget);
+	isl::Log::error().connect(coutTarget);
 	BroadcastMessageBrokerServer server(argc, argv);			// Creating server object
 	server.run();								// Running server
-	isl::debugLog().disconnectTargets();					// Disconnecting basic logs from the targets
-	isl::warningLog().disconnectTargets();
-	isl::errorLog().disconnectTargets();
 }

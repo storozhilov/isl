@@ -1,9 +1,9 @@
 #include <isl/StateSetSubsystem.hxx>
 #include <isl/Exception.hxx>
 #include <isl/Error.hxx>
+#include <isl/Log.hxx>
 #include <isl/LogMessage.hxx>
 #include <isl/Ticker.hxx>
-#include <isl/common.hxx>
 #include <algorithm>
 
 namespace isl
@@ -41,7 +41,7 @@ void StateSetSubsystem::startThreads()
 {
 	for (Threads::iterator i = _threads.begin(); i != _threads.end(); ++i) {
 		(*i)->start();
-		debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "State set subsystem's thread has been started"));
+		Log::debug().log(LogMessage(SOURCE_LOCATION_ARGS, "State set subsystem's thread has been started"));
 	}
 }
 
@@ -51,11 +51,11 @@ void StateSetSubsystem::stopThreads()
 		return;
 	}
 	appointTermination();
-	debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Termination has been appointed"));
+	Log::debug().log(LogMessage(SOURCE_LOCATION_ARGS, "Termination has been appointed"));
 	for (Threads::iterator i = _threads.begin(); i != _threads.end(); ++i) {
-		debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Joining a state set subsystem's thread"));
+		Log::debug().log(LogMessage(SOURCE_LOCATION_ARGS, "Joining a state set subsystem's thread"));
 		(*i)->join();
-		debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "State set subsystem's thread has been terminated"));
+		Log::debug().log(LogMessage(SOURCE_LOCATION_ARGS, "State set subsystem's thread has been terminated"));
 	}
 }
 
@@ -126,7 +126,7 @@ StateSetSubsystem::Thread::Thread(StateSetSubsystem& subsystem, bool isTrackable
 void StateSetSubsystem::Thread::run()
 {
 	if (!onStart()) {
-		debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "State set subsystem thread has been terminated by onStart() event handler -> exiting from the thread execution"));
+		Log::debug().log(LogMessage(SOURCE_LOCATION_ARGS, "State set subsystem thread has been terminated by onStart() event handler -> exiting from the thread execution"));
 		return;
 	}
 	StateSetType::SetType currentStateSet = subsystem()._stateSet.fetch();
@@ -139,19 +139,19 @@ void StateSetSubsystem::Thread::run()
 			firstTick = false;
 			if (shouldTerminate()) {
 				// Termination state has been detected
-				debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "State set subsystem termination has been detected on first tick -> exiting from the thread execution"));
+				Log::debug().log(LogMessage(SOURCE_LOCATION_ARGS, "State set subsystem termination has been detected on first tick -> exiting from the thread execution"));
 				break;
 			}
 		} else if (ticksExpired > 1) {
 			// Overload has been detected
-			warningLog().log(LogMessage(SOURCE_LOCATION_ARGS, "State set subsystem thread execution overload has been detected: ") << ticksExpired << " ticks expired");
+			Log::warning().log(LogMessage(SOURCE_LOCATION_ARGS, "State set subsystem thread execution overload has been detected: ") << ticksExpired << " ticks expired");
 			if (!onOverload(ticksExpired, currentStateSet)) {
-				debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "State set subsystem thread has been terminated by onOverload() event handler -> exiting from the thread execution"));
+				Log::debug().log(LogMessage(SOURCE_LOCATION_ARGS, "State set subsystem thread has been terminated by onOverload() event handler -> exiting from the thread execution"));
 			}
 		}
 		// Doing the job
 		if (!doLoad(nextTickLimit, currentStateSet)) {
-			debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "State set subsystem thread has been terminated by doLoad() method -> exiting from the thread execution"));
+			Log::debug().log(LogMessage(SOURCE_LOCATION_ARGS, "State set subsystem thread has been terminated by doLoad() method -> exiting from the thread execution"));
 			break;
 		}
 		// Awaiting for the termination
@@ -159,7 +159,7 @@ void StateSetSubsystem::Thread::run()
 		currentStateSet = subsystem()._stateSet.await(TerminationState, nextTickLimit, &shouldTerminate);
 		if (shouldTerminate) {
 			// Termination state has been detected
-			debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "State set subsystem termination has been detected -> exiting from the thread execution"));
+			Log::debug().log(LogMessage(SOURCE_LOCATION_ARGS, "State set subsystem termination has been detected -> exiting from the thread execution"));
 			break;
 		}
 	}

@@ -1,7 +1,9 @@
 #ifndef ISL__ABSTRACT_THREAD__HXX
 #define ISL__ABSTRACT_THREAD__HXX
 
+#include <isl/Timestamp.hxx>
 #include <pthread.h>
+#include <memory>
 
 namespace isl
 {

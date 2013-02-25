@@ -24,10 +24,6 @@ AddOption('--core-debugging',
 		dest = 'core-debugging',
 		action = 'store_true',
 		help = 'Turn on ISL core debugging (the same as if \'ISL_CORE_DEBUGGING\' environment variable is set to \'yes\')')
-AddOption('--log-debugging',
-		dest = 'log-debugging',
-		action = 'store_true',
-		help = 'Turn on ISL logging subsystem debugging to stdouts (the same as if \'ISL_LOG_DEBUGGING\' environment variable is set to \'yes\')')
 AddOption('--prefix',
 		dest = 'prefix',
 		nargs = 1,

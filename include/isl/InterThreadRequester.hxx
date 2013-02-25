@@ -1,11 +1,11 @@
 #ifndef ISL__INTER_THREAD_REQUESTER__HXX
 #define ISL__INTER_THREAD_REQUESTER__HXX
 
-#include <isl/common.hxx>
 #include <isl/AbstractMessageConsumer.hxx>
 #include <isl/WaitCondition.hxx>
 #include <isl/Exception.hxx>
 #include <isl/Error.hxx>
+#include <isl/Log.hxx>
 #include <isl/LogMessage.hxx>
 #include <isl/InterThreadMessage.hxx>
 #include <list>
@@ -132,7 +132,7 @@ public:
 	{
 		MutexLocker locker(_cond.mutex());
 		if (_requestsQueue.size() >= _maxContainerSize) {
-			errorLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Requests container overflow has been detected"));
+			Log::error().log(LogMessage(SOURCE_LOCATION_ARGS, "Requests container overflow has been detected"));
 			return false;
 		}
 		size_t newRequestId = ++_lastRequestId;
@@ -238,7 +238,7 @@ public:
 			if (_pendingRequestAutoPtr->responseRequired() && !_pendingRequestAutoPtr->responseSent()) {
 				std::ostringstream msg;
 				msg << "Unanswered inter-thread request (id = " << _pendingRequestAutoPtr->id() << ") has been discarded";
-				errorLog().log(LogMessage(SOURCE_LOCATION_ARGS, msg.str()));
+				Log::error().log(LogMessage(SOURCE_LOCATION_ARGS, msg.str()));
 			}
 			_pendingRequestAutoPtr.reset();
 		}
@@ -262,7 +262,7 @@ public:
 			if (_pendingRequestAutoPtr->responseRequired() && !_pendingRequestAutoPtr->responseSent()) {
 				std::ostringstream msg;
 				msg << "Unanswered inter-thread request (id = " << _pendingRequestAutoPtr->id() << ") has been discarded";
-				errorLog().log(LogMessage(SOURCE_LOCATION_ARGS, msg.str()));
+				Log::error().log(LogMessage(SOURCE_LOCATION_ARGS, msg.str()));
 			}
 			_pendingRequestAutoPtr.reset();
 		}
@@ -286,25 +286,25 @@ public:
 	bool sendResponse(const MessageType& response)
 	{
 		if (!_pendingRequestAutoPtr.get()) {
-			errorLog().log(LogMessage(SOURCE_LOCATION_ARGS, "No pending request to response to"));
+			Log::error().log(LogMessage(SOURCE_LOCATION_ARGS, "No pending request to response to"));
 			return false;
 		}
 		size_t pendingRequestId = _pendingRequestAutoPtr->id();
 		if (!_pendingRequestAutoPtr->responseRequired()) {
 			std::ostringstream msg;
 			msg << "Requesting thread does not suppose a response for the pending request (id = " << pendingRequestId << "\")";
-			errorLog().log(LogMessage(SOURCE_LOCATION_ARGS, msg.str()));
+			Log::error().log(LogMessage(SOURCE_LOCATION_ARGS, msg.str()));
 			return false;
 		}
 		if (_responsesMap.find(pendingRequestId) != _responsesMap.end()) {
 			std::ostringstream msg;
 			msg << "Response has been already sent for the pending request (id = " << pendingRequestId << "\")";
-			errorLog().log(LogMessage(SOURCE_LOCATION_ARGS, msg.str()));
+			Log::error().log(LogMessage(SOURCE_LOCATION_ARGS, msg.str()));
 			return false;
 		}
 		MutexLocker locker(_cond.mutex());
 		if (_responsesMap.size() >= _maxContainerSize) {
-			errorLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Responses container overflow has been detected"));
+			Log::error().log(LogMessage(SOURCE_LOCATION_ARGS, "Responses container overflow has been detected"));
 			return false;
 		}
 		_pendingRequestAutoPtr->_responseSent = true;

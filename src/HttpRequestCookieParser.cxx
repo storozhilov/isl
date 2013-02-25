@@ -1,6 +1,7 @@
-#include <isl/common.hxx>
 #include <isl/HttpRequestCookieParser.hxx>
+#include <isl/Log.hxx>
 #include <isl/LogMessage.hxx>
+#include <isl/Exception.hxx>
 
 namespace isl
 {
@@ -40,7 +41,7 @@ void HttpRequestCookieParser::parse(const std::string& headerValue, Http::Reques
 				} else {
 					std::ostringstream msg;
 					msg << "Cookie attribute has been started with a non-token character " << std::showbase << std::hex << static_cast<unsigned char>(_curChar) << " at " << std::dec << _pos << " position";
-					debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, msg.str()));
+					Log::debug().log(LogMessage(SOURCE_LOCATION_ARGS, msg.str()));
 					setIsBad(Error(SOURCE_LOCATION_ARGS, msg.str()));
 				}
 				break;
@@ -61,7 +62,7 @@ void HttpRequestCookieParser::parse(const std::string& headerValue, Http::Reques
 				} else {
 					std::ostringstream msg;
 					msg << "Cookie attribute contains an invalid character " << std::showbase << std::hex << static_cast<unsigned char>(_curChar) << " at " << std::dec << _pos << " position";
-					debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, msg.str()));
+					Log::debug().log(LogMessage(SOURCE_LOCATION_ARGS, msg.str()));
 					setIsBad(Error(SOURCE_LOCATION_ARGS, msg.str()));
 				}
 				break;
@@ -79,7 +80,7 @@ void HttpRequestCookieParser::parse(const std::string& headerValue, Http::Reques
 				} else {
 					std::ostringstream msg;
 					msg << "Cookie attribute trailing space is followed by an invalid character " << std::showbase << std::hex << static_cast<unsigned char>(_curChar) << " at " << std::dec << _pos << " position";
-					debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, msg.str()));
+					Log::debug().log(LogMessage(SOURCE_LOCATION_ARGS, msg.str()));
 					setIsBad(Error(SOURCE_LOCATION_ARGS, msg.str()));
 				}
 				break;
@@ -102,7 +103,7 @@ void HttpRequestCookieParser::parse(const std::string& headerValue, Http::Reques
 				} else {
 					std::ostringstream msg;
 					msg << "Cookie attribute equals character is followed by an invalid character " << std::showbase << std::hex << static_cast<unsigned char>(_curChar) << " at " << std::dec << _pos << " position";
-					debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, msg.str()));
+					Log::debug().log(LogMessage(SOURCE_LOCATION_ARGS, msg.str()));
 					setIsBad(Error(SOURCE_LOCATION_ARGS, msg.str()));
 				}
 				break;
@@ -117,7 +118,7 @@ void HttpRequestCookieParser::parse(const std::string& headerValue, Http::Reques
 				} else {
 					std::ostringstream msg;
 					msg << "Cookie attribute quoted value contains an invalid character " << std::showbase << std::hex << static_cast<unsigned char>(_curChar) << " at " << std::dec << _pos << " position";
-					debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, msg.str()));
+					Log::debug().log(LogMessage(SOURCE_LOCATION_ARGS, msg.str()));
 					setIsBad(Error(SOURCE_LOCATION_ARGS, msg.str()));
 				}
 				break;
@@ -128,7 +129,7 @@ void HttpRequestCookieParser::parse(const std::string& headerValue, Http::Reques
 				} else {
 					std::ostringstream msg;
 					msg << "Cookie attribute quoted value quoted pair contains an invalid character " << std::showbase << std::hex << static_cast<unsigned char>(_curChar) << " at " << std::dec << _pos << " position";
-					debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, msg.str()));
+					Log::debug().log(LogMessage(SOURCE_LOCATION_ARGS, msg.str()));
 					setIsBad(Error(SOURCE_LOCATION_ARGS, msg.str()));
 				}
 				break;
@@ -147,7 +148,7 @@ void HttpRequestCookieParser::parse(const std::string& headerValue, Http::Reques
 				} else {
 					std::ostringstream msg;
 					msg << "Cookie attribute value contains an invalid character " << std::showbase << std::hex << static_cast<unsigned char>(_curChar) << " at " << std::dec << _pos << " position";
-					debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, msg.str()));
+					Log::debug().log(LogMessage(SOURCE_LOCATION_ARGS, msg.str()));
 					setIsBad(Error(SOURCE_LOCATION_ARGS, msg.str()));
 				}
 				break;
@@ -163,7 +164,7 @@ void HttpRequestCookieParser::parse(const std::string& headerValue, Http::Reques
 				} else {
 					std::ostringstream msg;
 					msg << "Cookie attribute value is followed by invalid character " << std::showbase << std::hex << static_cast<unsigned char>(_curChar) << " at " << std::dec << _pos << " position";
-					debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, msg.str()));
+					Log::debug().log(LogMessage(SOURCE_LOCATION_ARGS, msg.str()));
 					setIsBad(Error(SOURCE_LOCATION_ARGS, msg.str()));
 				}
 				break;
@@ -171,7 +172,7 @@ void HttpRequestCookieParser::parse(const std::string& headerValue, Http::Reques
 				std::ostringstream msg;
 				msg << "Invalid HTTP-request cookie parse state: " << _parserState;
 				setIsBad(Error(SOURCE_LOCATION_ARGS, msg.str()));
-				errorLog().log(LogMessage(SOURCE_LOCATION_ARGS, msg.str()));
+				Log::error().log(LogMessage(SOURCE_LOCATION_ARGS, msg.str()));
 				throw Exception(Error(SOURCE_LOCATION_ARGS, msg.str()));
 		}
 		if (isBad()) {
@@ -186,7 +187,7 @@ void HttpRequestCookieParser::parse(const std::string& headerValue, Http::Reques
 		} else {
 			const char msg[] = "Premature end of request cookie header value";
 			setIsBad(Error(SOURCE_LOCATION_ARGS, msg));
-			errorLog().log(LogMessage(SOURCE_LOCATION_ARGS, msg));
+			Log::error().log(LogMessage(SOURCE_LOCATION_ARGS, msg));
 			throw Exception(Error(SOURCE_LOCATION_ARGS, msg));
 		}
 	}
@@ -212,7 +213,7 @@ void HttpRequestCookieParser::appendAttribute(Http::RequestCookies& parsedCookie
 				std::ostringstream msg;
 				msg << "Cookie version or value attribute expected instead of \"" << _currentAttrName << "\" received";
 				setIsBad(Error(SOURCE_LOCATION_ARGS, msg.str()));
-				debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, msg.str()));
+				Log::debug().log(LogMessage(SOURCE_LOCATION_ARGS, msg.str()));
 			}
 			break;
 		case AwaitingValue:
@@ -229,7 +230,7 @@ void HttpRequestCookieParser::appendAttribute(Http::RequestCookies& parsedCookie
 				std::ostringstream msg;
 				msg << "Cookie value attribute expected instead of \"" << _currentAttrName << "\" received";
 				setIsBad(Error(SOURCE_LOCATION_ARGS, msg.str()));
-				debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, msg.str()));
+				Log::debug().log(LogMessage(SOURCE_LOCATION_ARGS, msg.str()));
 			}
 			break;
 		case AwaitingPath:
@@ -250,7 +251,7 @@ void HttpRequestCookieParser::appendAttribute(Http::RequestCookies& parsedCookie
 				std::ostringstream msg;
 				msg << "Cookie path or value attribute expected instead of \"" << _currentAttrName << "\" received";
 				setIsBad(Error(SOURCE_LOCATION_ARGS, msg.str()));
-				debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, msg.str()));
+				Log::debug().log(LogMessage(SOURCE_LOCATION_ARGS, msg.str()));
 			}
 			break;
 		case AwaitingDomain:
@@ -271,7 +272,7 @@ void HttpRequestCookieParser::appendAttribute(Http::RequestCookies& parsedCookie
 				std::ostringstream msg;
 				msg << "Cookie domain or value attribute expected instead of \"" << _currentAttrName << "\" received";
 				setIsBad(Error(SOURCE_LOCATION_ARGS, msg.str()));
-				debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, msg.str()));
+				Log::debug().log(LogMessage(SOURCE_LOCATION_ARGS, msg.str()));
 			}
 			break;
 		case AwaitingPort:
@@ -292,14 +293,14 @@ void HttpRequestCookieParser::appendAttribute(Http::RequestCookies& parsedCookie
 				std::ostringstream msg;
 				msg << "Cookie port or value attribute expected instead of \"" << _currentAttrName << "\" received";
 				setIsBad(Error(SOURCE_LOCATION_ARGS, msg.str()));
-				debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, msg.str()));
+				Log::debug().log(LogMessage(SOURCE_LOCATION_ARGS, msg.str()));
 			}
 			break;
 		default:
 			std::ostringstream msg;
 			msg << "Invalid HTTP-request cookie composer state: " << _composerState;
 			setIsBad(Error(SOURCE_LOCATION_ARGS, msg.str()));
-			errorLog().log(LogMessage(SOURCE_LOCATION_ARGS, msg.str()));
+			Log::error().log(LogMessage(SOURCE_LOCATION_ARGS, msg.str()));
 			throw Exception(Error(SOURCE_LOCATION_ARGS, msg.str()));
 	}
 	_currentAttrName.clear();

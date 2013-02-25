@@ -1,4 +1,3 @@
-#include <isl/common.hxx>
 #include <isl/DateTime.hxx>
 #include <isl/TimeSpec.hxx>
 #include <isl/Exception.hxx>

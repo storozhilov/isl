@@ -1,7 +1,8 @@
 #include <isl/HttpMessageParser.hxx>
-#include <isl/common.hxx>
+#include <isl/Log.hxx>
 #include <isl/LogMessage.hxx>
 #include <isl/Char.hxx>
+#include <isl/Exception.hxx>
 #include <isl/Error.hxx>
 
 namespace isl

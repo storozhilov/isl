@@ -1,7 +1,7 @@
 #ifndef ISL__MESSAGE_QUEUE__HXX
 #define ISL__MESSAGE_QUEUE__HXX
 
-#include <isl/common.hxx>
+#include <isl/Log.hxx>
 #include <isl/LogMessage.hxx>
 #include <isl/WaitCondition.hxx>
 #include <isl/AbstractMessageConsumer.hxx>
@@ -139,7 +139,7 @@ public:
 				if (consumer.push(**i)) {
 					++providedMessages;
 				} else {
-					errorLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Message has been discarded cause it has been rejected by the target consumer"));
+					Log::error().log(LogMessage(SOURCE_LOCATION_ARGS, "Message has been discarded cause it has been rejected by the target consumer"));
 				}
 			}
 			resetQueue();
@@ -175,16 +175,16 @@ public:
 	{
 		MutexLocker locker(_queueCond.mutex());
 		if (!isAccepting(msg, _queue.size())) {
-			debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Message has been rejected by queue's filter"));
+			Log::debug().log(LogMessage(SOURCE_LOCATION_ARGS, "Message has been rejected by queue's filter"));
 			return false;
 		}
 		if (_queue.size() >= _maxSize) {
-			errorLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Maximum size of queue has been exceeded"));
+			Log::error().log(LogMessage(SOURCE_LOCATION_ARGS, "Maximum size of queue has been exceeded"));
 			return false;
 		}
 		std::auto_ptr<Msg> clonedMsgAutoPtr(Cloner::clone(msg));
 		if (!clonedMsgAutoPtr.get()) {
-			errorLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Message cloner returns null pointer"));
+			Log::error().log(LogMessage(SOURCE_LOCATION_ARGS, "Message cloner returns null pointer"));
 			return false;
 		}
 		_queue.push_front(clonedMsgAutoPtr.get());

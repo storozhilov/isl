@@ -1,10 +1,10 @@
 #ifndef ISL__ABSTRACT_MESSAGE_BROKER_SERVICE__HXX
 #define ISL__ABSTRACT_MESSAGE_BROKER_SERVICE__HXX
 
-#include <isl/common.hxx>
 #include <isl/AbstractAsyncTcpService.hxx>
 #include <isl/StateSet.hxx>
 #include <isl/Ticker.hxx>
+#include <isl/Log.hxx>
 #include <isl/LogMessage.hxx>
 #include <isl/ExceptionLogMessage.hxx>
 #include <isl/MessageProvider.hxx>
@@ -76,7 +76,7 @@ public:
 	{
 		typename ProvidersContainer::iterator pos = std::find(_providers.begin(), _providers.end(), &provider);
 		if (pos == _providers.end()) {
-			errorLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Message provider not found"));
+			Log::error().log(LogMessage(SOURCE_LOCATION_ARGS, "Message provider not found"));
 			return;
 		}
 		_providers.erase(pos);
@@ -109,7 +109,7 @@ public:
 	{
 		typename ConsumersContainer::iterator pos = std::find(_consumers.begin(), _consumers.end(), &consumer);
 		if (pos == _consumers.end()) {
-			errorLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Message consumer not found"));
+			Log::error().log(LogMessage(SOURCE_LOCATION_ARGS, "Message consumer not found"));
 			return;
 		}
 		_consumers.erase(pos);
@@ -276,7 +276,7 @@ protected:
 		*/
 		virtual void executeReceiveImpl(MultiTaskDispatcher<AbstractAsyncTcpService::AbstractTask>& taskDispatcher)
 		{
-			isl::debugLog().log(isl::LogMessage(SOURCE_LOCATION_ARGS, "Receiver thread execution has been started"));
+			isl::Log::debug().log(isl::LogMessage(SOURCE_LOCATION_ARGS, "Receiver thread execution has been started"));
 			// Triggering before execute event
 			beforeExecuteReceive();
 			Ticker ticker(_service.clockTimeout());
@@ -288,9 +288,9 @@ protected:
 					firstTick = false;
 				} else if (ticksExpired > 1) {
 					// Overload has been detected
-					warningLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Receiver thread execution overload has been detected: ") << ticksExpired << " ticks expired");
+					Log::warning().log(LogMessage(SOURCE_LOCATION_ARGS, "Receiver thread execution overload has been detected: ") << ticksExpired << " ticks expired");
 					if (!onOverloadReceive(ticksExpired)) {
-						isl::debugLog().log(isl::LogMessage(SOURCE_LOCATION_ARGS,
+						isl::Log::debug().log(isl::LogMessage(SOURCE_LOCATION_ARGS,
 									"Receiver thread has been terminated by onOverloadReceive() event handler -> exiting from the thread execution"));
 						appointTermination();
 						break;
@@ -305,7 +305,7 @@ protected:
 					} catch (Exception& e) {
 						if (e.error().instanceOf<TcpSocket::ConnectionAbortedError>()) {
 							// Terminating the task if the connection has been aborted
-							isl::debugLog().log(isl::LogMessage(SOURCE_LOCATION_ARGS, "Client connection has been aborted -> exiting from the receiver thread execution"));
+							isl::Log::debug().log(isl::LogMessage(SOURCE_LOCATION_ARGS, "Client connection has been aborted -> exiting from the receiver thread execution"));
 							appointTermination();
 							break;
 						} else {
@@ -313,10 +313,10 @@ protected:
 						}
 					}
 					if (msgAutoPtr.get()) {
-						isl::debugLog().log(isl::LogMessage(SOURCE_LOCATION_ARGS, "Message has been received by the receiver thread execution"));
+						isl::Log::debug().log(isl::LogMessage(SOURCE_LOCATION_ARGS, "Message has been received by the receiver thread execution"));
 						// Calling on receive message event callback
 						if (!onReceiveMessage(*msgAutoPtr.get())) {
-							debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Message has been rejected by the on receive event handler"));
+							Log::debug().log(LogMessage(SOURCE_LOCATION_ARGS, "Message has been rejected by the on receive event handler"));
 							continue;
 						}
 						// Providing message to the internal output bus
@@ -333,11 +333,11 @@ protected:
 				}
 				// Checking termination
 				if (shouldTerminate()) {
-					isl::debugLog().log(isl::LogMessage(SOURCE_LOCATION_ARGS, "Task termination has been detected -> exiting from the receiver thread execution"));
+					isl::Log::debug().log(isl::LogMessage(SOURCE_LOCATION_ARGS, "Task termination has been detected -> exiting from the receiver thread execution"));
 					break;
 				}
 				if (taskDispatcher.shouldTerminate()) {
-					isl::debugLog().log(isl::LogMessage(SOURCE_LOCATION_ARGS, "Task dispatcher termination has been detected -> exiting from the receiver thread execution"));
+					isl::Log::debug().log(isl::LogMessage(SOURCE_LOCATION_ARGS, "Task dispatcher termination has been detected -> exiting from the receiver thread execution"));
 					break;
 				}
 			}
@@ -352,7 +352,7 @@ protected:
 		*/
 		virtual void executeSendImpl(MultiTaskDispatcher<AbstractAsyncTcpService::AbstractTask>& taskDispatcher)
 		{
-			isl::debugLog().log(isl::LogMessage(SOURCE_LOCATION_ARGS, "Sender thread execution has been started"));
+			isl::Log::debug().log(isl::LogMessage(SOURCE_LOCATION_ARGS, "Sender thread execution has been started"));
 			// Triggering before execute event
 			beforeExecuteSend();
 			std::auto_ptr<MessageType> currentMessageAutoPtr;
@@ -363,7 +363,7 @@ protected:
 				std::auto_ptr<typename MessageProviderType::Subscriber> subscriberAutoPtr(new typename MessageProviderType::Subscriber(**i, inputQueue()));
 				subscriberListReleaser.addSubscriber(subscriberAutoPtr.get());
 				subscriberAutoPtr.release();
-				debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Input message queue has been subscribed to the message provider"));
+				Log::debug().log(LogMessage(SOURCE_LOCATION_ARGS, "Input message queue has been subscribed to the message provider"));
 			}
 			Ticker ticker(_service.clockTimeout());
 			bool firstTick = true;
@@ -374,9 +374,9 @@ protected:
 					firstTick = false;
 				} else if (ticksExpired > 1) {
 					// Overload has been detected
-					warningLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Sender thread execution overload has been detected: ") << ticksExpired << " ticks expired");
+					Log::warning().log(LogMessage(SOURCE_LOCATION_ARGS, "Sender thread execution overload has been detected: ") << ticksExpired << " ticks expired");
 					if (!onOverloadSend(ticksExpired)) {
-						isl::debugLog().log(isl::LogMessage(SOURCE_LOCATION_ARGS,
+						isl::Log::debug().log(isl::LogMessage(SOURCE_LOCATION_ARGS,
 									"Sender thread has been terminated by onOverloadSend() event handler -> exiting from the thread execution"));
 						appointTermination();
 						break;
@@ -392,7 +392,7 @@ protected:
 						} catch (Exception& e) {
 							if (e.error().instanceOf<TcpSocket::ConnectionAbortedError>()) {
 								// Terminating the task if the connection has been aborted
-								isl::debugLog().log(isl::LogMessage(SOURCE_LOCATION_ARGS, "Client connection has been aborted -> exiting from the sender thread execution"));
+								isl::Log::debug().log(isl::LogMessage(SOURCE_LOCATION_ARGS, "Client connection has been aborted -> exiting from the sender thread execution"));
 								appointTermination();
 								break;
 							} else {
@@ -400,7 +400,7 @@ protected:
 							}
 						}
 						if (messageSent) {
-							isl::debugLog().log(isl::LogMessage(SOURCE_LOCATION_ARGS, "Message has been sent by the sender thread execution"));
+							isl::Log::debug().log(isl::LogMessage(SOURCE_LOCATION_ARGS, "Message has been sent by the sender thread execution"));
 							sendingMessage = false;
 							onSendMessage(*currentMessageAutoPtr.get());
 						}
@@ -410,7 +410,7 @@ protected:
 						if (consumedMessagesAmount > 0) {
 							std::ostringstream oss;
 							oss << consumedMessagesAmount << " message(s) has been fetched from the input queue to the consume buffer";
-							debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, oss.str()));
+							Log::debug().log(LogMessage(SOURCE_LOCATION_ARGS, oss.str()));
 						}
 					} else {
 						// Fetching next message from the consume buffer
@@ -418,17 +418,17 @@ protected:
 						if (onConsumeMessage(*currentMessageAutoPtr.get())) {
 							sendingMessage = true;
 						} else {
-							debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Message has been rejected by the on consume event handler"));
+							Log::debug().log(LogMessage(SOURCE_LOCATION_ARGS, "Message has been rejected by the on consume event handler"));
 						}
 					}
 				}
 				// Checking termination
 				if (shouldTerminate()) {
-					isl::debugLog().log(isl::LogMessage(SOURCE_LOCATION_ARGS, "Task termination has been detected -> exiting from the sender thread execution"));
+					isl::Log::debug().log(isl::LogMessage(SOURCE_LOCATION_ARGS, "Task termination has been detected -> exiting from the sender thread execution"));
 					break;
 				}
 				if (taskDispatcher.shouldTerminate()) {
-					isl::debugLog().log(isl::LogMessage(SOURCE_LOCATION_ARGS, "Task dispatcher termination has been detected -> exiting from the sender thread execution"));
+					isl::Log::debug().log(isl::LogMessage(SOURCE_LOCATION_ARGS, "Task dispatcher termination has been detected -> exiting from the sender thread execution"));
 					break;
 				}
 			}

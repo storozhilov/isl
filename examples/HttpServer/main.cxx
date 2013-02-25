@@ -4,7 +4,8 @@
 #include <isl/Exception.hxx>
 #include <isl/HttpRequestReader.hxx>
 #include <isl/HttpResponseStreamWriter.hxx>
-#include <isl/FileLogTarget.hxx>
+#include <isl/DirectLogger.hxx>
+#include <isl/StreamLogTarget.hxx>
 #include <iostream>
 #include <sstream>
 
@@ -104,12 +105,11 @@ private:
 int main(int argc, char *argv[])
 {
 	isl::PidFile pidFile("hsd.pid");					// Writing PID of the server to file
-	isl::debugLog().connectTarget(isl::FileLogTarget("hsd.log"));		// Connecting basic logs to one file target
-	isl::warningLog().connectTarget(isl::FileLogTarget("hsd.log"));
-	isl::errorLog().connectTarget(isl::FileLogTarget("hsd.log"));
+	isl::DirectLogger logger;						// Logging setup
+	isl::StreamLogTarget coutTarget(logger, std::cout);
+	isl::Log::debug().connect(coutTarget);
+	isl::Log::warning().connect(coutTarget);
+	isl::Log::error().connect(coutTarget);
 	HttpServer server(argc, argv);						// Creating server object
 	server.run();								// Running server
-	isl::debugLog().disconnectTargets();					// Disconnecting basic logs from the targets
-	isl::warningLog().disconnectTargets();
-	isl::errorLog().disconnectTargets();
 }

@@ -1,7 +1,6 @@
 #ifndef ISL__MEM_FUN_THREAD__HXX
 #define ISL__MEM_FUN_THREAD__HXX
 
-#include <isl/common.hxx>
 #include <isl/AbstractThread.hxx>
 #include <isl/ReadWriteLock.hxx>
 #include <isl/WaitCondition.hxx>

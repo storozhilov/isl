@@ -2,8 +2,9 @@
 #include <isl/MemFunThread.hxx>
 #include <isl/TaskDispatcher.hxx>
 #include <isl/MultiTaskDispatcher.hxx>
-#include <isl/FileLogTarget.hxx>
 #include <isl/InterThreadRequester.hxx>
+#include <isl/DirectLogger.hxx>
+#include <isl/StreamLogTarget.hxx>
 #include <iostream>
 
 isl::Mutex consoleMutex;
@@ -148,11 +149,11 @@ private:
 
 int main(int argc, char *argv[])
 {
-	//isl::InterThreadRequester<int> r;
-	isl::debugLog().connectTarget(isl::FileLogTarget("thread.log"));
-	isl::warningLog().connectTarget(isl::FileLogTarget("thread.log"));
-	isl::errorLog().connectTarget(isl::FileLogTarget("thread.log"));
-
+	isl::DirectLogger logger;						// Logging setup
+	isl::StreamLogTarget coutTarget(logger, std::cout);
+	isl::Log::debug().connect(coutTarget);
+	isl::Log::warning().connect(coutTarget);
+	isl::Log::error().connect(coutTarget);
 	RespondentThread rt;
 	rt.start();
 	size_t requestId = rt.requester().sendRequest(RespondentThread::PingRequest);

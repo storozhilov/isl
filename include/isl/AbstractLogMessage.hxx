@@ -2,7 +2,7 @@
 #define ISL__ABSTRACT_LOG_MESSAGE__HXX
 
 #include <isl/Debug.hxx>
-#include <isl/DateTime.hxx>
+#include <isl/Timestamp.hxx>
 
 namespace isl
 {
@@ -20,41 +20,43 @@ public:
 	virtual ~AbstractLogMessage();
 
 	//! Returns log message timestamp
-	inline const DateTime& timestamp() const
+	inline const Timestamp& timestamp() const
 	{
 		return _timestamp;
 	}
 	//! Returns source code filename where the message was created
-	inline const char * file() const throw()
+	inline const std::string& file() const
 	{
-		return _file.c_str();
+		return _file;
 	}
 	//! Returns source code line where the message was created
-	inline unsigned int line() const throw()
+	inline unsigned int line() const
 	{
 		return _line;
 	}
 	//! Returns source code function where the message was created
-	inline const char * function() const throw()
+	inline const std::string& function() const
 	{
-		return _function.c_str();
+		return _function;
 	}
 	//! Returns log message
 	const std::string& message() const;
-	//! Composing string with source code filename, line number and function name help function
-	std::string sourceLocation() const;
+	//! Returns log message source location text representation
+	const std::string& location() const;
 protected:
 	//! Composes & returns log message
 	virtual std::string compose() const = 0;
 private:
 	AbstractLogMessage();
 
-	const DateTime _timestamp;
+	const Timestamp _timestamp;
 	const std::string _file;
 	const unsigned int _line;
 	const std::string _function;
 	mutable std::string _message;
-	mutable bool _isComposed;
+	mutable bool _isMessageComposed;
+	mutable std::string _location;
+	mutable bool _isLocationComposed;
 };
 
 } // namespace isl

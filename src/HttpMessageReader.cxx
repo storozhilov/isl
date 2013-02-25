@@ -2,9 +2,6 @@
 #include <isl/Exception.hxx>
 #include <isl/Error.hxx>
 
-#include <isl/common.hxx>
-#include <isl/LogMessage.hxx>
-
 namespace isl
 {
 

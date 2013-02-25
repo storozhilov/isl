@@ -1,4 +1,3 @@
-#include <isl/common.hxx>
 #include <isl/AbstractThread.hxx>
 #include <isl/ReadWriteLock.hxx>
 #include <isl/WaitCondition.hxx>

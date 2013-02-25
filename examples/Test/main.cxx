@@ -2,14 +2,15 @@
 
 // TODO Migrate test to Goole Test library
 
-#include <isl/common.hxx>
+#include <isl/Log.hxx>
 #include <isl/LogMessage.hxx>
 #include <isl/TcpAddrInfo.hxx>
 #include <isl/TcpSocket.hxx>
 #include <isl/Exception.hxx>
 #include <isl/SystemCallError.hxx>
 #include <isl/Http.hxx>
-#include <isl/FileLogTarget.hxx>
+#include <isl/DirectLogger.hxx>
+#include <isl/StreamLogTarget.hxx>
 #include <isl/DateTime.hxx>
 //#include <isl/VariantFormatter.hxx>
 //#include <isl/HttpRequestStreamReader.hxx>
@@ -232,7 +233,11 @@ int main(int argc, char *argv[])
 {
 	std::cout << "Test executable has been started" << std::endl;
 
-	isl::debugLog().connectTarget(isl::FileLogTarget("test.log"));
+	isl::DirectLogger logger;						// Logging setup
+	isl::StreamLogTarget coutTarget(logger, std::cout);
+	isl::Log::debug().connect(coutTarget);
+	isl::Log::warning().connect(coutTarget);
+	isl::Log::error().connect(coutTarget);
 
 	//testDateTime();
 	testTimeout();
@@ -242,18 +247,18 @@ int main(int argc, char *argv[])
 	//testVariant();
 	//testHttpRequestStreamReader();
 
-	/*isl::Core::debugLog.setPrefix(L"DEBUG");
-	isl::Core::debugLog.connectTarget(isl::FileLogTarget("test.log"));
-	isl::Core::debugLog.log("std::string debug log entry");
-	isl::Core::debugLog.log(L"std::wstring debug log entry");
-	isl::Core::debugLog.log(isl::LogMessage(L"LogMessage debug log entry"));
-	isl::Core::debugLog.log(isl::DebugLogMessage(SOURCE_LOCATION_ARGS, L"DebugLogMessage debug log entry"));
+	/*isl::Core::Log::debug.setPrefix(L"DEBUG");
+	isl::Core::Log::debug.connectTarget(isl::FileLogTarget("test.log"));
+	isl::Core::Log::debug.log("std::string debug log entry");
+	isl::Core::Log::debug.log(L"std::wstring debug log entry");
+	isl::Core::Log::debug.log(isl::LogMessage(L"LogMessage debug log entry"));
+	isl::Core::Log::debug.log(isl::DebugLogMessage(SOURCE_LOCATION_ARGS, L"DebugLogMessage debug log entry"));
 	isl::Exception e1(isl::SystemCallError(SOURCE_LOCATION_ARGS, isl::SystemCallError::PThreadCreate, EAGAIN));
-	isl::Core::debugLog.log(isl::ExceptionLogMessage(SOURCE_LOCATION_ARGS, e1, "ExceptionLogMessage debug log entry"));
-	isl::Core::debugLog.log(isl::ExceptionLogMessage(SOURCE_LOCATION_ARGS, e1));
+	isl::Core::Log::debug.log(isl::ExceptionLogMessage(SOURCE_LOCATION_ARGS, e1, "ExceptionLogMessage debug log entry"));
+	isl::Core::Log::debug.log(isl::ExceptionLogMessage(SOURCE_LOCATION_ARGS, e1));
 	std::runtime_error e2("Foobar");
-	isl::Core::debugLog.log(isl::ExceptionLogMessage(SOURCE_LOCATION_ARGS, e2, L"ExceptionLogMessage debug log entry"));
-	isl::Core::debugLog.log(isl::ExceptionLogMessage(SOURCE_LOCATION_ARGS, e2));
+	isl::Core::Log::debug.log(isl::ExceptionLogMessage(SOURCE_LOCATION_ARGS, e2, L"ExceptionLogMessage debug log entry"));
+	isl::Core::Log::debug.log(isl::ExceptionLogMessage(SOURCE_LOCATION_ARGS, e2));
 
 	isl::SystemCallError e3(SOURCE_LOCATION_ARGS, isl::SystemCallError::PThreadCreate, EAGAIN);
 	std::wcout << e3.message() << std::endl;

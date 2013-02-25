@@ -5,12 +5,14 @@ namespace isl
 {
 
 AbstractLogMessage::AbstractLogMessage(SOURCE_LOCATION_ARGS_DECLARATION) :
-	_timestamp(DateTime::now()),
+	_timestamp(Timestamp::now()),
 	_file(SOURCE_LOCATION_ARGS_FILE),
 	_line(SOURCE_LOCATION_ARGS_LINE),
 	_function(SOURCE_LOCATION_ARGS_FUNCTION),
 	_message(),
-	_isComposed(false)
+	_isMessageComposed(false),
+	_location(),
+	_isLocationComposed(false)
 {}
 
 AbstractLogMessage::~AbstractLogMessage()
@@ -18,16 +20,20 @@ AbstractLogMessage::~AbstractLogMessage()
 
 const std::string& AbstractLogMessage::message() const
 {
-	if (!_isComposed) {
+	if (!_isMessageComposed) {
 		_message = compose();
-		_isComposed = true;
+		_isMessageComposed = true;
 	}
 	return _message;
 }
 
-std::string AbstractLogMessage::sourceLocation() const
+const std::string& AbstractLogMessage::location() const
 {
-	return composeSourceLocation(file(), _line, function());
+	if (!_isLocationComposed) {
+		_location = composeSourceLocation(_file.c_str(), _line, _function.c_str());
+		_isLocationComposed = true;
+	}
+	return _location;
 }
 
 } // namespace isl

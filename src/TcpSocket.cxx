@@ -1,9 +1,9 @@
-#include <isl/common.hxx>
 #include <isl/TcpSocket.hxx>
 #include <isl/Exception.hxx>
 #include <isl/Error.hxx>
 #include <isl/SystemCallError.hxx>
 #include <isl/IOError.hxx>
+#include <isl/Log.hxx>
 #include <isl/LogMessage.hxx>
 #include <sys/types.h>
 #include <sys/socket.h>
@@ -149,7 +149,7 @@ void TcpSocket::connect(const TcpAddrInfo& addrInfo)
 void TcpSocket::closeSocket()
 {
 	if (::close(_descriptor)) {
-		errorLog().log(LogMessage(SOURCE_LOCATION_ARGS, SystemCallError(SOURCE_LOCATION_ARGS, SystemCallError::Close, errno).message()));
+		Log::error().log(LogMessage(SOURCE_LOCATION_ARGS, SystemCallError(SOURCE_LOCATION_ARGS, SystemCallError::Close, errno).message()));
 	}
 	_descriptor = -1;
 }

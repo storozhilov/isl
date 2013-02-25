@@ -1,8 +1,9 @@
 #include <isl/Server.hxx>
-#include <isl/common.hxx>
 #include <isl/Ticker.hxx>
+#include <isl/Log.hxx>
 #include <isl/LogMessage.hxx>
 #include <isl/ErrorLogMessage.hxx>
+#include <cstdlib>
 
 namespace isl
 {
@@ -22,18 +23,18 @@ Server::Server(int argc, char * argv[], const SignalSet& trackSignals, const Tim
 void Server::run()
 {
 	// Blocking UNIX-signals to be tracked
-	debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Blocking UNIX-signals"));
+	Log::debug().log(LogMessage(SOURCE_LOCATION_ARGS, "Blocking UNIX-signals"));
 	sigset_t blockedSignalMask = _trackSignals.sigset();
 	if (pthread_sigmask(SIG_SETMASK, &blockedSignalMask, &_initialSignalMask)) {
 		SystemCallError err(SOURCE_LOCATION_ARGS, SystemCallError::PThreadSigMask, errno, "Blocking UNIX-signals error");
-		errorLog().log(ErrorLogMessage(SOURCE_LOCATION_ARGS, err));
+		Log::error().log(ErrorLogMessage(SOURCE_LOCATION_ARGS, err));
 		throw Exception(err);
 	}
-	debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "UNIX-signals have been blocked"));
+	Log::debug().log(LogMessage(SOURCE_LOCATION_ARGS, "UNIX-signals have been blocked"));
 	// Starting children subsystems
-	debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Starting server"));
+	Log::debug().log(LogMessage(SOURCE_LOCATION_ARGS, "Starting server"));
 	start();
-	debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Server has been started"));
+	Log::debug().log(LogMessage(SOURCE_LOCATION_ARGS, "Server has been started"));
 	// Firing on start event
 	if (onStart()) {
 		StateSetType::SetType currentStateSet = stateSet().fetch();
@@ -46,20 +47,20 @@ void Server::run()
 				firstTick = false;
 				currentStateSet = stateSet().fetch();
 				if (currentStateSet.find(TerminationState) != currentStateSet.end()) {
-					debugLog().log(LogMessage(SOURCE_LOCATION_ARGS,
+					Log::debug().log(LogMessage(SOURCE_LOCATION_ARGS,
 								"Server termination has been detected on first tick -> exiting from the server's main loop"));
 					break;
 				}
 			} else if (ticksExpired > 1) {
 				// Overload has been detected
-				warningLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Server execution overload has been detected: ") << ticksExpired << " ticks expired");
+				Log::warning().log(LogMessage(SOURCE_LOCATION_ARGS, "Server execution overload has been detected: ") << ticksExpired << " ticks expired");
 				if (!onOverload(ticksExpired, currentStateSet)) {
-					debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Server has been terminated by onOverload() event handler -> stopping server"));
+					Log::debug().log(LogMessage(SOURCE_LOCATION_ARGS, "Server has been terminated by onOverload() event handler -> stopping server"));
 				}
 			}
 			// Doing the job
 			if (!doLoad(nextTickLimit, currentStateSet)) {
-				debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Server has been terminated by doLoad() method -> stopping server"));
+				Log::debug().log(LogMessage(SOURCE_LOCATION_ARGS, "Server has been terminated by doLoad() method -> stopping server"));
 				break;
 			}
 			// Inspecting for pending signals
@@ -67,7 +68,7 @@ void Server::run()
 			if (hasPendingSignals()) {
 				int pendingSignal = extractPendingSignal();
 				if (!onSignal(pendingSignal)) {
-					debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Server has been terminated by onSignal() event handler -> stopping server"));
+					Log::debug().log(LogMessage(SOURCE_LOCATION_ARGS, "Server has been terminated by onSignal() event handler -> stopping server"));
 					break;
 				}
 			}
@@ -77,30 +78,30 @@ void Server::run()
 			trackSet.insert(RestartState);
 			currentStateSet = stateSet().awaitAny(trackSet, nextTickLimit);
 			if (currentStateSet.find(TerminationState) != currentStateSet.end()) {
-				debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Server termination has been detected -> exiting from the server's main loop"));
+				Log::debug().log(LogMessage(SOURCE_LOCATION_ARGS, "Server termination has been detected -> exiting from the server's main loop"));
 				break;
 			} else if (currentStateSet.find(RestartState) != currentStateSet.end()) {
-				debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Server restart has been detected -> restarting the server"));
+				Log::debug().log(LogMessage(SOURCE_LOCATION_ARGS, "Server restart has been detected -> restarting the server"));
 				restart();
 			}
 		}
 	} else {
-		debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Server has been terminated by onStart() event handler -> stopping server"));
+		Log::debug().log(LogMessage(SOURCE_LOCATION_ARGS, "Server has been terminated by onStart() event handler -> stopping server"));
 	}
 	// Stopping children subsystems
-	debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Stopping server"));
+	Log::debug().log(LogMessage(SOURCE_LOCATION_ARGS, "Stopping server"));
 	stop();
-	debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Server has been stopped"));
+	Log::debug().log(LogMessage(SOURCE_LOCATION_ARGS, "Server has been stopped"));
 	// Firing on stop event
 	onStop();
 	// Restoring initial signal mask
-	debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Unblocking UNIX-signals"));
+	Log::debug().log(LogMessage(SOURCE_LOCATION_ARGS, "Unblocking UNIX-signals"));
 	if (pthread_sigmask(SIG_SETMASK, &_initialSignalMask, 0)) {
 		SystemCallError err(SOURCE_LOCATION_ARGS, SystemCallError::PThreadSigMask, errno, "Unblocking UNIX-signals error");
-		errorLog().log(ErrorLogMessage(SOURCE_LOCATION_ARGS, err));
+		Log::error().log(ErrorLogMessage(SOURCE_LOCATION_ARGS, err));
 		throw Exception(err);
 	}
-	debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "UNIX-signals have been unblocked"));
+	Log::debug().log(LogMessage(SOURCE_LOCATION_ARGS, "UNIX-signals have been unblocked"));
 }
 
 void Server::appointRestart()
@@ -108,12 +109,27 @@ void Server::appointRestart()
 	stateSet().insert(RestartState);
 }
 
+void Server::daemonize()
+{
+	pid_t childPid = ::fork();
+	if (childPid < 0) {
+		throw Exception(SystemCallError(SOURCE_LOCATION_ARGS, SystemCallError::Fork, childPid));
+	}
+	if (childPid > 0) {
+		exit(0);
+	}
+	pid_t newSessionId = ::setsid();
+	if (newSessionId < 0) {
+		throw Exception(SystemCallError(SOURCE_LOCATION_ARGS, SystemCallError::SetSid, newSessionId));
+	}
+}
+
 void Server::restart()
 {
 	stop();
-	debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Server has been stopped"));
+	Log::debug().log(LogMessage(SOURCE_LOCATION_ARGS, "Server has been stopped"));
 	start();
-	debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Server has been started"));
+	Log::debug().log(LogMessage(SOURCE_LOCATION_ARGS, "Server has been started"));
 }
 
 bool Server::onSignal(int signo)
@@ -123,17 +139,17 @@ bool Server::onSignal(int signo)
 	switch (signo) {
 		case SIGHUP:
 			msg << "restarting server";
-			debugLog().log(msg);
+			Log::debug().log(msg);
 			restart();
 			return true;
 		case SIGINT:
 		case SIGTERM:
 			msg << "terminating server";
-			debugLog().log(msg);
+			Log::debug().log(msg);
 			return false;
 		default:
 			msg << "no action defined";
-			warningLog().log(msg);
+			Log::warning().log(msg);
 			return true;
 	}
 }

@@ -1,7 +1,7 @@
 #ifndef ISL__MULTI_TASK_DISPATCHER__HXX
 #define ISL__MULTI_TASK_DISPATCHER__HXX
 
-#include <isl/common.hxx>
+#include <isl/Log.hxx>
 #include <isl/Subsystem.hxx>
 #include <isl/WaitCondition.hxx>
 #include <isl/LogMessage.hxx>
@@ -135,13 +135,27 @@ public:
 	//! Returns if the task dispatcher should be terminated
 	/*!
 	  Call this method periodically during long-live tasks execution for correct subsystem's termination.
-
 	  \note Thread-safe
 	*/
 	inline bool shouldTerminate() const
 	{
 		MutexLocker locker(_cond.mutex());
 		return _shouldTerminate;
+	}
+	//! Awaits for task dispatcher termination
+	/*!
+	  \param limit Limit timestamp to wait until the termination
+	  \returns TRUE if the task dispatcher should be terminated
+	*/
+	bool awaitTermination(const Timestamp& limit)
+	{
+		MutexLocker locker(_cond.mutex());
+		do {
+			if (_shouldTerminate) {
+				return true;
+			}
+		} while (_cond.wait(limit));
+		return false;
 	}
 	//! Accepts task for execution it's method(s) in separate thread(s)
 	/*!
@@ -155,12 +169,12 @@ public:
 	{
 		if (!taskAutoPtr.get()) {
 			// TODO Maybe to throw an exception???
-			errorLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Empty pointer to task to execute"));
+			Log::error().log(LogMessage(SOURCE_LOCATION_ARGS, "Empty pointer to task to execute"));
 			return true;
 		}
 		if (methods.empty()) {
 			// TODO Maybe to throw an exception???
-			errorLog().log(LogMessage(SOURCE_LOCATION_ARGS, "No task methods to execute"));
+			Log::error().log(LogMessage(SOURCE_LOCATION_ARGS, "No task methods to execute"));
 			return true;
 		}
 		bool taskPerformed = false;
@@ -179,7 +193,7 @@ public:
 		if (taskPerformed) {
 			taskAutoPtr.release();
 		} else {
-			warningLog().log(LogMessage(SOURCE_LOCATION_ARGS, "No enough workers available"));
+			Log::warning().log(LogMessage(SOURCE_LOCATION_ARGS, "No enough workers available"));
 		}
 		return taskPerformed;
 	}
@@ -253,7 +267,7 @@ public:
 		Subsystem::start();
 		_shouldTerminate = false;
 		_awaitingWorkersCount = 0;
-		debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Creating and starting workers"));
+		Log::debug().log(LogMessage(SOURCE_LOCATION_ARGS, "Creating and starting workers"));
 		for (size_t i = 0; i < _workersAmount; ++i) {
 			std::auto_ptr<MemFunThread> newWorkerAutoPtr(new MemFunThread());
 			MemFunThread * newWorkerPtr = newWorkerAutoPtr.get();
@@ -261,12 +275,12 @@ public:
 			newWorkerAutoPtr.release();
 			newWorkerPtr->start(*this, &MultiTaskDispatcher<T>::work);
 		}
-		debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Workers have been created and started"));
+		Log::debug().log(LogMessage(SOURCE_LOCATION_ARGS, "Workers have been created and started"));
 	}
 	//! Stops subsystem
 	virtual void stop()
 	{
-		debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Stopping workers"));
+		Log::debug().log(LogMessage(SOURCE_LOCATION_ARGS, "Stopping workers"));
 		// Waking up all workers
 		{
 			MutexLocker locker(_cond.mutex());
@@ -277,7 +291,7 @@ public:
 		for (typename WorkersContainer::iterator i = _workers.begin(); i != _workers.end(); ++i) {
 			(*i)->join();
 		}
-		debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Workers have been stopped"));
+		Log::debug().log(LogMessage(SOURCE_LOCATION_ARGS, "Workers have been stopped"));
 		// Disposing workers
 		resetWorkers();
 		// Disposing pending tasks queue
@@ -305,7 +319,7 @@ private:
 	{
 		for (typename PendingTasksQueue::iterator i = _pendingTasksQueue.begin(); i != _pendingTasksQueue.end(); ++i) {
 			delete (*i);
-			warningLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Pending task has been discarded"));
+			Log::warning().log(LogMessage(SOURCE_LOCATION_ARGS, "Pending task has been discarded"));
 		}
 		_pendingTasksQueue.clear();
 	}

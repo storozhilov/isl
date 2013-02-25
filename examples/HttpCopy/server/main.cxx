@@ -1,10 +1,11 @@
 #define LIBISL__DEBUGGING_ON 1
 
-#include <isl/common.hxx>
+#include <isl/Log.hxx>
 #include <isl/TcpSocket.hxx>
 #include <isl/Exception.hxx>
 #include <isl/Http.hxx>
-#include <isl/FileLogTarget.hxx>
+#include <isl/DirectLogger.hxx>
+#include <isl/StreamLogTarget.hxx>
 #include <isl/HttpMessageStreamReader.hxx>
 #include <isl/HttpRequestParser.hxx>
 #include <isl/HttpResponseStreamWriter.hxx>
@@ -20,7 +21,11 @@
 
 int main(int argc, char *argv[])
 {
-	isl::debugLog().connectTarget(isl::FileLogTarget("server.log"));;
+	isl::DirectLogger logger;						// Logging setup
+	isl::StreamLogTarget coutTarget(logger, std::cout);
+	isl::Log::debug().connect(coutTarget);
+	isl::Log::warning().connect(coutTarget);
+	isl::Log::error().connect(coutTarget);
 	isl::TcpSocket s;
 	s.open();
 	s.bind(isl::TcpAddrInfo(isl::TcpAddrInfo::IpV4, isl::TcpAddrInfo::WildcardAddress, LISTEN_PORT));

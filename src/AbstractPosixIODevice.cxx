@@ -1,11 +1,14 @@
 #include <isl/AbstractPosixIODevice.hxx>
-#include <isl/common.hxx>
+#include <isl/Log.hxx>
 #include <isl/LogMessage.hxx>
 #include <isl/ErrorLogMessage.hxx>
 #include <sys/time.h>
 #include <sys/types.h>
 #include <unistd.h>
+#include <errno.h>
 
+#include <isl/Exception.hxx>
+#include <isl/SystemCallError.hxx>
 #include <isl/Error.hxx>
 #include <iostream>
 #include <sys/socket.h>
@@ -35,7 +38,7 @@ AbstractPosixIODevice::~AbstractPosixIODevice()
 void AbstractPosixIODevice::open()
 {
 	if (_isOpen) {
-		warningLog().log(LogMessage(SOURCE_LOCATION_ARGS, "I/O-device is already opened -> reopening the device"));
+		Log::warning().log(LogMessage(SOURCE_LOCATION_ARGS, "I/O-device is already opened -> reopening the device"));
 		close();
 	}
 	_handle = openImpl();
@@ -45,7 +48,7 @@ void AbstractPosixIODevice::open()
 void AbstractPosixIODevice::close()
 {
 	if (!_isOpen) {
-		warningLog().log(LogMessage(SOURCE_LOCATION_ARGS, "I/O-device is already closed"));
+		Log::warning().log(LogMessage(SOURCE_LOCATION_ARGS, "I/O-device is already closed"));
 		return;
 	}
 	close(true);
@@ -55,7 +58,7 @@ void AbstractPosixIODevice::close(bool raiseExceptionOnError)
 {
 	if (::close(_handle)) {
 		SystemCallError err(SOURCE_LOCATION_ARGS, SystemCallError::Close, errno);
-		errorLog().log(ErrorLogMessage(SOURCE_LOCATION_ARGS, err));
+		Log::error().log(ErrorLogMessage(SOURCE_LOCATION_ARGS, err));
 		if (raiseExceptionOnError) {
 			throw Exception(err);
 		}
@@ -85,7 +88,7 @@ size_t AbstractPosixIODevice::read(char * buffer, size_t bufferSize, const Timeo
 	}
 	// Inspecting for exception
 	if (FD_ISSET(_handle, &exceptDescriptorsSet)) {
-		errorLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Exception occured on file descriptor while reading the data from the I/O device"));
+		Log::error().log(LogMessage(SOURCE_LOCATION_ARGS, "Exception occured on file descriptor while reading the data from the I/O device"));
 		onReadException();
 		return 0;
 	}
@@ -120,7 +123,7 @@ size_t AbstractPosixIODevice::write(const char * buffer, size_t bufferSize, cons
 	}
 	// Inspecting for exception
 	if (FD_ISSET(_handle, &exceptDescriptorsSet)) {
-		errorLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Exception occured on file descriptor while writing the data to the I/O device"));
+		Log::error().log(LogMessage(SOURCE_LOCATION_ARGS, "Exception occured on file descriptor while writing the data to the I/O device"));
 		onWriteException();
 		return 0;
 	}

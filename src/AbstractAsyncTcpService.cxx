@@ -31,7 +31,7 @@ void AbstractAsyncTcpService::updateListener(int id, const TcpAddrInfo& addrInfo
 {
 	ListenerConfigs::iterator pos = _listenerConfigs.find(id);
 	if (pos == _listenerConfigs.end()) {
-		warningLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Listener (id = ") << id << ") not found");
+		Log::warning().log(LogMessage(SOURCE_LOCATION_ARGS, "Listener (id = ") << id << ") not found");
 		return;
 	}
 	pos->second.addrInfo = addrInfo;
@@ -42,7 +42,7 @@ void AbstractAsyncTcpService::removeListener(int id)
 {
 	ListenerConfigs::iterator pos = _listenerConfigs.find(id);
 	if (pos == _listenerConfigs.end()) {
-		warningLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Listener (id = ") << id << ") not found");
+		Log::warning().log(LogMessage(SOURCE_LOCATION_ARGS, "Listener (id = ") << id << ") not found");
 		return;
 	}
 	_listenerConfigs.erase(pos);
@@ -51,13 +51,13 @@ void AbstractAsyncTcpService::removeListener(int id)
 void AbstractAsyncTcpService::start()
 {
 	// Creating listeners
-	debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Creating listeners"));
+	Log::debug().log(LogMessage(SOURCE_LOCATION_ARGS, "Creating listeners"));
 	for (ListenerConfigs::const_iterator i = _listenerConfigs.begin(); i != _listenerConfigs.end(); ++i) {
 		std::auto_ptr<ListenerThread> newListenerAutoPtr(new ListenerThread(*this, i->second.addrInfo, i->second.backLog));
 		_listeners.push_back(newListenerAutoPtr.get());
 		newListenerAutoPtr.release();
 	}
-	debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Listeners have been created"));
+	Log::debug().log(LogMessage(SOURCE_LOCATION_ARGS, "Listeners have been created"));
 	// Calling base class method
 	StateSetSubsystem::start();
 }
@@ -67,9 +67,9 @@ void AbstractAsyncTcpService::stop()
 	// Calling base class method
 	StateSetSubsystem::stop();
 	// Diposing listeners
-	debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Disposing listeners"));
+	Log::debug().log(LogMessage(SOURCE_LOCATION_ARGS, "Disposing listeners"));
 	resetListenerThreads();
-	debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Listeners have been disposed"));
+	Log::debug().log(LogMessage(SOURCE_LOCATION_ARGS, "Listeners have been disposed"));
 }
 
 void AbstractAsyncTcpService::resetListenerThreads()
@@ -95,19 +95,19 @@ AbstractAsyncTcpService::ListenerThread::ListenerThread(AbstractAsyncTcpService&
 bool AbstractAsyncTcpService::ListenerThread::onStart()
 {
 	try {
-		debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Listener thread has been started"));
+		Log::debug().log(LogMessage(SOURCE_LOCATION_ARGS, "Listener thread has been started"));
 		_serverSocket.open();
-		debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Server socket has been opened"));
+		Log::debug().log(LogMessage(SOURCE_LOCATION_ARGS, "Server socket has been opened"));
 		_serverSocket.bind(_addrInfo);
-		debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Server socket has been binded"));
+		Log::debug().log(LogMessage(SOURCE_LOCATION_ARGS, "Server socket has been binded"));
 		_serverSocket.listen(_backLog);
-		debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Server socket has been switched to the listening state"));
+		Log::debug().log(LogMessage(SOURCE_LOCATION_ARGS, "Server socket has been switched to the listening state"));
 		return true;
 	} catch (std::exception& e) {
-		errorLog().log(ExceptionLogMessage(SOURCE_LOCATION_ARGS, e, "Asynchronous TCP-service listener socket initialization error -> exiting from listener thread"));
+		Log::error().log(ExceptionLogMessage(SOURCE_LOCATION_ARGS, e, "Asynchronous TCP-service listener socket initialization error -> exiting from listener thread"));
 		return false;
 	} catch (...) {
-		errorLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Asynchronous TCP-service listener unknown socket initialization error -> exiting from listener thread"));
+		Log::error().log(LogMessage(SOURCE_LOCATION_ARGS, "Asynchronous TCP-service listener unknown socket initialization error -> exiting from listener thread"));
 		return false;
 	}
 }
@@ -121,7 +121,7 @@ bool AbstractAsyncTcpService::ListenerThread::doLoad(const Timestamp& limit, con
 				// Accepting TCP-connection timeout expired
 				return true;
 			}
-			debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "TCP-connection has been received from ") <<
+			Log::debug().log(LogMessage(SOURCE_LOCATION_ARGS, "TCP-connection has been received from ") <<
 					socketAutoPtr.get()->remoteAddr().firstEndpoint().host << ':' <<
 					socketAutoPtr.get()->remoteAddr().firstEndpoint().port);
 			std::auto_ptr<AbstractTask> taskAutoPtr(_service.createTask(*socketAutoPtr.get()));
@@ -130,16 +130,16 @@ bool AbstractAsyncTcpService::ListenerThread::doLoad(const Timestamp& limit, con
 			}
 			socketAutoPtr.release();
 			if (!_service._taskDispatcher.perform(taskAutoPtr, &AbstractTask::executeReceive, &AbstractTask::executeSend)) {
-				warningLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Too many TCP-connection requests"));
+				Log::warning().log(LogMessage(SOURCE_LOCATION_ARGS, "Too many TCP-connection requests"));
 				_service.onOverload(*taskAutoPtr.get());
 			}
 		}
 		return true;
 	} catch (std::exception& e) {
-		errorLog().log(ExceptionLogMessage(SOURCE_LOCATION_ARGS, e, "Asynchronous TCP-service listener execution error -> exiting from listener thread"));
+		Log::error().log(ExceptionLogMessage(SOURCE_LOCATION_ARGS, e, "Asynchronous TCP-service listener execution error -> exiting from listener thread"));
 		return false;
 	} catch (...) {
-		errorLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Asynchronous TCP-service listener unknown execution error -> exiting from listener thread"));
+		Log::error().log(LogMessage(SOURCE_LOCATION_ARGS, "Asynchronous TCP-service listener unknown execution error -> exiting from listener thread"));
 		return false;
 	}
 }

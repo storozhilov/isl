@@ -1,13 +1,13 @@
 #ifndef ISL__FUNCTOR_THREAD__HXX
 #define ISL__FUNCTOR_THREAD__HXX
 
-#include <isl/common.hxx>
 #include <isl/AbstractThread.hxx>
 #include <isl/ReadWriteLock.hxx>
 #include <isl/WaitCondition.hxx>
 #include <isl/Exception.hxx>
 #include <isl/Error.hxx>
 #include <isl/SystemCallError.hxx>
+#include <isl/Log.hxx>
 #include <isl/LogMessage.hxx>
 #include <isl/ExceptionLogMessage.hxx>
 #include <pthread.h>

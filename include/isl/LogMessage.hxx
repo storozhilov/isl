@@ -16,7 +16,7 @@ public:
 	  \param SOURCE_LOCATION_ARGS_DECLARATION Put SOURCE_LOCATION_ARGS macro here
 	  \param msg Message text
 	*/
-	LogMessage(SOURCE_LOCATION_ARGS_DECLARATION, const std::string& msg);
+	LogMessage(SOURCE_LOCATION_ARGS_DECLARATION, const std::string& msg = std::string());
 	//! Copying constructor
 	/*!
 	  \param rhs Log message to copy from

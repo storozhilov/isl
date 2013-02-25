@@ -1,13 +1,13 @@
 #ifndef ISL__ABSTRACT_SYNC_TCP_SERVICE__HXX
 #define ISL__ABSTRACT_SYNC_TCP_SERVICE__HXX
 
-#include <isl/common.hxx>
 #include <isl/StateSetSubsystem.hxx>
 #include <isl/TaskDispatcher.hxx>
 #include <isl/TcpAddrInfo.hxx>
 #include <isl/TcpSocket.hxx>
 #include <isl/LogMessage.hxx>
 #include <isl/ExceptionLogMessage.hxx>
+#include <map>
 
 namespace isl
 {

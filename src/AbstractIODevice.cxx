@@ -1,5 +1,5 @@
-#include <isl/common.hxx>
 #include <isl/AbstractIODevice.hxx>
+#include <isl/Log.hxx>
 #include <isl/LogMessage.hxx>
 #include <isl/Exception.hxx>
 #include <isl/Error.hxx>
@@ -19,7 +19,7 @@ AbstractIODevice::~AbstractIODevice()
 void AbstractIODevice::open()
 {
 	if (_isOpen) {
-		warningLog().log(LogMessage(SOURCE_LOCATION_ARGS, "I/O-device is already opened -> reopening the device"));
+		Log::warning().log(LogMessage(SOURCE_LOCATION_ARGS, "I/O-device is already opened -> reopening the device"));
 		close();
 	}
 	openImplementation();
@@ -29,7 +29,7 @@ void AbstractIODevice::open()
 void AbstractIODevice::close()
 {
 	if (!_isOpen) {
-		warningLog().log(LogMessage(SOURCE_LOCATION_ARGS, "I/O-device is already closed"));
+		Log::warning().log(LogMessage(SOURCE_LOCATION_ARGS, "I/O-device is already closed"));
 		return;
 	}
 	closeImplementation();

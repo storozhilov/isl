@@ -1,9 +1,9 @@
 #ifndef ISL__MESSAGE_PROVIDER__HXX
 #define ISL__MESSAGE_PROVIDER__HXX
 
-#include <isl/common.hxx>
 #include <isl/Exception.hxx>
 #include <isl/Error.hxx>
+#include <isl/Log.hxx>
 #include <isl/LogMessage.hxx>
 #include <isl/AbstractMessageConsumer.hxx>
 #include <isl/ReadWriteLock.hxx>
@@ -101,16 +101,16 @@ public:
 	{
 		WriteLocker locker(_consumersRwLock);
 		if (_consumers.find(&consumer) != _consumers.end()) {
-			errorLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Message consumer has been already subscribed to message provider"));
+			Log::error().log(LogMessage(SOURCE_LOCATION_ARGS, "Message consumer has been already subscribed to message provider"));
 			return;
 		}
 		if (_consumers.size() >= _maxConsumersAmount) {
 			Error err(SOURCE_LOCATION_ARGS, "Maximum subscriptions amount has been exceeded");
-			errorLog().log(LogMessage(SOURCE_LOCATION_ARGS, err.message()));
+			Log::error().log(LogMessage(SOURCE_LOCATION_ARGS, err.message()));
 			throw Exception(err);
 		}
 		_consumers.insert(&consumer);
-		debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Message consumer has been subscribed to the message provider"));
+		Log::debug().log(LogMessage(SOURCE_LOCATION_ARGS, "Message consumer has been subscribed to the message provider"));
 	}
 	//! Unsubscribes consumer from the provider
 	void unsubscribe(AbstractMessageConsumerType& consumer)
@@ -118,11 +118,11 @@ public:
 		WriteLocker locker(_consumersRwLock);
 		typename ConsumersContainer::iterator pos = _consumers.find(&consumer);
 		if (pos == _consumers.end()) {
-			errorLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Message consumer have not been subscribed to message provider"));
+			Log::error().log(LogMessage(SOURCE_LOCATION_ARGS, "Message consumer have not been subscribed to message provider"));
 			return;
 		}
 		_consumers.erase(pos);
-		debugLog().log(LogMessage(SOURCE_LOCATION_ARGS, "Message consumer has been unsubscribed from the message provider"));
+		Log::debug().log(LogMessage(SOURCE_LOCATION_ARGS, "Message consumer has been unsubscribed from the message provider"));
 	}
 protected:
 	//! Provide message to all subscribed consumers
