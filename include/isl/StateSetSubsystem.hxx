@@ -9,10 +9,15 @@
 namespace isl
 {
 
-//! Subsystem, which is controlled by StateSet object and starting/stopping it's threads
+//! Subsystem, which is controlling it's threads using internal StateSet object
 class StateSetSubsystem : public Subsystem
 {
 public:
+	//! Constructs a new state set subsystem
+	/*!
+	  \param owner The owner subsystem of the new subsystem
+	  \param clockTimeout Subsystem's clock timeout
+	 */
 	StateSetSubsystem(Subsystem * owner, const Timeout& clockTimeout = Timeout::defaultTimeout());
 	//! Starting subsystem virtual method
 	/*!
@@ -48,7 +53,7 @@ protected:
 		//! Destructor
 		virtual ~AbstractThread();
 		//! Returns a reference to the state set subsystem
-		StateSetSubsystem& subsystem()
+		inline StateSetSubsystem& subsystem()
 		{
 			return _subsystem;
 		}

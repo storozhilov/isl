@@ -1,5 +1,5 @@
-#ifndef ISL__INTER_THREAD_REQUESTER__HXX
-#define ISL__INTER_THREAD_REQUESTER__HXX
+#ifndef ISL__THREAD_REQUESTER__HXX
+#define ISL__THREAD_REQUESTER__HXX
 
 #include <isl/AbstractMessageConsumer.hxx>
 #include <isl/WaitCondition.hxx>
@@ -7,14 +7,13 @@
 #include <isl/Error.hxx>
 #include <isl/Log.hxx>
 #include <isl/LogMessage.hxx>
-#include <isl/InterThreadMessage.hxx>
 #include <list>
 #include <deque>
 #include <map>
 #include <memory>
 
-#ifndef ISL__INTER_THREAD_REQUESTER_MAX_CONTAINER_SIZE
-#define ISL__INTER_THREAD_REQUESTER_MAX_CONTAINER_SIZE 16
+#ifndef ISL__THREAD_REQUESTER_MAX_CONTAINER_SIZE
+#define ISL__THREAD_REQUESTER_MAX_CONTAINER_SIZE 16
 #endif
 
 namespace isl
@@ -27,7 +26,7 @@ namespace isl
   \tparam Msg Message class
   \tparam Cloner Message cloner class with static <tt>Msg * Cloner::clone(const Msg& msg)</tt> method for cloning the message
 */
-template <typename Msg, typename Cloner = CopyMessageCloner<Msg> > class BasicInterThreadRequester
+template <typename Msg, typename Cloner = CopyMessageCloner<Msg> > class ThreadRequester
 {
 public:
 	typedef Msg MessageType;							//!< Message type
@@ -35,7 +34,7 @@ public:
 	//typedef size_t RequestIdType;
 private:
 	enum PrivateConstants {
-		MaxContainerSize = ISL__INTER_THREAD_REQUESTER_MAX_CONTAINER_SIZE
+		MaxContainerSize = ISL__THREAD_REQUESTER_MAX_CONTAINER_SIZE
 	};
 
 	struct RequestsQueueItem
@@ -96,10 +95,10 @@ public:
 		const bool _responseRequired;
 		bool _responseSent;
 
-		friend class BasicInterThreadRequester<Msg, Cloner>;
+		friend class ThreadRequester<Msg, Cloner>;
 	};
 	//! Constructor
-	BasicInterThreadRequester() :
+	ThreadRequester() :
 		_maxContainerSize(MaxContainerSize),
 		_cond(),
 		_lastRequestId(0),
@@ -108,7 +107,7 @@ public:
 		_pendingRequestAutoPtr()
 	{}
 	//! Constructor
-	BasicInterThreadRequester(size_t maxContainerSize) :
+	ThreadRequester(size_t maxContainerSize) :
 		_maxContainerSize(maxContainerSize),
 		_cond(),
 		_lastRequestId(0),
@@ -117,7 +116,7 @@ public:
 		_pendingRequestAutoPtr()
 	{}
 	//! Destructor
-	~BasicInterThreadRequester()
+	~ThreadRequester()
 	{
 		reset();
 	}
@@ -337,9 +336,6 @@ private:
 	ResponsesMap _responsesMap;
 	std::auto_ptr<PendingRequest> _pendingRequestAutoPtr;
 };
-
-//! Inter-thread reaquester for use in ISL
-typedef BasicInterThreadRequester<AbstractInterThreadMessage, CloneMessageCloner<AbstractInterThreadMessage> > InterThreadRequester;
 
 } // namespace isl
 

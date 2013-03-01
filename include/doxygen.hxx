@@ -27,6 +27,13 @@ namespace isl
 
   \section intro_section Introduction
 
+  TODO: Documentation & website information refactoring needed!!! Sorry for poor description of the library - 
+  will pay attention to it soon.
+
+  TODO: It seems to me, the project renaming is needed. There is another <a href="http://freecode.com/projects/isl">ISL library</a>
+  on the Inet. New preliminary title is UDTK, which is stands for "Unix Daemon ToolKit". An &quot;isl&quot; namespace will be
+  renamed to &quot;udtk&quot; respectively. :)
+
   Every server application should run daemonized 24x7 in memory leak free multithread environment, have it's own UNIX signals
   handler, thread-safe logging subsystem, thread-safe message queues/buses for inter-thread exchange, etc. In general terms
   the architecture of any server application is usually composed from common design elements which are based on
@@ -250,6 +257,9 @@ int main(int argc, char *argv[])
   LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
   EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
   \endverbatim
+
+  <!--<a href="http://www.vim.org/"><img src="http://www.vim.org/images/vim_created.gif" title="Created with ViM" alt="Created with ViM" /></a>-->
+  <img src="http://www.vim.org/images/vim_created.gif" title="Created with ViM" alt="Created with ViM" />
 
 */
 

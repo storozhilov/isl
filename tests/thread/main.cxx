@@ -2,7 +2,7 @@
 #include <isl/MemFunThread.hxx>
 #include <isl/TaskDispatcher.hxx>
 #include <isl/MultiTaskDispatcher.hxx>
-#include <isl/InterThreadRequester.hxx>
+#include <isl/ThreadRequester.hxx>
 #include <isl/DirectLogger.hxx>
 #include <isl/StreamLogTarget.hxx>
 #include <iostream>
@@ -92,13 +92,13 @@ public:
 		PingRequest,
 		PongResponse
 	};
-	typedef isl::BasicInterThreadRequester<Message> InterThreadRequester;
+	typedef isl::ThreadRequester<Message> ThreadRequesterType;
 
 	RespondentThread() :
 		isl::AbstractThread(),
 		_requester()
 	{}
-	InterThreadRequester& requester()
+	ThreadRequesterType& requester()
 	{
 		return _requester;
 	}
@@ -127,7 +127,7 @@ private:
 	virtual void run()
 	{
 		while (true) {
-			const InterThreadRequester::PendingRequest * pendingRequestPtr = _requester.awaitRequest(isl::Timestamp::limit(isl::Timeout::defaultTimeout()));
+			const ThreadRequesterType::PendingRequest * pendingRequestPtr = _requester.awaitRequest(isl::Timestamp::limit(isl::Timeout::defaultTimeout()));
 			if (!pendingRequestPtr) {
 				continue;
 			}
@@ -144,7 +144,7 @@ private:
 		}
 	}
 
-	InterThreadRequester _requester;
+	ThreadRequesterType _requester;
 };
 
 int main(int argc, char *argv[])

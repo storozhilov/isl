@@ -1,9 +1,9 @@
 #ifndef ISL__ABSTRACT_MESSAGE_BROKER_LISTENING_CONNECTION__HXX
 #define ISL__ABSTRACT_MESSAGE_BROKER_LISTENING_CONNECTION__HXX
 
+#include <isl/ThreadRequesterSubsystem.hxx>
 #include <isl/TcpSocket.hxx>
 #include <isl/TcpAddrInfo.hxx>
-#include <isl/Subsystem.hxx>
 #include <isl/IOError.hxx>
 #include <isl/ReadWriteLock.hxx>
 #include <isl/MessageQueue.hxx>
@@ -13,7 +13,6 @@
 #include <isl/Error.hxx>
 #include <isl/Log.hxx>
 #include <isl/LogMessage.hxx>
-#include <isl/Ticker.hxx>
 #include <memory>
 
 namespace isl
@@ -35,7 +34,7 @@ namespace isl
   \tparam Msg Message class
   \tparam Cloner Message cloner class with static <tt>Msg * Cloner::clone(const Msg& msg)</tt> method for cloning the message
 */
-template <typename Msg, typename Cloner = CopyMessageCloner<Msg> > class AbstractMessageBrokerListeningConnection : public Subsystem
+template <typename Msg, typename Cloner = CopyMessageCloner<Msg> > class AbstractMessageBrokerListeningConnection : public ThreadRequesterSubsystem
 {
 public:
 	typedef Msg MessageType;							//!< Message type
@@ -82,19 +81,16 @@ public:
 	AbstractMessageBrokerListeningConnection(Subsystem * owner, const TcpAddrInfo& localAddr,
 			const Timeout& clockTimeout = Timeout::defaultTimeout(), const InputQueueFactory& inputQueueFactory = InputQueueFactory(),
 			const OutputBusFactory& outputBusFactory = OutputBusFactory()) :
-		Subsystem(owner, clockTimeout),
+		ThreadRequesterSubsystem(owner, clockTimeout),
 		_localAddr(localAddr),
 		_inputQueueAutoPtr(inputQueueFactory.create()),
 		_providedInputQueuePtr(),
 		_outputBusAutoPtr(outputBusFactory.create()),
 		_providedOutputBusPtr(),
-		_receiverRequester(),
-		_senderRequester(),
-		_receiverThread(),
-		_senderThread(),
+		_receiverThread(*this),
+		_senderThread(*this),
 		_socket(),
 		_transferSocketAutoPtr(),
-		_consumeBuffer(),
 		_providers(),
 		_consumers()
 	{}
@@ -108,19 +104,16 @@ public:
 	*/
 	AbstractMessageBrokerListeningConnection(Subsystem * owner, const TcpAddrInfo& localAddr, MessageQueueType& inputQueue,
 			const Timeout& clockTimeout = Timeout::defaultTimeout(), const OutputBusFactory& outputBusFactory = OutputBusFactory()) :
-		Subsystem(owner, clockTimeout),
+		ThreadRequesterSubsystem(owner, clockTimeout),
 		_localAddr(localAddr),
 		_inputQueueAutoPtr(),
 		_providedInputQueuePtr(&inputQueue),
 		_outputBusAutoPtr(outputBusFactory.create()),
 		_providedOutputBusPtr(),
-		_receiverRequester(),
-		_senderRequester(),
-		_receiverThread(),
-		_senderThread(),
+		_receiverThread(*this),
+		_senderThread(*this),
 		_socket(),
 		_transferSocketAutoPtr(),
-		_consumeBuffer(),
 		_providers(),
 		_consumers()
 	{}
@@ -134,19 +127,16 @@ public:
 	*/
 	AbstractMessageBrokerListeningConnection(Subsystem * owner, const TcpAddrInfo& localAddr, MessageBusType& outputBus,
 			const Timeout& clockTimeout = Timeout::defaultTimeout(), const InputQueueFactory& inputQueueFactory = InputQueueFactory()) :
-		Subsystem(owner, clockTimeout),
+		ThreadRequesterSubsystem(owner, clockTimeout),
 		_localAddr(localAddr),
 		_inputQueueAutoPtr(inputQueueFactory.create()),
 		_providedInputQueuePtr(),
 		_outputBusAutoPtr(),
 		_providedOutputBusPtr(&outputBus),
-		_receiverRequester(),
-		_senderRequester(),
-		_receiverThread(),
-		_senderThread(),
+		_receiverThread(*this),
+		_senderThread(*this),
 		_socket(),
 		_transferSocketAutoPtr(),
-		_consumeBuffer(),
 		_providers(),
 		_consumers()
 	{}
@@ -160,19 +150,16 @@ public:
 	*/
 	AbstractMessageBrokerListeningConnection(Subsystem * owner, const TcpAddrInfo& localAddr, MessageQueueType& inputQueue,
 			MessageBusType& outputBus, const Timeout& clockTimeout = Timeout::defaultTimeout()) :
-		Subsystem(owner, clockTimeout),
+		ThreadRequesterSubsystem(owner, clockTimeout),
 		_localAddr(localAddr),
 		_inputQueueAutoPtr(),
 		_providedInputQueuePtr(&inputQueue),
 		_outputBusAutoPtr(),
 		_providedOutputBusPtr(&outputBus),
-		_receiverRequester(),
-		_senderRequester(),
-		_receiverThread(),
-		_senderThread(),
+		_receiverThread(*this),
+		_senderThread(*this),
 		_socket(),
 		_transferSocketAutoPtr(),
-		_consumeBuffer(),
 		_providers(),
 		_consumers()
 	{}
@@ -199,7 +186,7 @@ public:
 		}
 	}
 	//! Returns local address to bind to
-	TcpAddrInfo localAddr() const
+	const TcpAddrInfo& localAddr() const
 	{
 		return _localAddr;
 	}
@@ -301,83 +288,12 @@ public:
 		return responseQueue.await(limit);
 	}
 	//! Starting subsystem method redefinition
-	virtual void start()
-	{
-		// Calling ancestor's method
-		Subsystem::start();
-		// Starting receiver and sender threads
-		_senderRequester.reset();
-		_receiverRequester.reset();
-		Log::debug().log(LogMessage(SOURCE_LOCATION_ARGS, "Starting receiver thread"));
-		_receiverThread.start(*this, &AbstractMessageBrokerListeningConnection<Msg, Cloner>::receive);
-		Log::debug().log(LogMessage(SOURCE_LOCATION_ARGS, "Starting sender thread"));
-		_senderThread.start(*this, &AbstractMessageBrokerListeningConnection<Msg, Cloner>::send);
-	}
-	//! Stopting subsystem method redefinition
-	virtual void stop()
-	{
-		// Sending termination requests to the sender and receiver threads
-		size_t senderRequestId = _senderRequester.sendRequest(TerminateRequestMessage());
-		if (senderRequestId > 0) {
-			Log::debug().log(LogMessage(SOURCE_LOCATION_ARGS, "Termination request has been sent to the sender thread"));
-		} else {
-			Log::error().log(LogMessage(SOURCE_LOCATION_ARGS, "Could not send termination request to the sender thread"));
-			// TODO _senderThread.kill();
-		}
-		size_t receiverRequestId = _receiverRequester.sendRequest(TerminateRequestMessage());
-		if (receiverRequestId > 0) {
-			Log::debug().log(LogMessage(SOURCE_LOCATION_ARGS, "Termination request has been sent to the receiver thread"));
-		} else {
-			Log::error().log(LogMessage(SOURCE_LOCATION_ARGS, "Could not send termination request to the receiver thread"));
-			// TODO _receiverThread.kill();
-		}
-		// Awaiting for sender thread termination
-		if (senderRequestId > 0) {
-			// TODO Add timeout to wait for the response
-			std::auto_ptr<AbstractInterThreadMessage> responseAutoPtr = _senderRequester.awaitResponse(senderRequestId);
-			if (!responseAutoPtr.get()) {
-				std::ostringstream msg;
-				msg << "No response to termination request have been received from the sender thread";
-				Log::error().log(LogMessage(SOURCE_LOCATION_ARGS, msg.str()));
-			} else if (responseAutoPtr->instanceOf<OkResponseMessage>()) {
-				Log::debug().log(LogMessage(SOURCE_LOCATION_ARGS, "OK response to the termination request has been received from the sender thread"));
-			} else {
-				std::ostringstream msg;
-				msg << "Invalid response to termination request has been received from the sender thread: \"" << responseAutoPtr->name() << "\"";
-				Log::error().log(LogMessage(SOURCE_LOCATION_ARGS, msg.str()));
-			}
-			Log::debug().log(LogMessage(SOURCE_LOCATION_ARGS, "Joining a sender thread"));
-			_senderThread.join();
-			Log::debug().log(LogMessage(SOURCE_LOCATION_ARGS, "Sender thread has been terminated"));
-		}
-		// Awaiting for receiver thread termination
-		if (receiverRequestId > 0) {
-			// TODO Add timeout to wait for the response
-			std::auto_ptr<AbstractInterThreadMessage> responseAutoPtr = _receiverRequester.awaitResponse(receiverRequestId);
-			if (!responseAutoPtr.get()) {
-				std::ostringstream msg;
-				msg << "No response to termination request have been received from the receiver thread";
-				Log::error().log(LogMessage(SOURCE_LOCATION_ARGS, msg.str()));
-			} else if (responseAutoPtr->instanceOf<OkResponseMessage>()) {
-				Log::debug().log(LogMessage(SOURCE_LOCATION_ARGS, "OK response to the termination request has been received from the receiver thread"));
-			} else {
-				std::ostringstream msg;
-				msg << "Invalid response to termination request has been received from the receiver thread: \"" << responseAutoPtr->name() << "\"";
-				Log::error().log(LogMessage(SOURCE_LOCATION_ARGS, msg.str()));
-			}
-			Log::debug().log(LogMessage(SOURCE_LOCATION_ARGS, "Joining a receiver thread"));
-			_receiverThread.join();
-			Log::debug().log(LogMessage(SOURCE_LOCATION_ARGS, "Receiver thread has been terminated"));
-		}
-		// Calling ancestor's method
-		Subsystem::stop();
-	}
 protected:
 	//! On receive message thread overload event handler
 	/*!
 	  \param Ticks expired (always > 2)
 	*/
-	virtual void onOverloadReceive(size_t ticksExpired)
+	virtual void onReceiverOverload(size_t ticksExpired)
 	{}
 	//! On connected event handler which is to be called in message receiver thread
 	/*!
@@ -414,21 +330,11 @@ protected:
 	*/
 	virtual void onProvideMessage(const MessageType& msg, AbstractMessageConsumerType& consumer)
 	{}
-	//! On unrecognized inter-thread request to receiver event handler
-	/*!
-	  \note Default implementation does nothing and returns FALSE
-	  \param request Constant reference to the inter-thread request
-	  \return TRUE if the request has been successfully recognized and handled
-	*/
-	virtual bool onReceiverRequest(const AbstractInterThreadMessage& request)
-	{
-		return false;
-	}
 	//! On send message thread overload event handler
 	/*!
 	  \param Ticks expired (always > 2)
 	*/
-	virtual void onOverloadSend(size_t ticksExpired)
+	virtual void onSenderOverload(size_t ticksExpired)
 	{}
 	//! On connected event handler which is to be called in message sender thread
 	/*!
@@ -458,16 +364,6 @@ protected:
 	*/
 	virtual void onSendMessage(const MessageType& msg)
 	{}
-	//! On unrecognized inter-thread request to sender event handler
-	/*!
-	  \note Default implementation does nothing and returns FALSE
-	  \param request Constant reference to the inter-thread request
-	  \return TRUE if the request has been successfully recognized and handled
-	*/
-	virtual bool onSenderRequest(const AbstractInterThreadMessage& request)
-	{
-		return false;
-	}
 
 	//! Receiving message from transport abstract method
 	/*!
@@ -493,290 +389,336 @@ private:
 	typedef std::list<MessageProviderType *> ProvidersContainer;
 	typedef std::list<AbstractMessageConsumerType *> ConsumersContainer;
 
-	class ConnectRequestMessage : public AbstractInterThreadMessage
+	class ConnectRequest : public AbstractThreadMessage
 	{
 	public:
 		virtual const char * name() const
 		{
-			static const char * n = "Connect Request";
+			static const char * n = "Connect request";
 			return n;
 		}
-		virtual AbstractInterThreadMessage * clone() const
+		virtual AbstractThreadMessage * clone() const
 		{
-			return new ConnectRequestMessage(*this);
+			return new ConnectRequest(*this);
 		}
 	};
 
-	class DisconnectRequestMessage : public AbstractInterThreadMessage
+	class DisconnectRequest : public AbstractThreadMessage
 	{
 	public:
 		virtual const char * name() const
 		{
-			static const char * n = "Disconnect Request";
+			static const char * n = "Disconnect request";
 			return n;
 		}
-		virtual AbstractInterThreadMessage * clone() const
+		virtual AbstractThreadMessage * clone() const
 		{
-			return new DisconnectRequestMessage(*this);
+			return new DisconnectRequest(*this);
 		}
 	};
 
-	void receive()
+	//! Message receiver thread class
+	class ReceiverThread : public Thread
 	{
-		Log::debug().log(LogMessage(SOURCE_LOCATION_ARGS, "Receiver thread has been started"));
-		_socket.open();
-		Log::debug().log(LogMessage(SOURCE_LOCATION_ARGS, "Socket has been opened"));
-		_socket.bind(_localAddr);
-		Log::debug().log(LogMessage(SOURCE_LOCATION_ARGS, "Socket has been binded"));
-		_socket.listen(1);
-		Log::debug().log(LogMessage(SOURCE_LOCATION_ARGS, "Socket has been switched to the listening state"));
-		bool connected = false;
-		size_t acceptingAttempts = 0;
-		Ticker ticker(clockTimeout());
-		bool firstTick = true;
-		while (true) {
-			size_t ticksExpired;
-			Timestamp nextTickLimit = ticker.tick(&ticksExpired);
-			if (firstTick) {
-				firstTick = false;
-			} else if (ticksExpired > 1) {
-				// Overload has been detected
-				Log::warning().log(LogMessage(SOURCE_LOCATION_ARGS, "Receiver thread execution overload has been detected: ") << ticksExpired << " ticks expired");
-				onOverloadReceive(ticksExpired);
-			}
-			while (Timestamp::now() < nextTickLimit) {
-				if (connected) {
+	public:
+		ReceiverThread(AbstractMessageBrokerListeningConnection& connection) :
+			Thread(connection),
+			_connection(connection),
+			_connected(false),
+			_acceptingAttempts(0)
+		{}
+	private:
+		//! On start event handler
+		/*!
+		  \return TRUE if to continue thread execution
+		*/
+		virtual bool onStart()
+		{
+			_connection._socket.open();
+			Log::debug().log(LogMessage(SOURCE_LOCATION_ARGS, "Socket has been opened"));
+			_connection._socket.bind(_connection._localAddr);
+			Log::debug().log(LogMessage(SOURCE_LOCATION_ARGS, "Socket has been binded"));
+			_connection._socket.listen(1);
+			Log::debug().log(LogMessage(SOURCE_LOCATION_ARGS, "Socket has been switched to the listening state"));
+			_connected = false;
+			_acceptingAttempts = 0;
+			return true;
+		}
+		//! Doing the work virtual method
+		/*!
+		  \param limit Limit timestamp for doing the work
+		  \return TRUE if to continue thread execution
+		*/
+		virtual bool doLoad(const Timestamp& limit)
+		{
+			while (Timestamp::now() < limit) {
+				if (_connected) {
 					// Receiving message if connected
 					std::auto_ptr<MessageType> msgAutoPtr;
 					try {
-						msgAutoPtr.reset(receiveMessage(*_transferSocketAutoPtr.get(), nextTickLimit));
+						msgAutoPtr.reset(_connection.receiveMessage(*_connection._transferSocketAutoPtr.get(), limit));
 					} catch (Exception& e) {
 						if (e.error().instanceOf<TcpSocket::ConnectionAbortedError>()) {
-							connected = false;
+							_connected = false;
 						} else {
 							throw;
 						}
 					}
-					if (!connected) {
+					if (!_connected) {
 						isl::Log::error().log(isl::LogMessage(SOURCE_LOCATION_ARGS, "Message broker connection has been aborted in the receiver thread"));
-						acceptingAttempts = 0;
+						_acceptingAttempts = 0;
 						// Sending disconnect request to the sender thread
-						size_t requestId = _senderRequester.sendRequest(DisconnectRequestMessage());
+						size_t requestId = _connection._senderThread.requester().sendRequest(DisconnectRequest());
 						if (requestId > 0) {
 							Log::debug().log(LogMessage(SOURCE_LOCATION_ARGS, "Disconnect request has been sent to the sender thread"));
 						} else {
 							Log::error().log(LogMessage(SOURCE_LOCATION_ARGS, "Could not send disconnect request to the sender thread"));
 						}
 						// Calling 'on receiver disconnected' event handler
-						onReceiverDisconnected(true);
+						_connection.onReceiverDisconnected(true);
 						// Awaiting for the response from the sender thread
 						if (requestId > 0) {
 							// TODO Use proper timeout to wait for the response
-							std::auto_ptr<AbstractInterThreadMessage> responseAutoPtr = _senderRequester.awaitResponse(requestId, Timestamp::limit(clockTimeout()));
+							std::auto_ptr<AbstractThreadMessage> responseAutoPtr =
+								_connection._senderThread.requester().awaitResponse(requestId, Timestamp::limit(_connection.awaitResponseTimeout()));
 							if (!responseAutoPtr.get()) {
-								std::ostringstream msg;
-								msg << "No response to disconnect request have been received from the sender thread";
-								Log::error().log(LogMessage(SOURCE_LOCATION_ARGS, msg.str()));
-							} else if (responseAutoPtr->instanceOf<OkResponseMessage>()) {
-								Log::debug().log(LogMessage(SOURCE_LOCATION_ARGS, "OK response to the disconnect request has been received from the sender thread"));
+								Log::error().log(LogMessage(SOURCE_LOCATION_ARGS,
+											"No response to disconnect request have been received from the sender thread"));
+							} else if (responseAutoPtr->instanceOf<OkResponse>()) {
+								Log::debug().log(LogMessage(SOURCE_LOCATION_ARGS,
+											"OK response to the disconnect request has been received from the sender thread"));
 							} else {
-								std::ostringstream msg;
-								msg << "Invalid response to disconnect request has been received from the sender thread: \"" << responseAutoPtr->name() << "\"";
-								Log::error().log(LogMessage(SOURCE_LOCATION_ARGS, msg.str()));
+								Log::error().log(LogMessage(SOURCE_LOCATION_ARGS, 
+										"Invalid response to disconnect request has been received from the sender thread: \"") <<
+										responseAutoPtr->name() << "\"");
 							}
 						}
 						// Resetting transfer socket autopointer
-						_transferSocketAutoPtr.reset();
+						_connection._transferSocketAutoPtr.reset();
 					} else if (msgAutoPtr.get()) {
 						isl::Log::debug().log(isl::LogMessage(SOURCE_LOCATION_ARGS, "Message has been received by the receiver thread execution"));
 						// Calling on receive message event callback
-						if (!onReceiveMessage(*msgAutoPtr.get())) {
+						if (!_connection.onReceiveMessage(*msgAutoPtr.get())) {
 							Log::debug().log(LogMessage(SOURCE_LOCATION_ARGS, "Message has been rejected by the on receive event handler"));
 							continue;
 						}
 						// Providing message to the internal output message bus
-						if (outputBus().push(*msgAutoPtr.get())) {
-							onProvideMessage(*msgAutoPtr.get(), outputBus());
+						if (_connection.outputBus().push(*msgAutoPtr.get())) {
+							_connection.onProvideMessage(*msgAutoPtr.get(), _connection.outputBus());
 						}
 						// Providing message to all consumers
-						for (typename ConsumersContainer::iterator i = _consumers.begin(); i != _consumers.end(); ++i) {
+						for (typename ConsumersContainer::iterator i = _connection._consumers.begin(); i != _connection._consumers.end(); ++i) {
 							if ((*i)->push(*msgAutoPtr.get())) {
-								onProvideMessage(*msgAutoPtr.get(), **i);
+								_connection.onProvideMessage(*msgAutoPtr.get(), **i);
 							}
 						}
 					}
 				} else {
-					_transferSocketAutoPtr = _socket.accept(nextTickLimit.leftTo());
-					if (_transferSocketAutoPtr.get()) {
+					_connection._transferSocketAutoPtr = _connection._socket.accept(limit.leftTo());
+					if (_connection._transferSocketAutoPtr.get()) {
 						Log::debug().log(LogMessage(SOURCE_LOCATION_ARGS, "Connection has been accepted"));
-						connected = true;
+						_connected = true;
 						// Sending connect request to the sender thread
-						size_t requestId = _senderRequester.sendRequest(ConnectRequestMessage());
+						size_t requestId = _connection._senderThread.requester().sendRequest(ConnectRequest());
 						if (requestId > 0) {
 							Log::debug().log(LogMessage(SOURCE_LOCATION_ARGS, "Connect request has been sent to the sender thread"));
 						} else {
 							Log::error().log(LogMessage(SOURCE_LOCATION_ARGS, "Could not send connect request to the sender thread"));
 						}
 						// Calling 'on receiver connected' event handler
-						onReceiverConnected(*_transferSocketAutoPtr.get());
+						_connection.onReceiverConnected(*_connection._transferSocketAutoPtr.get());
 						// Awaiting for the response from the sender thread
 						if (requestId > 0) {
-							// TODO Use proper timeout to wait for the response
-							std::auto_ptr<AbstractInterThreadMessage> responseAutoPtr = _senderRequester.awaitResponse(requestId, Timestamp::limit(clockTimeout()));
+							std::auto_ptr<AbstractThreadMessage> responseAutoPtr =
+								_connection._senderThread.requester().awaitResponse(requestId, Timestamp::limit(_connection.awaitResponseTimeout()));
 							if (!responseAutoPtr.get()) {
-								std::ostringstream msg;
-								msg << "No response to connect request have been received from the sender thread";
-								Log::error().log(LogMessage(SOURCE_LOCATION_ARGS, msg.str()));
-							} else if (responseAutoPtr->instanceOf<OkResponseMessage>()) {
-								Log::debug().log(LogMessage(SOURCE_LOCATION_ARGS, "OK response to the connect request has been received from the sender thread"));
+								Log::error().log(LogMessage(SOURCE_LOCATION_ARGS,
+											"No response to connect request have been received from the sender thread"));
+							} else if (responseAutoPtr->instanceOf<OkResponse>()) {
+								Log::debug().log(LogMessage(SOURCE_LOCATION_ARGS,
+											"OK response to the connect request has been received from the sender thread"));
 							} else {
-								std::ostringstream msg;
-								msg << "Invalid response to connect request has been received from the sender thread: \"" << responseAutoPtr->name() << "\"";
-								Log::error().log(LogMessage(SOURCE_LOCATION_ARGS, msg.str()));
+								Log::error().log(LogMessage(SOURCE_LOCATION_ARGS,
+										"Invalid response to connect request has been received from the sender thread: \"") <<
+										responseAutoPtr->name() << "\"");
 							}
 						}
 					} else {
-						++acceptingAttempts;
-						onAcceptFailed(acceptingAttempts);
+						++_acceptingAttempts;
+						_connection.onAcceptFailed(_acceptingAttempts);
 						break;
 					}
 				}
 			}
-			// Handling incoming inter-thread request
-			const InterThreadRequester::PendingRequest * pendingRequestPtr = _receiverRequester.awaitRequest(nextTickLimit);
-			if (pendingRequestPtr) {
-				if (pendingRequestPtr->request().instanceOf<TerminateRequestMessage>()) {
-					Log::debug().log(LogMessage(SOURCE_LOCATION_ARGS, "Termination request has been received by the receiver thread -> exiting from the receiver thread"));
-					if (pendingRequestPtr->responseRequired()) {
-						_receiverRequester.sendResponse(OkResponseMessage());
-					}
-					break;
-				} else if (!onReceiverRequest(pendingRequestPtr->request())) {
-					std::ostringstream msg;
-					msg << "Unknown inter-thread request has been received by the receiver thread: \"" << pendingRequestPtr->request().name() << '"';
-					Log::warning().log(LogMessage(SOURCE_LOCATION_ARGS, msg.str()));
+			return true;
+		}
+		//! On overload event handler
+		/*!
+		  \param Ticks expired (always > 2)
+		  \return TRUE if to continue thread execution
+		*/
+		virtual bool onOverload(size_t ticksExpired)
+		{
+			//return _connection.onReceiverOverload(ticksExpired);	// TODO ???
+			_connection.onReceiverOverload(ticksExpired);
+			return true;
+		}
+		//! On stop event handler
+		virtual void onStop()
+		{
+			if (_connected) {
+				_connection._transferSocketAutoPtr.reset();
+				isl::Log::debug().log(isl::LogMessage(SOURCE_LOCATION_ARGS, "Connection has been closed"));
+				_connection.onReceiverDisconnected(false);
+			}
+		}
+
+		AbstractMessageBrokerListeningConnection& _connection;
+		bool _connected;
+		size_t _acceptingAttempts;
+	};
+
+	//! Message sender thread class
+	class SenderThread : public Thread
+	{
+	public:
+		SenderThread(AbstractMessageBrokerListeningConnection& connection) :
+			Thread(connection),
+			_connection(connection),
+			_currentMessageAutoPtr(),
+			_sendingMessage(false),
+			_connected(false),
+			_consumeBuffer(),
+			_subscriberListReleaserAutoPtr()
+		{}
+	private:
+		//! On thread request event handler
+		/*!
+		  \param pendingRequest Constant reference to pending resuest to process
+		*/
+		virtual void onThreadRequest(const ThreadRequesterType::PendingRequest& pendingRequest)
+		{
+			if (pendingRequest.request().instanceOf<ConnectRequest>()) {
+				Log::debug().log(LogMessage(SOURCE_LOCATION_ARGS, "Connect request has been received by the sender thread"));
+				if (pendingRequest.responseRequired()) {
+					requester().sendResponse(OkResponse());
+				}
+				_connected = true;
+				_connection.onSenderConnected(*_connection._transferSocketAutoPtr.get());
+			} else if (pendingRequest.request().instanceOf<DisconnectRequest>()) {
+				Log::debug().log(LogMessage(SOURCE_LOCATION_ARGS, "Disconnect request has been received by the sender thread"));
+				if (pendingRequest.responseRequired()) {
+					requester().sendResponse(OkResponse());
+				}
+				if (_connected) {
+					_connected = false;
+					_connection.onSenderDisconnected(true);
 				}
 			}
 		}
-		if (connected) {
-			_transferSocketAutoPtr.reset();
-			isl::Log::debug().log(isl::LogMessage(SOURCE_LOCATION_ARGS, "Connection has been closed"));
-			onReceiverDisconnected(false);
-		}
-	}
-
-	void send()
-	{
-		Log::debug().log(LogMessage(SOURCE_LOCATION_ARGS, "Sender thread has been started"));
-		std::auto_ptr<MessageType> currentMessageAutoPtr;
-		bool sendingMessage = false;
-		bool connected = false;
-		Ticker ticker(clockTimeout());
-		bool firstTick = true;
-		// Susbcribing input message queue to the providers
-		typename MessageProviderType::SubscriberListReleaser subscriberListReleaser;
-		for (typename ProvidersContainer::iterator i = _providers.begin(); i != _providers.end(); ++i) {
-			std::auto_ptr<typename MessageProviderType::Subscriber> subscriberAutoPtr(new typename MessageProviderType::Subscriber(**i, inputQueue()));
-			subscriberListReleaser.addSubscriber(subscriberAutoPtr.get());
-			subscriberAutoPtr.release();
-			Log::debug().log(LogMessage(SOURCE_LOCATION_ARGS, "Input queue has been subscribed to the message provider"));
-		}
-		while (true) {
-			size_t ticksExpired;
-			Timestamp nextTickLimit = ticker.tick(&ticksExpired);
-			if (firstTick) {
-				firstTick = false;
-			} else if (ticksExpired > 1) {
-				// Overload has been detected
-				Log::warning().log(LogMessage(SOURCE_LOCATION_ARGS, "Sender thread execution overload has been detected: ") << ticksExpired << " ticks expired");
-				onOverloadSend(ticksExpired);
+		//! On start event handler
+		/*!
+		  \return TRUE if to continue thread execution
+		*/
+		virtual bool onStart()
+		{
+			_currentMessageAutoPtr.reset();
+			_sendingMessage = false;
+			_connected = false;
+			_consumeBuffer.clear();
+			// Susbcribing input message queue to the providers
+			_subscriberListReleaserAutoPtr.reset(new typename MessageProviderType::SubscriberListReleaser());
+			for (typename ProvidersContainer::iterator i = _connection._providers.begin(); i != _connection._providers.end(); ++i) {
+				std::auto_ptr<typename MessageProviderType::Subscriber> subscriberAutoPtr(new typename MessageProviderType::Subscriber(**i, _connection.inputQueue()));
+				_subscriberListReleaserAutoPtr->addSubscriber(subscriberAutoPtr.get());
+				subscriberAutoPtr.release();
+				Log::debug().log(LogMessage(SOURCE_LOCATION_ARGS, "Input queue has been subscribed to the message provider"));
 			}
-			if (connected) {
-				while (Timestamp::now() < nextTickLimit) {
-					if (sendingMessage) {
+			return true;
+		}
+		//! Doing the work virtual method
+		/*!
+		  \param limit Limit timestamp for doing the work
+		  \return TRUE if to continue thread execution
+		*/
+		virtual bool doLoad(const Timestamp& limit)
+		{
+			if (_connected) {
+				while (Timestamp::now() < limit) {
+					if (_sendingMessage) {
 						try {
-							if (sendMessage(*currentMessageAutoPtr.get(), *_transferSocketAutoPtr.get(), nextTickLimit)) {
-								sendingMessage = false;
+							if (_connection.sendMessage(*_currentMessageAutoPtr.get(), *_connection._transferSocketAutoPtr.get(), limit)) {
+								_sendingMessage = false;
 							}
 						} catch (Exception& e) {
 							if (e.error().instanceOf<TcpSocket::ConnectionAbortedError>()) {
-								connected = false;
+								_connected = false;
 							} else {
 								throw;
 							}
 						}
-						if (!connected) {
+						if (!_connected) {
 							isl::Log::error().log(isl::LogMessage(SOURCE_LOCATION_ARGS, "Message broker connection has been aborted in the sender thread"));
-							onSenderDisconnected(true);
+							_connection.onSenderDisconnected(true);
 						}
 					} else if (_consumeBuffer.empty()) {
 						// Fetching all messages from the input to the consume buffer
-						size_t consumedMessagesAmount = inputQueue().popAll(_consumeBuffer, nextTickLimit);
+						size_t consumedMessagesAmount = _connection.inputQueue().popAll(_consumeBuffer, limit);
 						if (consumedMessagesAmount > 0) {
-							std::ostringstream oss;
-							oss << consumedMessagesAmount << " message(s) has been fetched from the input queue to the consume buffer";
-							Log::debug().log(LogMessage(SOURCE_LOCATION_ARGS, oss.str()));
+							Log::debug().log(LogMessage(SOURCE_LOCATION_ARGS) << consumedMessagesAmount <<
+									" message(s) has been fetched from the input queue to the consume buffer");
 						}
 					} else {
 						// Fetching next message from the consume buffer
-						currentMessageAutoPtr = _consumeBuffer.pop();
-						if (onConsumeMessage(*currentMessageAutoPtr.get())) {
-							sendingMessage = true;
+						_currentMessageAutoPtr = _consumeBuffer.pop();
+						if (_connection.onConsumeMessage(*_currentMessageAutoPtr.get())) {
+							_sendingMessage = true;
 						} else {
 							Log::debug().log(LogMessage(SOURCE_LOCATION_ARGS, "Message has been rejected by the on consume event handler"));
 						}
 					}
 				}
 			}
-			// Handling incoming inter-thread request
-			const InterThreadRequester::PendingRequest * pendingRequestPtr = _senderRequester.awaitRequest(nextTickLimit);
-			if (pendingRequestPtr) {
-				if (pendingRequestPtr->request().instanceOf<TerminateRequestMessage>()) {
-					Log::debug().log(LogMessage(SOURCE_LOCATION_ARGS, "Termination request has been received by the sender thread -> exiting from the sender thread"));
-					if (pendingRequestPtr->responseRequired()) {
-						_senderRequester.sendResponse(OkResponseMessage());
-					}
-					break;
-				} else if (pendingRequestPtr->request().instanceOf<ConnectRequestMessage>()) {
-					Log::debug().log(LogMessage(SOURCE_LOCATION_ARGS, "Connect request has been received by the sender thread"));
-					if (pendingRequestPtr->responseRequired()) {
-						_senderRequester.sendResponse(OkResponseMessage());
-					}
-					connected = true;
-					onSenderConnected(*_transferSocketAutoPtr.get());
-				} else if (pendingRequestPtr->request().instanceOf<DisconnectRequestMessage>()) {
-					Log::debug().log(LogMessage(SOURCE_LOCATION_ARGS, "Disconnect request has been received by the sender thread"));
-					if (pendingRequestPtr->responseRequired()) {
-						_senderRequester.sendResponse(OkResponseMessage());
-					}
-					if (connected) {
-						connected = false;
-						onSenderDisconnected(true);
-					}
-				} else if (!onSenderRequest(pendingRequestPtr->request())) {
-					std::ostringstream msg;
-					msg << "Unknown message has been received by the receiver thread: \"" << pendingRequestPtr->request().name() << '"';
-					Log::warning().log(LogMessage(SOURCE_LOCATION_ARGS, msg.str()));
-				}
+			return true;
+		}
+		//! On overload event handler
+		/*!
+		  \param Ticks expired (always > 2)
+		  \return TRUE if to continue thread execution
+		*/
+		virtual bool onOverload(size_t ticksExpired)
+		{
+			//return _connection.onSenderOverload(ticksExpired);	// TODO ???
+			_connection.onSenderOverload(ticksExpired);
+			return true;
+		}
+		//! On stop event handler
+		virtual void onStop()
+		{
+			_currentMessageAutoPtr.reset();
+			_subscriberListReleaserAutoPtr.reset();
+			if (_connected) {
+				_connection.onSenderDisconnected(false);
 			}
 		}
-		if (connected) {
-			onSenderDisconnected(false);
-		}
-	}
+
+		AbstractMessageBrokerListeningConnection& _connection;
+		std::auto_ptr<MessageType> _currentMessageAutoPtr;
+		bool _sendingMessage;
+		bool _connected;
+		MessageBufferType _consumeBuffer;
+		std::auto_ptr<typename MessageProviderType::SubscriberListReleaser> _subscriberListReleaserAutoPtr;
+	};
 
 	TcpAddrInfo _localAddr;
 	std::auto_ptr<MessageQueueType> _inputQueueAutoPtr;
 	MessageQueueType * _providedInputQueuePtr;
 	std::auto_ptr<MessageBusType> _outputBusAutoPtr;
 	MessageBusType * _providedOutputBusPtr;
-	InterThreadRequester _receiverRequester;
-	InterThreadRequester _senderRequester;
-	MemFunThread _receiverThread;
-	MemFunThread _senderThread;
+	ReceiverThread _receiverThread;
+	SenderThread _senderThread;
 	TcpSocket _socket;
 	std::auto_ptr<TcpSocket> _transferSocketAutoPtr;
-	MessageBufferType _consumeBuffer;
 	ProvidersContainer _providers;
 	ConsumersContainer _consumers;
 };
