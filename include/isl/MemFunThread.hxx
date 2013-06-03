@@ -127,11 +127,8 @@ public:
 			}
 			_isRunning = true;
 		}
-		if (_functor) {
-			operator delete(_functor);
-		}
-		_functor = operator new(sizeof(Functor<T>));
-		new (_functor) Functor<T>(*this, obj, fun);
+		_functor = operator new(sizeof(Functor<T>));	// Allocating buffer for functor
+		new (_functor) Functor<T>(*this, obj, fun);	// Constructing functor in buffer with "placement new" operator
 		if (_awaitStartup) {
 			MutexLocker locker(_awaitStartupCondAutoPtr->mutex());
 			if (int errorCode = pthread_create(&_thread, NULL, execute<T>, this)) {
@@ -163,11 +160,8 @@ public:
 			}
 			_isRunning = true;
 		}
-		if (_functor) {
-			operator delete(_functor);
-		}
-		_functor = operator new(sizeof(Functor<T>));
-		new (_functor) Functor<T>(*this, obj, fun);
+		_functor = operator new(sizeof(Functor<T>));	// Allocating buffer for functor
+		new (_functor) Functor<T>(*this, obj, fun);	// Constructing functor in buffer with "placement new" operator
 		if (_awaitStartup) {
 			MutexLocker locker(_awaitStartupCondAutoPtr->mutex());
 			if (int errorCode = pthread_create(&_thread, NULL, execute<T>, this)) {
@@ -254,7 +248,10 @@ private:
 		}
 		bool isTrackable = threadPtr->_isTrackable;
 		Functor<T> * f = reinterpret_cast<Functor<T> *>(threadPtr->_functor);
-		(*f)();
+		(*f)();					// Executing functor
+		f->~Functor<T>();			// Explicit functor's destructor call
+		operator delete(threadPtr->_functor);	// Deallocating functor's buffer
+		threadPtr->_functor = 0;
 		if (isTrackable) {
 			WriteLocker locker(*threadPtr->_isRunningRWLockAutoPtr.get());
 			threadPtr->_isRunning = false;

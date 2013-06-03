@@ -197,7 +197,7 @@ public:
 		}
 		return taskPerformed;
 	}
-	//! Accepts task for execution it's single method in separate thread
+	//! Accepts task for it's single method execution in separate thread
 	/*!
 	  \param taskAutoPtr Reference to the auto-pointer to task object, which is automatically released if the task has been successfully accepted.
 	  \param method Pointer to method of the task to be executed in the separate thread

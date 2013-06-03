@@ -10,6 +10,9 @@ namespace isl
 {
 
 //! Subsystem, which is controlling it's threads using internal StateSet object
+/*!
+  TODO: To be removed (\sa Subsystem)
+ */ 
 class StateSetSubsystem : public Subsystem
 {
 public:

@@ -22,6 +22,8 @@ namespace isl
   which is one of the prestarted threads pool. If your task object has 2 or more such methods to execute take a
   look at the MultiTaskDispatcher class instead.
 
+  TODO: Add 'max overload' parameter and respective check on task performing operation
+
   \note Task dispatcher will automatically dispose all pending tasks on stop() operation without execution.
 
   \tparam T Task object class
@@ -63,6 +65,7 @@ public:
 	/*!
 	  \param owner Pointer to the owner subsystem
 	  \param workersAmount Worker threads amount
+	  \param clockTimeout Subsystem's clock timeout
 	*/
 	TaskDispatcher(Subsystem * owner, size_t workersAmount, const Timeout& clockTimeout = Timeout::defaultTimeout()) :
 		Subsystem(owner, clockTimeout),
@@ -118,10 +121,10 @@ public:
 		} while (_cond.wait(limit));
 		return false;
 	}
-	//! Accepts task for execution it's single method in separate thread
+	//! Accepts task for execution it's single method in a separate thread
 	/*!
 	  \param taskAutoPtr Reference to the auto-pointer to task object, which is automatically released if the task has been successfully accepted.
-	  \param method Pointer to method of the task to be executed in the separate thread
+	  \param method Pointer to method of the task to be executed in a separate thread
 	  \return TRUE if the task has been successfully accepted
 
 	  \note Thread-safe
