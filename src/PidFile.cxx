@@ -6,6 +6,8 @@
 #include <fstream>
 #include <cstdio>
 #include <cerrno>
+#include <sys/types.h>
+#include <unistd.h>
 
 namespace isl
 {

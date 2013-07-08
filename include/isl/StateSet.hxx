@@ -13,6 +13,7 @@ namespace isl
 /*!
   Multithread state set, which is used in ISL for inter-thread control.
   \tparam S State type
+  TODO: template <typename O> SetType modify(const O& operation);
 */
 template <typename S> class StateSet
 {

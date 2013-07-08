@@ -1,7 +1,7 @@
 #ifndef ISL__ABSTRACT_MESSAGE_BROKER_LISTENING_CONNECTION__HXX
 #define ISL__ABSTRACT_MESSAGE_BROKER_LISTENING_CONNECTION__HXX
 
-#include <isl/ThreadRequesterSubsystem.hxx>
+#include <isl/Subsystem.hxx>
 #include <isl/TcpSocket.hxx>
 #include <isl/TcpAddrInfo.hxx>
 #include <isl/IOError.hxx>
@@ -34,7 +34,7 @@ namespace isl
   \tparam Msg Message class
   \tparam Cloner Message cloner class with static <tt>Msg * Cloner::clone(const Msg& msg)</tt> method for cloning the message
 */
-template <typename Msg, typename Cloner = CopyMessageCloner<Msg> > class AbstractMessageBrokerListeningConnection : public ThreadRequesterSubsystem
+template <typename Msg, typename Cloner = CopyMessageCloner<Msg> > class AbstractMessageBrokerListeningConnection : public Subsystem
 {
 public:
 	typedef Msg MessageType;							//!< Message type
@@ -81,7 +81,7 @@ public:
 	AbstractMessageBrokerListeningConnection(Subsystem * owner, const TcpAddrInfo& localAddr,
 			const Timeout& clockTimeout = Timeout::defaultTimeout(), const InputQueueFactory& inputQueueFactory = InputQueueFactory(),
 			const OutputBusFactory& outputBusFactory = OutputBusFactory()) :
-		ThreadRequesterSubsystem(owner, clockTimeout),
+		Subsystem(owner, clockTimeout),
 		_localAddr(localAddr),
 		_inputQueueAutoPtr(inputQueueFactory.create()),
 		_providedInputQueuePtr(),
@@ -104,7 +104,7 @@ public:
 	*/
 	AbstractMessageBrokerListeningConnection(Subsystem * owner, const TcpAddrInfo& localAddr, MessageQueueType& inputQueue,
 			const Timeout& clockTimeout = Timeout::defaultTimeout(), const OutputBusFactory& outputBusFactory = OutputBusFactory()) :
-		ThreadRequesterSubsystem(owner, clockTimeout),
+		Subsystem(owner, clockTimeout),
 		_localAddr(localAddr),
 		_inputQueueAutoPtr(),
 		_providedInputQueuePtr(&inputQueue),
@@ -127,7 +127,7 @@ public:
 	*/
 	AbstractMessageBrokerListeningConnection(Subsystem * owner, const TcpAddrInfo& localAddr, MessageBusType& outputBus,
 			const Timeout& clockTimeout = Timeout::defaultTimeout(), const InputQueueFactory& inputQueueFactory = InputQueueFactory()) :
-		ThreadRequesterSubsystem(owner, clockTimeout),
+		Subsystem(owner, clockTimeout),
 		_localAddr(localAddr),
 		_inputQueueAutoPtr(inputQueueFactory.create()),
 		_providedInputQueuePtr(),
@@ -150,7 +150,7 @@ public:
 	*/
 	AbstractMessageBrokerListeningConnection(Subsystem * owner, const TcpAddrInfo& localAddr, MessageQueueType& inputQueue,
 			MessageBusType& outputBus, const Timeout& clockTimeout = Timeout::defaultTimeout()) :
-		ThreadRequesterSubsystem(owner, clockTimeout),
+		Subsystem(owner, clockTimeout),
 		_localAddr(localAddr),
 		_inputQueueAutoPtr(),
 		_providedInputQueuePtr(&inputQueue),
@@ -291,9 +291,11 @@ public:
 protected:
 	//! On receive message thread overload event handler
 	/*!
-	  \param Ticks expired (always > 2)
+	  \param prevTickTimestamp Previous tick timestamp
+	  \param nextTickTimestamp Next tick timestamp
+	  \param Amount of expired ticks - always > 2
 	*/
-	virtual void onReceiverOverload(size_t ticksExpired)
+	virtual void onReceiverOverload(const Timestamp& prevTickTimestamp, const Timestamp& nextTickTimestamp, size_t ticksExpired)
 	{}
 	//! On connected event handler which is to be called in message receiver thread
 	/*!
@@ -332,9 +334,11 @@ protected:
 	{}
 	//! On send message thread overload event handler
 	/*!
-	  \param Ticks expired (always > 2)
+	  \param prevTickTimestamp Previous tick timestamp
+	  \param nextTickTimestamp Next tick timestamp
+	  \param Amount of expired ticks - always > 2
 	*/
-	virtual void onSenderOverload(size_t ticksExpired)
+	virtual void onSenderOverload(const Timestamp& prevTickTimestamp, const Timestamp& nextTickTimestamp, size_t ticksExpired)
 	{}
 	//! On connected event handler which is to be called in message sender thread
 	/*!
@@ -392,11 +396,9 @@ private:
 	class ConnectRequest : public AbstractThreadMessage
 	{
 	public:
-		virtual const char * name() const
-		{
-			static const char * n = "Connect request";
-			return n;
-		}
+		ConnectRequest() :
+			AbstractThreadMessage("Connect request")
+		{}
 		virtual AbstractThreadMessage * clone() const
 		{
 			return new ConnectRequest(*this);
@@ -406,11 +408,9 @@ private:
 	class DisconnectRequest : public AbstractThreadMessage
 	{
 	public:
-		virtual const char * name() const
-		{
-			static const char * n = "Disconnect request";
-			return n;
-		}
+		DisconnectRequest() :
+			AbstractThreadMessage("Disconnect request")
+		{}
 		virtual AbstractThreadMessage * clone() const
 		{
 			return new DisconnectRequest(*this);
@@ -418,11 +418,11 @@ private:
 	};
 
 	//! Message receiver thread class
-	class ReceiverThread : public Thread
+	class ReceiverThread : public RequesterThread
 	{
 	public:
 		ReceiverThread(AbstractMessageBrokerListeningConnection& connection) :
-			Thread(connection),
+			RequesterThread(connection),
 			_connection(connection),
 			_connected(false),
 			_acceptingAttempts(0)
@@ -446,17 +446,19 @@ private:
 		}
 		//! Doing the work virtual method
 		/*!
-		  \param limit Limit timestamp for doing the work
+		  \param prevTickTimestamp Previous tick timestamp
+		  \param nextTickTimestamp Next tick timestamp
+		  \param ticksExpired Amount of expired ticks - if > 1, then an overload has occured
 		  \return TRUE if to continue thread execution
 		*/
-		virtual bool doLoad(const Timestamp& limit)
+		virtual bool doLoad(const Timestamp& prevTickTimestamp, const Timestamp& nextTickTimestamp, size_t ticksExpired)
 		{
-			while (Timestamp::now() < limit) {
+			while (Timestamp::now() < nextTickTimestamp) {
 				if (_connected) {
 					// Receiving message if connected
 					std::auto_ptr<MessageType> msgAutoPtr;
 					try {
-						msgAutoPtr.reset(_connection.receiveMessage(*_connection._transferSocketAutoPtr.get(), limit));
+						msgAutoPtr.reset(_connection.receiveMessage(*_connection._transferSocketAutoPtr.get(), nextTickTimestamp));
 					} catch (Exception& e) {
 						if (e.error().instanceOf<TcpSocket::ConnectionAbortedError>()) {
 							_connected = false;
@@ -480,7 +482,7 @@ private:
 						if (requestId > 0) {
 							// TODO Use proper timeout to wait for the response
 							std::auto_ptr<AbstractThreadMessage> responseAutoPtr =
-								_connection._senderThread.requester().awaitResponse(requestId, Timestamp::limit(_connection.awaitResponseTimeout()));
+								_connection._senderThread.requester().awaitResponse(requestId, Timestamp::limit(_connection.clockTimeout() * 4));
 							if (!responseAutoPtr.get()) {
 								Log::error().log(LogMessage(SOURCE_LOCATION_ARGS,
 											"No response to disconnect request have been received from the sender thread"));
@@ -514,7 +516,7 @@ private:
 						}
 					}
 				} else {
-					_connection._transferSocketAutoPtr = _connection._socket.accept(limit.leftTo());
+					_connection._transferSocketAutoPtr = _connection._socket.accept(nextTickTimestamp.leftTo());
 					if (_connection._transferSocketAutoPtr.get()) {
 						Log::debug().log(LogMessage(SOURCE_LOCATION_ARGS, "Connection has been accepted"));
 						_connected = true;
@@ -530,7 +532,7 @@ private:
 						// Awaiting for the response from the sender thread
 						if (requestId > 0) {
 							std::auto_ptr<AbstractThreadMessage> responseAutoPtr =
-								_connection._senderThread.requester().awaitResponse(requestId, Timestamp::limit(_connection.awaitResponseTimeout()));
+								_connection._senderThread.requester().awaitResponse(requestId, Timestamp::limit(_connection.clockTimeout() * 4));
 							if (!responseAutoPtr.get()) {
 								Log::error().log(LogMessage(SOURCE_LOCATION_ARGS,
 											"No response to connect request have been received from the sender thread"));
@@ -554,13 +556,14 @@ private:
 		}
 		//! On overload event handler
 		/*!
-		  \param Ticks expired (always > 2)
+		  \param prevTickTimestamp Previous tick timestamp
+		  \param nextTickTimestamp Next tick timestamp
+		  \param Amount of expired ticks - always > 2
 		  \return TRUE if to continue thread execution
 		*/
-		virtual bool onOverload(size_t ticksExpired)
+		virtual bool onOverload(const Timestamp& prevTickTimestamp, const Timestamp& nextTickTimestamp, size_t ticksExpired)
 		{
-			//return _connection.onReceiverOverload(ticksExpired);	// TODO ???
-			_connection.onReceiverOverload(ticksExpired);
+			_connection.onReceiverOverload(prevTickTimestamp, nextTickTimestamp, ticksExpired);
 			return true;
 		}
 		//! On stop event handler
@@ -579,11 +582,11 @@ private:
 	};
 
 	//! Message sender thread class
-	class SenderThread : public Thread
+	class SenderThread : public RequesterThread
 	{
 	public:
 		SenderThread(AbstractMessageBrokerListeningConnection& connection) :
-			Thread(connection),
+			RequesterThread(connection),
 			_connection(connection),
 			_currentMessageAutoPtr(),
 			_sendingMessage(false),
@@ -596,7 +599,7 @@ private:
 		/*!
 		  \param pendingRequest Constant reference to pending resuest to process
 		*/
-		virtual void onThreadRequest(const ThreadRequesterType::PendingRequest& pendingRequest)
+		virtual void onRequest(const ThreadRequesterType::PendingRequest& pendingRequest)
 		{
 			if (pendingRequest.request().instanceOf<ConnectRequest>()) {
 				Log::debug().log(LogMessage(SOURCE_LOCATION_ARGS, "Connect request has been received by the sender thread"));
@@ -638,16 +641,18 @@ private:
 		}
 		//! Doing the work virtual method
 		/*!
-		  \param limit Limit timestamp for doing the work
+		  \param prevTickTimestamp Previous tick timestamp
+		  \param nextTickTimestamp Next tick timestamp
+		  \param ticksExpired Amount of expired ticks - if > 1, then an overload has occured
 		  \return TRUE if to continue thread execution
 		*/
-		virtual bool doLoad(const Timestamp& limit)
+		virtual bool doLoad(const Timestamp& prevTickTimestamp, const Timestamp& nextTickTimestamp, size_t ticksExpired)
 		{
 			if (_connected) {
-				while (Timestamp::now() < limit) {
+				while (Timestamp::now() < nextTickTimestamp) {
 					if (_sendingMessage) {
 						try {
-							if (_connection.sendMessage(*_currentMessageAutoPtr.get(), *_connection._transferSocketAutoPtr.get(), limit)) {
+							if (_connection.sendMessage(*_currentMessageAutoPtr.get(), *_connection._transferSocketAutoPtr.get(), nextTickTimestamp)) {
 								_sendingMessage = false;
 							}
 						} catch (Exception& e) {
@@ -663,7 +668,7 @@ private:
 						}
 					} else if (_consumeBuffer.empty()) {
 						// Fetching all messages from the input to the consume buffer
-						size_t consumedMessagesAmount = _connection.inputQueue().popAll(_consumeBuffer, limit);
+						size_t consumedMessagesAmount = _connection.inputQueue().popAll(_consumeBuffer, nextTickTimestamp);
 						if (consumedMessagesAmount > 0) {
 							Log::debug().log(LogMessage(SOURCE_LOCATION_ARGS) << consumedMessagesAmount <<
 									" message(s) has been fetched from the input queue to the consume buffer");
@@ -683,13 +688,14 @@ private:
 		}
 		//! On overload event handler
 		/*!
-		  \param Ticks expired (always > 2)
+		  \param prevTickTimestamp Previous tick timestamp
+		  \param nextTickTimestamp Next tick timestamp
+		  \param Amount of expired ticks - always > 2
 		  \return TRUE if to continue thread execution
 		*/
-		virtual bool onOverload(size_t ticksExpired)
+		virtual bool onOverload(const Timestamp& prevTickTimestamp, const Timestamp& nextTickTimestamp, size_t ticksExpired)
 		{
-			//return _connection.onSenderOverload(ticksExpired);	// TODO ???
-			_connection.onSenderOverload(ticksExpired);
+			_connection.onSenderOverload(prevTickTimestamp, nextTickTimestamp, ticksExpired);
 			return true;
 		}
 		//! On stop event handler

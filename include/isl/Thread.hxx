@@ -1,7 +1,6 @@
-#ifndef ISL__MEM_FUN_THREAD__HXX
-#define ISL__MEM_FUN_THREAD__HXX
+#ifndef ISL__THREAD__HXX
+#define ISL__THREAD__HXX
 
-#include <isl/AbstractThread.hxx>
 #include <isl/ReadWriteLock.hxx>
 #include <isl/WaitCondition.hxx>
 #include <isl/Exception.hxx>
@@ -27,31 +26,31 @@ namespace isl
 
   \sa AbstractThread, FunctorThread
 */
-class MemFunThread
+class Thread
 {
 private:
 	template <typename T> class Functor
 	{
 	public:
-		Functor(MemFunThread& thread, T& obj, void (T::*fun)()) :
+		Functor(Thread& thread, T& obj, void (T::*method)()) :
 			_thread(thread),
 			_obj(&obj),
-			_fun0(fun),
-			_fun1(0)
+			_method0(method),
+			_method1(0)
 		{}
-		Functor(MemFunThread& thread, T& obj, void (T::*fun)(MemFunThread&)) :
+		Functor(Thread& thread, T& obj, void (T::*method)(Thread&)) :
 			_thread(thread),
 			_obj(&obj),
-			_fun0(0),
-			_fun1(fun)
+			_method0(0),
+			_method1(method)
 		{}
 
 		void operator()()
 		{
-			if (_fun0) {
-				((_obj)->*(_fun0))();
-			} else if (_fun1) {
-				((_obj)->*(_fun1))(_thread);
+			if (_method0) {
+				((_obj)->*(_method0))();
+			} else if (_method1) {
+				((_obj)->*(_method1))(_thread);
 			} else {
 				throw Exception(Error(SOURCE_LOCATION_ARGS, "No pointer to member function to execute in separate thread"));
 			}
@@ -59,18 +58,22 @@ private:
 	private:
 		Functor();
 
-		MemFunThread& _thread;
+		Thread& _thread;
 		T * _obj;
-		void (T::*_fun0)();
-		void (T::*_fun1)(MemFunThread&);
+		void (T::*_method0)();
+		void (T::*_method1)(Thread&);
 	};
 public:
+	//! Thread's handle type
+	typedef pthread_t Handle;
+
 	//! Constructs a thread
 	/*!
 	  \param isTrackable If TRUE isRunning() method could be used for inspecting if the thread is running for the cost of R/W-lock
 	  \param awaitStartup If TRUE, then launching thread will wait until new thread is started for the cost of condition variable and mutex
 	*/
-	MemFunThread(bool isTrackable = false, bool awaitStartup = false) :
+	Thread(bool isTrackable = false, bool awaitStartup = false) :
+		_function(0),
 		_functor(0),
 		_thread(),
 		_isTrackable(isTrackable),
@@ -80,7 +83,7 @@ public:
 		_awaitStartupCondAutoPtr(awaitStartup ? new WaitCondition() : 0)
 	{}
 	//! Virtual destructor
-	virtual ~MemFunThread()
+	virtual ~Thread()
 	{
 		if (_functor) {
 			operator delete(_functor);
@@ -88,7 +91,7 @@ public:
 	}
 
 	//! Returns thread's opaque handle
-	inline pthread_t handle() const
+	inline Handle handle() const
 	{
 		return _thread;
 	}
@@ -107,6 +110,37 @@ public:
 	inline bool awaitStartup() const
 	{
 		return _awaitStartup;
+	}
+	//! Starts function or functor's <tt>void operator(void)</tt> execution in a new thread
+	/*!
+	  \param fun Function/functor to execute
+
+	  \tparam T C-function or functor which <tt>void operator()()</tt> is to be executed in a separate thread
+
+	  \note Thread-unsafe
+	*/
+	template <typename T> void start(T& fun)
+	{
+		std::auto_ptr<WriteLocker> isRunningLockerAutoPtr;
+		if (_isTrackable) {
+			isRunningLockerAutoPtr.reset(new WriteLocker(*_isRunningRWLockAutoPtr.get()));
+			if (_isRunning) {
+				throw Exception(Error(SOURCE_LOCATION_ARGS, "FunctorThread is already running"));
+			}
+			_isRunning = true;
+		}
+		_function = reinterpret_cast<void *>(&fun);
+		if (_awaitStartup) {
+			MutexLocker locker(_awaitStartupCondAutoPtr->mutex());
+			if (int errorCode = pthread_create(&_thread, NULL, executeFunction<T>, this)) {
+				throw Exception(SystemCallError(SOURCE_LOCATION_ARGS, SystemCallError::PThreadCreate, errorCode));
+			}
+			_awaitStartupCondAutoPtr->wait();
+		} else {
+			if (int errorCode = pthread_create(&_thread, NULL, executeFunction<T>, this)) {
+				throw Exception(SystemCallError(SOURCE_LOCATION_ARGS, SystemCallError::PThreadCreate, errorCode));
+			}
+		}
 	}
 	//! Start object's member function execution in a new thread
 	/*!
@@ -131,12 +165,12 @@ public:
 		new (_functor) Functor<T>(*this, obj, fun);	// Constructing functor in buffer with "placement new" operator
 		if (_awaitStartup) {
 			MutexLocker locker(_awaitStartupCondAutoPtr->mutex());
-			if (int errorCode = pthread_create(&_thread, NULL, execute<T>, this)) {
+			if (int errorCode = pthread_create(&_thread, NULL, executeFunctor<T>, this)) {
 				throw Exception(SystemCallError(SOURCE_LOCATION_ARGS, SystemCallError::PThreadCreate, errorCode));
 			}
 			_awaitStartupCondAutoPtr->wait();
 		} else {
-			if (int errorCode = pthread_create(&_thread, NULL, execute<T>, this)) {
+			if (int errorCode = pthread_create(&_thread, NULL, executeFunctor<T>, this)) {
 				throw Exception(SystemCallError(SOURCE_LOCATION_ARGS, SystemCallError::PThreadCreate, errorCode));
 			}
 		}
@@ -150,7 +184,7 @@ public:
 
 	  \note Thread-unsafe
 	*/
-	template <typename T> void start(T& obj, void (T::*fun)(MemFunThread&))
+	template <typename T> void start(T& obj, void (T::*fun)(Thread&))
 	{
 		std::auto_ptr<WriteLocker> isRunningLockerAutoPtr;
 		if (_isTrackable) {
@@ -164,12 +198,12 @@ public:
 		new (_functor) Functor<T>(*this, obj, fun);	// Constructing functor in buffer with "placement new" operator
 		if (_awaitStartup) {
 			MutexLocker locker(_awaitStartupCondAutoPtr->mutex());
-			if (int errorCode = pthread_create(&_thread, NULL, execute<T>, this)) {
+			if (int errorCode = pthread_create(&_thread, NULL, executeFunctor<T>, this)) {
 				throw Exception(SystemCallError(SOURCE_LOCATION_ARGS, SystemCallError::PThreadCreate, errorCode));
 			}
 			_awaitStartupCondAutoPtr->wait();
 		} else {
-			if (int errorCode = pthread_create(&_thread, NULL, execute<T>, this)) {
+			if (int errorCode = pthread_create(&_thread, NULL, executeFunctor<T>, this)) {
 				throw Exception(SystemCallError(SOURCE_LOCATION_ARGS, SystemCallError::PThreadCreate, errorCode));
 			}
 		}
@@ -238,10 +272,33 @@ public:
 		ReadLocker locker(*_isRunningRWLockAutoPtr.get());
 		return _isRunning;
 	}
-private:
-	template <typename T> static void * execute(void * arg)
+
+	//! Returns a thread handle of the current thread
+	static Handle self()
 	{
-		MemFunThread * threadPtr = reinterpret_cast<MemFunThread *>(arg);
+		return pthread_self();
+	}
+private:
+	template <typename T> static void * executeFunction(void * arg)
+	{
+		Thread * threadPtr = reinterpret_cast<Thread *>(arg);
+		if (threadPtr->_awaitStartup) {
+			MutexLocker locker(threadPtr->_awaitStartupCondAutoPtr->mutex());
+			threadPtr->_awaitStartupCondAutoPtr->wakeOne();
+		}
+		bool isTrackable = threadPtr->_isTrackable;
+		T * functorPtr = reinterpret_cast<T *>(threadPtr->_function);
+		(*(functorPtr))();
+		threadPtr->_function = 0;
+		if (isTrackable) {
+			WriteLocker locker(*threadPtr->_isRunningRWLockAutoPtr.get());
+			threadPtr->_isRunning = false;
+		}
+		return 0;
+	}
+	template <typename T> static void * executeFunctor(void * arg)
+	{
+		Thread * threadPtr = reinterpret_cast<Thread *>(arg);
 		if (threadPtr->_awaitStartup) {
 			MutexLocker locker(threadPtr->_awaitStartupCondAutoPtr->mutex());
 			threadPtr->_awaitStartupCondAutoPtr->wakeOne();
@@ -259,6 +316,7 @@ private:
 		return 0;
 	}
 
+	void * _function;
 	void * _functor;
 	pthread_t _thread;
 	const bool _isTrackable;

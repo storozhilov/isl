@@ -4,7 +4,7 @@
 #include <isl/Log.hxx>
 #include <isl/Subsystem.hxx>
 #include <isl/WaitCondition.hxx>
-#include <isl/MemFunThread.hxx>
+#include <isl/Thread.hxx>
 #include <isl/LogMessage.hxx>
 #include <isl/ExceptionLogMessage.hxx>
 #include <deque>
@@ -161,8 +161,8 @@ public:
 		_awaitingWorkersCount = 0;
 		Log::debug().log(LogMessage(SOURCE_LOCATION_ARGS, "Creating and starting workers"));
 		for (size_t i = 0; i < _workersAmount; ++i) {
-			std::auto_ptr<MemFunThread> newWorkerAutoPtr(new MemFunThread());
-			MemFunThread * newWorkerPtr = newWorkerAutoPtr.get();
+			std::auto_ptr<Thread> newWorkerAutoPtr(new Thread());
+			Thread * newWorkerPtr = newWorkerAutoPtr.get();
 			_workers.push_back(newWorkerPtr);
 			newWorkerAutoPtr.release();
 			newWorkerPtr->start(*this, &TaskDispatcher<T>::work);
@@ -197,7 +197,7 @@ private:
 
 	TaskDispatcher& operator=(const TaskDispatcher&);				// No copy
 
-	typedef std::list<MemFunThread *> WorkersContainer;
+	typedef std::list<Thread *> WorkersContainer;
 
 	void resetWorkers()
 	{
@@ -257,7 +257,7 @@ private:
 	size_t _awaitingWorkersCount;
 	PendingTasksQueue _pendingTasksQueue;
 
-	friend class MemFunThread;
+	friend class Thread;
 };
 
 } // namespace isl

@@ -58,11 +58,13 @@ public:
 		isl::Timer(owner)
 	{}
 private:
-	virtual void onOverload(size_t ticksExpired)
+	virtual bool onOverload(const isl::Timestamp& prevTickTimestamp, const isl::Timestamp& nextTickTimestamp, size_t ticksExpired)
 	{
 		std::ostringstream msg;
-		msg << "Timer overload has been detected: " << ticksExpired << " ticks expired";
+		msg << "Timer overload has been detected. Previous tick timestamp: " << isl::DateTime(prevTickTimestamp).toString() <<
+			", next tick timestamp: " << isl::DateTime(nextTickTimestamp).toString() << ", ticks expired: " << ticksExpired;
 		isl::Log::warning().log(isl::LogMessage(SOURCE_LOCATION_ARGS, msg.str()));
+		return true;
 	}
 };
 

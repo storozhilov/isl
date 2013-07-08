@@ -134,7 +134,8 @@ protected:
 		AbstractTask(AbstractMessageBrokerService& service, TcpSocket& socket) :
 			AbstractAsyncTcpService::AbstractTask(socket),
 			_service(service),
-			_stateSet(),
+			_shouldTerminateRWLock(),
+			_shouldTerminate(false),
 			_consumeBuffer(),
 			_inputQueueAutoPtr(service.createInputQueue(*this)),
 			_outputBusAutoPtr(service.createOutputBus(*this))
@@ -142,8 +143,8 @@ protected:
 		//! Inspects if the task execution should be terminated
 		bool shouldTerminate()
 		{
-			StateSetType::SetType set = _stateSet.fetch();
-			return set.find(TerminationState) != set.end();
+			ReadLocker locker(_shouldTerminateRWLock);
+			return _shouldTerminate;
 		}
 		//! Appoints a task execution termination
 		/*!
@@ -151,7 +152,8 @@ protected:
 		*/
 		void appointTermination()
 		{
-			_stateSet.insert(TerminationState);
+			WriteLocker locker(_shouldTerminateRWLock);
+			_shouldTerminate = true;
 		}
 		//! Returns a reference to the internal input message queue
 		inline MessageQueueType& inputQueue()
@@ -180,11 +182,6 @@ protected:
 			return responseQueue.await(limit);
 		}
 	protected:
-		//! Returns reference to the state set of the task
-		StateSetType& stateSet()
-		{
-			return _stateSet;
-		}
 		//! Before receiver execution event handler
 		virtual void beforeExecuteReceive()
 		{}
@@ -437,7 +434,8 @@ protected:
 		}
 
 		AbstractMessageBrokerService& _service;
-		StateSetType _stateSet;
+		ReadWriteLock _shouldTerminateRWLock;
+		bool _shouldTerminate;
 		MessageBufferType _consumeBuffer;
 		std::auto_ptr<MessageQueueType> _inputQueueAutoPtr;
 		std::auto_ptr<MessageBusType> _outputBusAutoPtr;

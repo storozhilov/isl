@@ -1,7 +1,7 @@
 #ifndef ISL__SERVER__HXX
 #define ISL__SERVER__HXX
 
-#include <isl/StateSetSubsystem.hxx>
+#include <isl/Subsystem.hxx>
 #include <isl/SignalSet.hxx>
 #include <vector>
 
@@ -13,8 +13,10 @@ namespace isl
   Server has a main loop which is to be executed by run() method from the application's main
   thread - this is because UNIX-signals should be blocked in main thread only.
   Main loop is awaits for incoming UNIX-signals or commands and reacts respectively.
+
+  TODO: Add inter-thread requester
 */
-class Server : public StateSetSubsystem
+class Server : public Subsystem
 {
 public:
 	//! Constructor
@@ -50,7 +52,7 @@ public:
 	/*!
 	  \return TRUE if the command has been accepted by the server
 	*/
-	void appointRestart();
+	//void appointRestart();
 
 	//! Daemonizes current process
 	static void daemonize();
@@ -61,12 +63,12 @@ protected:
 	//! Starting method redefinition to make it protected
 	virtual void start()
 	{
-		StateSetSubsystem::start();
+		Subsystem::start();
 	}
 	//! Stopping method redefinition to make it protected
 	virtual void stop()
 	{
-		StateSetSubsystem::stop();
+		Subsystem::stop();
 	}
 	//! On start event handler
 	/*!
@@ -80,22 +82,24 @@ protected:
 	//! Doing the work virtual method
 	/*!
 	  Default implementation does nothing and returns TRUE.
-	  \param limit Limit timestamp for doing the work
-	  \param stateSet Current state set of the subsystem
+	  \param prevTickTimestamp Previous tick timestamp
+	  \param nextTickTimestamp Next tick timestamp
+	  \param ticksExpired Amount of expired ticks -> if > 1, then an overload has occured
 	  \return TRUE if to continue thread execution
 	*/
-	virtual bool doLoad(const Timestamp& limit, const StateSetType::SetType& stateSet)
+	virtual bool doLoad(const Timestamp& prevTickTimestamp, const Timestamp& nextTickTimestamp, size_t ticksExpired)
 	{
 		return true;
 	}
 	//! On overload event handler
 	/*!
 	  Default implementation does nothing and returns TRUE.
-	  \param Ticks expired (always > 2)
-	  \param stateSet Current state set of the subsystem
-	  \return TRUE if to continue server execution
+	  \param prevTickTimestamp Previous tick timestamp
+	  \param nextTickTimestamp Next tick timestamp
+	  \param Amount of expired ticks - always > 2
+	  \return TRUE if to continue thread execution
 	*/
-	virtual bool onOverload(size_t ticksExpired, const StateSetType::SetType& stateSet)
+	virtual bool onOverload(const Timestamp& prevTickTimestamp, const Timestamp& nextTickTimestamp, size_t ticksExpired)
 	{
 		return true;
 	}
@@ -110,14 +114,16 @@ protected:
 	virtual bool onSignal(int signo);
 private:
 	Server();
-	Server(const Server&);						// No copy
+	Server(const Server&);							// No copy
 
-	Server& operator=(const Server&);				// No copy
+	Server& operator=(const Server&);					// No copy
 
 	bool hasPendingSignals() const;
 	int extractPendingSignal() const;
 
 	std::vector<std::string> _argv;
+	//Thread::Handle _threadHandle;						// TODO
+	//Subsystem::ThreadRequesterType _threadRequester;			// TODO
 	SignalSet _trackSignals;
 	sigset_t _initialSignalMask;
 };

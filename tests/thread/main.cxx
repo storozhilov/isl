@@ -1,5 +1,4 @@
-#include <isl/FunctorThread.hxx>
-#include <isl/MemFunThread.hxx>
+#include <isl/Thread.hxx>
 #include <isl/TaskDispatcher.hxx>
 #include <isl/MultiTaskDispatcher.hxx>
 #include <isl/ThreadRequester.hxx>
@@ -43,7 +42,7 @@ public:
 		isl::MutexLocker locker(consoleMutex);
 		std::cout << "Hello from \"" << _name << "\"'s ThreadMemFun::threadFunction0() member function!" << std::endl;
 	}
-	void threadFunction1(isl::MemFunThread& thread)
+	void threadFunction1(isl::Thread& thread)
 	{
 		isl::MutexLocker locker(consoleMutex);
 		std::cout << "Hello from \"" << _name << "\"'s ThreadMemFun::threadFunction1() member function!" << std::endl;
@@ -83,7 +82,7 @@ public:
 private:
 };
 
-class RespondentThread : public isl::AbstractThread
+class RespondentThread
 {
 public:
 	enum Message {
@@ -95,7 +94,6 @@ public:
 	typedef isl::ThreadRequester<Message> ThreadRequesterType;
 
 	RespondentThread() :
-		isl::AbstractThread(),
 		_requester()
 	{}
 	ThreadRequesterType& requester()
@@ -123,8 +121,7 @@ public:
 		}
 	}
 
-private:
-	virtual void run()
+	void run(isl::Thread& thr)
 	{
 		while (true) {
 			const ThreadRequesterType::PendingRequest * pendingRequestPtr = _requester.awaitRequest(isl::Timestamp::limit(isl::Timeout::defaultTimeout()));
@@ -143,7 +140,7 @@ private:
 			}
 		}
 	}
-
+private:
 	ThreadRequesterType _requester;
 };
 
@@ -155,7 +152,8 @@ int main(int argc, char *argv[])
 	isl::Log::warning().connect(coutTarget);
 	isl::Log::error().connect(coutTarget);
 	RespondentThread rt;
-	rt.start();
+	isl::Thread thr;
+	thr.start(rt, &RespondentThread::run);
 	size_t requestId = rt.requester().sendRequest(RespondentThread::PingRequest);
 	std::cout << pthread_self() << ": main(): Request id is: " << requestId << std::endl;
 	std::auto_ptr<RespondentThread::Message> responseAutoPtr = rt.requester().awaitResponse(requestId, isl::Timestamp::limit(isl::Timeout::defaultTimeout()));
@@ -180,7 +178,7 @@ int main(int argc, char *argv[])
 	} else {
 		std::cout << pthread_self() << ": main(): No response from respondent thread" << std::endl;
 	}
-	rt.join();
+	thr.join();
 
 	std::auto_ptr<Task> taskAutoPtr;
 	isl::MultiTaskDispatcher<Task> mtd(0, 20);
@@ -213,13 +211,13 @@ int main(int argc, char *argv[])
 	td.perform(taskAutoPtr, &Task::execute);
 	td.stop();
 
-	isl::FunctorThread thr1;
-	isl::FunctorThread thr2;
-	isl::FunctorThread thr3(true);
-	isl::FunctorThread thr4(true, true);
-	isl::FunctorThread thr5(/*true, */true, true);
-	isl::MemFunThread thr6;
-	isl::MemFunThread thr7;
+	isl::Thread thr1;
+	isl::Thread thr2;
+	isl::Thread thr3(true);
+	isl::Thread thr4(true, true);
+	isl::Thread thr5(/*true, */true, true);
+	isl::Thread thr6;
+	isl::Thread thr7;
 	ThreadFunctor tf1("01");
 	ThreadFunctor tf2("02");
 	ThreadFunctor tf3("03");

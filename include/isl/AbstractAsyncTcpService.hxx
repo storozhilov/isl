@@ -1,7 +1,7 @@
 #ifndef ISL__ABSTRACT_ASYNC_TCP_SERVICE__HXX
 #define ISL__ABSTRACT_ASYNC_TCP_SERVICE__HXX
 
-#include <isl/StateSetSubsystem.hxx>
+#include <isl/Subsystem.hxx>
 #include <isl/MultiTaskDispatcher.hxx>
 #include <isl/TcpAddrInfo.hxx>
 #include <isl/TcpSocket.hxx>
@@ -13,7 +13,7 @@ namespace isl
 {
 
 //! Base class for asynchronous TCP-service, which reads from and writes data to client connection socket in two different threads per client connection
-class AbstractAsyncTcpService : public StateSetSubsystem
+class AbstractAsyncTcpService : public Subsystem
 {
 public:
 	class AbstractTask;
@@ -159,7 +159,7 @@ private:
 	};
 	typedef std::map<int, ListenerConfig> ListenerConfigs;
 
-	class ListenerThread : public Thread
+	class ListenerThread : public RequesterThread
 	{
 	public:
 		ListenerThread(AbstractAsyncTcpService& service, const TcpAddrInfo& addrInfo, unsigned int backLog);
@@ -170,7 +170,7 @@ private:
 		ListenerThread& operator=(const ListenerThread&);						// No copy
 
 		virtual bool onStart();
-		virtual bool doLoad(const Timestamp& limit, const StateSetType::SetType& stateSet);
+		virtual bool doLoad(const Timestamp& prevTickTimestamp, const Timestamp& nextTickTimestamp, size_t ticksExpired);
 
 		AbstractAsyncTcpService& _service;
 		const TcpAddrInfo _addrInfo;

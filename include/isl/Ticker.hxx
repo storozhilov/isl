@@ -40,9 +40,10 @@ public:
 	//! Makes next tick
 	/*!
 	  \param ticksExpired Pointer where to place expired ticks amount or 0
+	  \param prevTickTimestamp Pionter where to place previous tick timestamp or 0
 	  \return Next tick finalization timestamp
 	*/
-	const Timestamp& tick(size_t * ticksExpired = 0);
+	const Timestamp& tick(size_t * ticksExpired = 0, Timestamp * prevTickTimestamp = 0);
 private:
 	Ticker();
 

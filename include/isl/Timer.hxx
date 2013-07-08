@@ -1,7 +1,7 @@
 #ifndef ISL__TIMER__HXX
 #define ISL__TIMER__HXX
 
-#include <isl/StateSetSubsystem.hxx>
+#include <isl/Subsystem.hxx>
 #include <isl/DateTime.hxx>
 #include <isl/TimeSpec.hxx>
 #include <isl/Timestamp.hxx>
@@ -18,9 +18,7 @@ namespace isl
 
 //! High-precision timer
 /*!
-  TODO Migration to StateSetSubsystem::Thread class with internal clock ticker.
-
-  Timer executes tasks in a separate thread. A task could be:
+  Timer executes tasks in it's thread. A task could be:
 
   - <strong>Periodic</strong>, which is to be registered during timer idling only and executed periodically;
   - <strong>Scheduled</strong>, which is to be executed only once.
@@ -29,7 +27,7 @@ namespace isl
   using Timer::registerPeriodicTask() method. To implement a scheduled task just make a subclass of
   Timer::AbstractScheduledTask class and schedule it using Timer::scheduleTask() method.
 */
-class Timer : public StateSetSubsystem
+class Timer : public Subsystem
 {
 public:
 	enum Constants {
@@ -142,13 +140,94 @@ public:
 	{
 		return scheduleTask(task, Timestamp::limit(timeout));
 	}
+
+	//! Starting subsystem virtual method
+	/*!
+	  \note Thread-unsafe
+	*/
+	virtual void start();
+	//! Stopping subsystem and awaiting for it's termination virtual method
+	/*!
+	  \note Thread-unsafe
+	*/
+	virtual void stop();
 protected:
+	class TimerThread : public RequesterThread
+	{
+	public:
+		TimerThread(Timer& timer);
+
+		//! On start event handler
+		/*!
+		  Default implementation does nothing and returns TRUE.
+		  \return TRUE if to continue thread execution
+		*/
+		virtual bool onStart();
+		//! Doing the work virtual method
+		/*!
+		  \param prevTickTimestamp Previous tick timestamp
+		  \param nextTickTimestamp Next tick timestamp
+		  \param ticksExpired Amount of expired ticks - if > 1, then an overload has occured
+		  \return TRUE if to continue thread execution
+		*/
+		virtual bool doLoad(const Timestamp& prevTickTimestamp, const Timestamp& nextTickTimestamp, size_t ticksExpired);
+		//! On overload event handler
+		/*!
+		  \param prevTickTimestamp Previous tick timestamp
+		  \param nextTickTimestamp Next tick timestamp
+		  \param Amount of expired ticks - always > 2
+		  \return TRUE if to continue thread execution
+		*/
+		virtual bool onOverload(const Timestamp& prevTickTimestamp, const Timestamp& nextTickTimestamp, size_t ticksExpired)
+		{
+			return _timer.onOverload(prevTickTimestamp, nextTickTimestamp, ticksExpired);
+		}
+		//! On thread request event handler
+		/*!
+		  \param pendingRequest Constant reference to pending resuest to process
+		*/
+		virtual void onRequest(const ThreadRequesterType::PendingRequest& pendingRequest)
+		{
+			_timer.onRequest(pendingRequest);
+		}
+		//! On stop event handler
+		virtual void onStop();
+	private:
+		TimerThread();
+		TimerThread(const TimerThread&);							// No copy
+
+		TimerThread& operator=(const TimerThread&);						// No copy
+
+		Timer& _timer;
+	};
+
 	//! On timer overload event handler
 	/*!
-	  \param ticksExpired Expired ticks amount (always >= 2 - it's an overload)
+	  Default implementation does nothing and returns TRUE.
+	  \param prevTickTimestamp Previous tick timestamp
+	  \param nextTickTimestamp Next tick timestamp
+	  \param Amount of expired ticks - always > 2
+	  \return TRUE if to continue thread execution
 	*/
-	virtual void onOverload(size_t ticksExpired)
+	virtual bool onOverload(const Timestamp& prevTickTimestamp, const Timestamp& nextTickTimestamp, size_t ticksExpired)
+	{
+		return true;
+	}
+	//! On thread request event handler
+	/*!
+	  Default implementation does nothing.
+	  \param pendingRequest Constant reference to pending resuest to process
+	*/
+	virtual void onRequest(const ThreadRequesterType::PendingRequest& pendingRequest)
 	{}
+	//! Timer thread creation factory method
+	/*!
+	 * \returns A pointer to new timer thread object
+	 */
+	virtual TimerThread * createThread()
+	{
+		return new TimerThread(*this);
+	}
 private:
 	Timer();
 	Timer(const Timer&);								// No copy
@@ -170,26 +249,12 @@ private:
 	typedef std::map<int, PeriodicTaskMapValue> PeriodicTasksMap;
 	typedef std::multimap<Timestamp, AbstractScheduledTask *> ScheduledTasksMap;
 
-	class TimerThread : public AbstractThread
-	{
-	public:
-		TimerThread(Timer& timer);
-	private:
-		TimerThread();
-		TimerThread(const TimerThread&);							// No copy
-
-		TimerThread& operator=(const TimerThread&);						// No copy
-
-		virtual void run();
-
-		Timer& _timer;
-	};
-
 	size_t _maxScheduledTaskAmount;
 	int _lastPeriodicTaskId;
 	PeriodicTasksMap _periodicTasksMap;
+	ReadWriteLock _scheduledTasksRWLock;
 	ScheduledTasksMap _scheduledTasksMap;
-	TimerThread _thread;
+	std::auto_ptr<TimerThread> _threadAutoPtr;
 };
 
 } // namespace isl

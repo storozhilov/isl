@@ -8,7 +8,7 @@ namespace isl
 //------------------------------------------------------------------------------
 
 AbstractAsyncTcpService::AbstractAsyncTcpService(Subsystem * owner, size_t maxClients, const Timeout& clockTimeout) :
-	StateSetSubsystem(owner, clockTimeout),
+	Subsystem(owner, clockTimeout),
 	_taskDispatcher(this, maxClients * 2),
 	_lastListenerConfigId(),
 	_listenerConfigs(),
@@ -59,13 +59,13 @@ void AbstractAsyncTcpService::start()
 	}
 	Log::debug().log(LogMessage(SOURCE_LOCATION_ARGS, "Listeners have been created"));
 	// Calling base class method
-	StateSetSubsystem::start();
+	Subsystem::start();
 }
 
 void AbstractAsyncTcpService::stop()
 {
 	// Calling base class method
-	StateSetSubsystem::stop();
+	Subsystem::stop();
 	// Diposing listeners
 	Log::debug().log(LogMessage(SOURCE_LOCATION_ARGS, "Disposing listeners"));
 	resetListenerThreads();
@@ -85,7 +85,7 @@ void AbstractAsyncTcpService::resetListenerThreads()
 //------------------------------------------------------------------------------
 
 AbstractAsyncTcpService::ListenerThread::ListenerThread(AbstractAsyncTcpService& service, const TcpAddrInfo& addrInfo, unsigned int backLog) :
-	Thread(service),
+	RequesterThread(service),
 	_service(service),
 	_addrInfo(addrInfo),
 	_backLog(backLog),
@@ -112,11 +112,11 @@ bool AbstractAsyncTcpService::ListenerThread::onStart()
 	}
 }
 
-bool AbstractAsyncTcpService::ListenerThread::doLoad(const Timestamp& limit, const StateSetType::SetType& stateSet)
+bool AbstractAsyncTcpService::ListenerThread::doLoad(const Timestamp& prevTickTimestamp, const Timestamp& nextTickTimestamp, size_t ticksExpired)
 {
 	try {
-		while (Timestamp::now() < limit) {
-			std::auto_ptr<TcpSocket> socketAutoPtr(_serverSocket.accept(limit.leftTo()));
+		while (Timestamp::now() < nextTickTimestamp) {
+			std::auto_ptr<TcpSocket> socketAutoPtr(_serverSocket.accept(nextTickTimestamp.leftTo()));
 			if (!socketAutoPtr.get()) {
 				// Accepting TCP-connection timeout expired
 				return true;

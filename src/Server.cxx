@@ -4,12 +4,14 @@
 #include <isl/LogMessage.hxx>
 #include <isl/ErrorLogMessage.hxx>
 #include <cstdlib>
+#include <sys/types.h>
+#include <unistd.h>
 
 namespace isl
 {
 
 Server::Server(int argc, char * argv[], const SignalSet& trackSignals, const Timeout& clockTimeout) :
-	StateSetSubsystem(0, clockTimeout),
+	Subsystem(0, clockTimeout),
 	_argv(),
 	_trackSignals(trackSignals),
 	_initialSignalMask()
@@ -37,29 +39,23 @@ void Server::run()
 	Log::debug().log(LogMessage(SOURCE_LOCATION_ARGS, "Server has been started"));
 	// Firing on start event
 	if (onStart()) {
-		StateSetType::SetType currentStateSet = stateSet().fetch();
 		Ticker ticker(clockTimeout());
 		bool firstTick = true;
 		while (true) {
 			size_t ticksExpired;
-			Timestamp nextTickLimit = ticker.tick(&ticksExpired);
+			Timestamp prevTickTimestamp;
+			Timestamp nextTickTimestamp = ticker.tick(&ticksExpired, &prevTickTimestamp);
 			if (firstTick) {
 				firstTick = false;
-				currentStateSet = stateSet().fetch();
-				if (currentStateSet.find(TerminationState) != currentStateSet.end()) {
-					Log::debug().log(LogMessage(SOURCE_LOCATION_ARGS,
-								"Server termination has been detected on first tick -> exiting from the server's main loop"));
-					break;
-				}
 			} else if (ticksExpired > 1) {
 				// Overload has been detected
 				Log::warning().log(LogMessage(SOURCE_LOCATION_ARGS, "Server execution overload has been detected: ") << ticksExpired << " ticks expired");
-				if (!onOverload(ticksExpired, currentStateSet)) {
+				if (!onOverload(prevTickTimestamp, nextTickTimestamp, ticksExpired)) {
 					Log::debug().log(LogMessage(SOURCE_LOCATION_ARGS, "Server has been terminated by onOverload() event handler -> stopping server"));
 				}
 			}
 			// Doing the job
-			if (!doLoad(nextTickLimit, currentStateSet)) {
+			if (!doLoad(prevTickTimestamp, nextTickTimestamp, ticksExpired)) {
 				Log::debug().log(LogMessage(SOURCE_LOCATION_ARGS, "Server has been terminated by doLoad() method -> stopping server"));
 				break;
 			}
@@ -72,18 +68,7 @@ void Server::run()
 					break;
 				}
 			}
-			// Awaiting for termination/restart
-			StateSetType::SetType trackSet;
-			trackSet.insert(TerminationState);
-			trackSet.insert(RestartState);
-			currentStateSet = stateSet().awaitAny(trackSet, nextTickLimit);
-			if (currentStateSet.find(TerminationState) != currentStateSet.end()) {
-				Log::debug().log(LogMessage(SOURCE_LOCATION_ARGS, "Server termination has been detected -> exiting from the server's main loop"));
-				break;
-			} else if (currentStateSet.find(RestartState) != currentStateSet.end()) {
-				Log::debug().log(LogMessage(SOURCE_LOCATION_ARGS, "Server restart has been detected -> restarting the server"));
-				restart();
-			}
+			// TODO: Wait for incoming inter-thread request
 		}
 	} else {
 		Log::debug().log(LogMessage(SOURCE_LOCATION_ARGS, "Server has been terminated by onStart() event handler -> stopping server"));
@@ -104,10 +89,10 @@ void Server::run()
 	Log::debug().log(LogMessage(SOURCE_LOCATION_ARGS, "UNIX-signals have been unblocked"));
 }
 
-void Server::appointRestart()
+/*void Server::appointRestart()
 {
 	stateSet().insert(RestartState);
-}
+}*/
 
 void Server::daemonize()
 {

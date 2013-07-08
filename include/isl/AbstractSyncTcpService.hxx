@@ -1,7 +1,7 @@
 #ifndef ISL__ABSTRACT_SYNC_TCP_SERVICE__HXX
 #define ISL__ABSTRACT_SYNC_TCP_SERVICE__HXX
 
-#include <isl/StateSetSubsystem.hxx>
+#include <isl/Subsystem.hxx>
 #include <isl/TaskDispatcher.hxx>
 #include <isl/TcpAddrInfo.hxx>
 #include <isl/TcpSocket.hxx>
@@ -13,7 +13,7 @@ namespace isl
 {
 
 //! Base class for synchronous TCP-service, which reads from and writes to the client connection socket in the same thread
-class AbstractSyncTcpService : public StateSetSubsystem
+class AbstractSyncTcpService : public Subsystem
 {
 public:
 	class AbstractTask;
@@ -117,6 +117,41 @@ public:
 	//! Stopping service method redefinition
 	virtual void stop();
 protected:
+	class ListenerThread : public RequesterThread
+	{
+	public:
+		//! Constructs a listener
+		/*!
+		 * \param service Reference to synchronous TCP-service object
+		 * \param addrInfo TCP-address info to bind to
+		 * \param backLog Listen backlog
+		 */
+		ListenerThread(AbstractSyncTcpService& service, const TcpAddrInfo& addrInfo, unsigned int backLog);
+	private:
+		ListenerThread();
+		ListenerThread(const ListenerThread&);								// No copy
+
+		ListenerThread& operator=(const ListenerThread&);						// No copy
+
+		virtual bool onStart();
+		virtual bool doLoad(const Timestamp& prevTickTimestamp, const Timestamp& nextTickTimestamp, size_t ticksExpired);
+
+		AbstractSyncTcpService& _service;
+		const TcpAddrInfo _addrInfo;
+		const unsigned int _backLog;
+		TcpSocket _serverSocket;
+	};
+
+	//! Creating listener thread virtual factory method
+	/*!
+	 * \param addrInfo TCP-address info to bind to
+	 * \param backLog Listen backlog
+	 * \return Pointer to new listener thread
+	 */
+	virtual ListenerThread * createListener(const TcpAddrInfo& addrInfo, unsigned int backLog)
+	{
+		return new ListenerThread(*this, addrInfo, backLog);
+	}
 	//! On overload event handler
 	/*!
 	  \param task Reference to the unperformed task
@@ -141,25 +176,6 @@ private:
 		unsigned int backLog;
 	};
 	typedef std::map<int, ListenerConfig> ListenerConfigs;
-
-	class ListenerThread : public Thread
-	{
-	public:
-		ListenerThread(AbstractSyncTcpService& service, const TcpAddrInfo& addrInfo, unsigned int backLog);
-	private:
-		ListenerThread();
-		ListenerThread(const ListenerThread&);								// No copy
-
-		ListenerThread& operator=(const ListenerThread&);						// No copy
-
-		virtual bool onStart();
-		virtual bool doLoad(const Timestamp& limit, const StateSetType::SetType& stateSet);
-
-		AbstractSyncTcpService& _service;
-		const TcpAddrInfo _addrInfo;
-		const unsigned int _backLog;
-		TcpSocket _serverSocket;
-	};
 
 	typedef std::list<ListenerThread *> ListenersContainer;
 

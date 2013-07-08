@@ -2,7 +2,7 @@
 #include <isl/StreamLogTarget.hxx>
 #include <isl/LogMessage.hxx>
 #include <isl/Log.hxx>
-#include <isl/AbstractThread.hxx>
+#include <isl/Thread.hxx>
 #include <iostream>
 #include <fstream>
 #include <list>
@@ -11,15 +11,24 @@
 
 isl::Log log("NOTIFY");
 
-class LogThread : public isl::AbstractThread
+class LogThread
 {
 public:
 	LogThread(int id) :
-		AbstractThread(),
-		_id(id)
+		_id(id),
+		_thr()
 	{}
+	
+	void start()
+	{
+		_thr.start(*this, &LogThread::run);
+	}
+	void join()
+	{
+		_thr.join();
+	}
 private:
-	virtual void run()
+	void run()
 	{
 		for (int i = 0; i < 1000; ++i) {
 			log.log(isl::LogMessage(SOURCE_LOCATION_ARGS, "") << i << "-th log message from " << _id << " thread");
@@ -27,6 +36,7 @@ private:
 	}
 
 	int _id;
+	isl::Thread _thr;
 };
 
 int main(int argc, char **argv)

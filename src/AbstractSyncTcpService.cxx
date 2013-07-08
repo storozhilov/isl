@@ -8,7 +8,7 @@ namespace isl
 //------------------------------------------------------------------------------
 
 AbstractSyncTcpService::AbstractSyncTcpService(Subsystem * owner, size_t maxClients, const Timeout& clockTimeout) :
-	StateSetSubsystem(owner, clockTimeout),
+	Subsystem(owner, clockTimeout),
 	_taskDispatcher(this, maxClients),
 	_lastListenerConfigId(),
 	_listenerConfigs(),
@@ -53,19 +53,19 @@ void AbstractSyncTcpService::start()
 	// Creating listeners
 	Log::debug().log(LogMessage(SOURCE_LOCATION_ARGS, "Creating listeners"));
 	for (ListenerConfigs::const_iterator i = _listenerConfigs.begin(); i != _listenerConfigs.end(); ++i) {
-		std::auto_ptr<ListenerThread> newListenerAutoPtr(new ListenerThread(*this, i->second.addrInfo, i->second.backLog));
+		std::auto_ptr<ListenerThread> newListenerAutoPtr(createListener(i->second.addrInfo, i->second.backLog));
 		_listeners.push_back(newListenerAutoPtr.get());
 		newListenerAutoPtr.release();
 	}
 	Log::debug().log(LogMessage(SOURCE_LOCATION_ARGS, "Listeners have been created"));
 	// Calling base class method
-	StateSetSubsystem::start();
+	Subsystem::start();
 }
 
 void AbstractSyncTcpService::stop()
 {
 	// Calling base class method
-	StateSetSubsystem::stop();
+	Subsystem::stop();
 	// Diposing listeners
 	Log::debug().log(LogMessage(SOURCE_LOCATION_ARGS, "Disposing listeners"));
 	resetListenerThreads();
@@ -85,7 +85,7 @@ void AbstractSyncTcpService::resetListenerThreads()
 //------------------------------------------------------------------------------
 
 AbstractSyncTcpService::ListenerThread::ListenerThread(AbstractSyncTcpService& service, const TcpAddrInfo& addrInfo, unsigned int backLog) :
-	Thread(service),
+	RequesterThread(service),
 	_service(service),
 	_addrInfo(addrInfo),
 	_backLog(backLog),
@@ -112,11 +112,11 @@ bool AbstractSyncTcpService::ListenerThread::onStart()
 	}
 }
 
-bool AbstractSyncTcpService::ListenerThread::doLoad(const Timestamp& limit, const StateSetType::SetType& stateSet)
+bool AbstractSyncTcpService::ListenerThread::doLoad(const Timestamp& prevTickTimestamp, const Timestamp& nextTickTimestamp, size_t ticksExpired)
 {
 	try {
-		while (Timestamp::now() < limit) {
-			std::auto_ptr<TcpSocket> socketAutoPtr(_serverSocket.accept(limit.leftTo()));
+		while (Timestamp::now() < nextTickTimestamp) {
+			std::auto_ptr<TcpSocket> socketAutoPtr(_serverSocket.accept(nextTickTimestamp.leftTo()));
 			if (!socketAutoPtr.get()) {
 				// Accepting TCP-connection timeout expired
 				return true;

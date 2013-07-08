@@ -12,12 +12,13 @@ namespace isl
 //------------------------------------------------------------------------------
 
 Timer::Timer(Subsystem * owner, const Timeout& clockTimeout, size_t maxScheduledTaskAmount) :
-	StateSetSubsystem(owner, clockTimeout),
+	Subsystem(owner, clockTimeout),
 	_maxScheduledTaskAmount(maxScheduledTaskAmount),
 	_lastPeriodicTaskId(0),
 	_periodicTasksMap(),
+	_scheduledTasksRWLock(),
 	_scheduledTasksMap(),
-	_thread(*this)
+	_threadAutoPtr()
 {}
 
 Timer::~Timer()
@@ -39,9 +40,6 @@ void Timer::updatePeriodicTask(int taskId, const Timeout& newTimeout)
 	}
 	PeriodicTasksMap::iterator pos = _periodicTasksMap.find(taskId);
 	if (pos == _periodicTasksMap.end()) {
-		//std::ostringstream msg;
-		//msg << "Task (id = " << taskId << ") not found in timer";
-		//Log::debug().log(LogMessage(SOURCE_LOCATION_ARGS, msg.str()));
 		Log::debug().log(LogMessage(SOURCE_LOCATION_ARGS, "Task (id = ") << taskId << ") not found in timer");
 	} else {
 		pos->second.timeout = newTimeout;
@@ -52,9 +50,6 @@ void Timer::removePeriodicTask(int taskId)
 {
 	PeriodicTasksMap::iterator pos = _periodicTasksMap.find(taskId);
 	if (pos == _periodicTasksMap.end()) {
-		//std::ostringstream msg;
-		//msg << "Task (id = " << taskId << ") not found in timer";
-		//Log::debug().log(LogMessage(SOURCE_LOCATION_ARGS, msg.str()));
 		Log::debug().log(LogMessage(SOURCE_LOCATION_ARGS, "Task (id = ") << taskId << ") not found in timer");
 	} else {
 		_periodicTasksMap.erase(pos);
@@ -68,7 +63,7 @@ void Timer::resetPeriodicTasks()
 
 bool Timer::scheduleTask(AbstractScheduledTask& task, const Timestamp& timestamp)
 {
-	MutexLocker locker(stateSet().cond().mutex());
+	WriteLocker locker(_scheduledTasksRWLock);
 	if (_scheduledTasksMap.size() >= _maxScheduledTaskAmount) {
 		return false;
 	}
@@ -76,78 +71,88 @@ bool Timer::scheduleTask(AbstractScheduledTask& task, const Timestamp& timestamp
 	return true;
 }
 
+void Timer::start()
+{
+	_threadAutoPtr.reset(createThread());
+	Subsystem::start();
+}
+
+void Timer::stop()
+{
+	Subsystem::stop();
+	_threadAutoPtr.reset();
+}
+
 //------------------------------------------------------------------------------
 // Timer::TimerThread
 //------------------------------------------------------------------------------
 
 Timer::TimerThread::TimerThread(Timer& timer) :
-	AbstractThread(timer),
+	RequesterThread(timer),
 	_timer(timer)
 {}
 
-void Timer::TimerThread::run()
+bool Timer::TimerThread::onStart()
 {
+	if (!RequesterThread::onStart()) {
+		return false;
+	}
 	Log::debug().log(LogMessage(SOURCE_LOCATION_ARGS, "Timer thread has been started"));
 	// Calling onStart event handler for any periodic task
 	for (PeriodicTasksMap::iterator i = _timer._periodicTasksMap.begin(); i != _timer._periodicTasksMap.end(); ++i) {
 		i->second.taskPtr->onStart(_timer);
+		i->second.nextExecutionTimestamp.reset();
 	}
-	// Setting next execution timestamp for all tasks to now
-	Timestamp prevTickTimestamp = Timestamp::now();
+	return true;
+}
+
+bool Timer::TimerThread::doLoad(const Timestamp& prevTickTimestamp, const Timestamp& nextTickTimestamp, size_t ticksExpired)
+{
+	// Executing periodic tasks, which are to be expired until next tick timestamp
 	for (PeriodicTasksMap::iterator i = _timer._periodicTasksMap.begin(); i != _timer._periodicTasksMap.end(); ++i) {
-		i->second.nextExecutionTimestamp = prevTickTimestamp;
-	}
-	// Timer's main loop
-	while (true) {
-		// Identifying next tick timestamp
-		Timestamp nextTickTimestamp = prevTickTimestamp;
-		size_t ticksExpired = 0;
-		Timestamp nowTimestamp = Timestamp::now();
-		while (nextTickTimestamp <= nowTimestamp) {
-			++ticksExpired;
-			nextTickTimestamp += _timer.clockTimeout();
-		}
-		// Reporting if the timer overload has been detected before awaiting
-		if (ticksExpired > 1) {
-			_timer.onOverload(ticksExpired);
-		}
-		// Executing periodic tasks, which are to be expired until next tick timestamp
-		for (PeriodicTasksMap::iterator i = _timer._periodicTasksMap.begin(); i != _timer._periodicTasksMap.end(); ++i) {
-			size_t expiredTimestamps = 0;
-			Timestamp lastExpiredTimestamp;
+		size_t expiredTimestamps = 0;
+		Timestamp lastExpiredTimestamp;
+		bool shouldExecute = false;
+		if (i->second.nextExecutionTimestamp.isZero()) {
+			// No executions before
+			i->second.nextExecutionTimestamp = Timestamp::now() + i->second.timeout;
+			shouldExecute = true;
+		} else {
 			while (i->second.nextExecutionTimestamp < nextTickTimestamp) {
 				lastExpiredTimestamp = i->second.nextExecutionTimestamp;
 				++expiredTimestamps;
 				i->second.nextExecutionTimestamp += i->second.timeout;
 			}
 			if (expiredTimestamps > 0) {
-				i->second.taskPtr->execute(_timer, lastExpiredTimestamp, expiredTimestamps, i->second.timeout);
+				shouldExecute = true;
 			}
 		}
-		// Extracting scheduled tasks, which are to be expired until next tick timestamp
-		ScheduledTasksMap expiredScheduledTasks;
-		{
-			MutexLocker locker(_timer.stateSet().cond().mutex());
-			ScheduledTasksMap::iterator pos = _timer._scheduledTasksMap.upper_bound(nextTickTimestamp);
-			expiredScheduledTasks.insert(_timer._scheduledTasksMap.begin(), pos);
-			_timer._scheduledTasksMap.erase(_timer._scheduledTasksMap.begin(), pos);
+		if (shouldExecute) {
+			i->second.taskPtr->execute(_timer, lastExpiredTimestamp, expiredTimestamps, i->second.timeout);
 		}
-		// Executing expired scheduled tasks
-		for (ScheduledTasksMap::iterator i = expiredScheduledTasks.begin(); i != expiredScheduledTasks.end(); ++i) {
-			i->second->execute(_timer, i->first);
-		}
-		// Awaiting for the next tick
-		if (awaitTermination(nextTickTimestamp)) {
-			Log::debug().log(LogMessage(SOURCE_LOCATION_ARGS, "Timer thread termination detected -> exiting from the timer thread"));
-			break;
-		}
-		// Switching to the next tick
-		prevTickTimestamp = nextTickTimestamp;
 	}
+	// Extracting scheduled tasks, which are to be expired until next tick timestamp
+	ScheduledTasksMap expiredScheduledTasks;
+	{
+		ReadLocker locker(_timer._scheduledTasksRWLock);
+		ScheduledTasksMap::iterator pos = _timer._scheduledTasksMap.upper_bound(nextTickTimestamp);
+		expiredScheduledTasks.insert(_timer._scheduledTasksMap.begin(), pos);
+		_timer._scheduledTasksMap.erase(_timer._scheduledTasksMap.begin(), pos);
+	}
+	// Executing expired scheduled tasks
+	for (ScheduledTasksMap::iterator i = expiredScheduledTasks.begin(); i != expiredScheduledTasks.end(); ++i) {
+		i->second->execute(_timer, i->first);
+	}
+	return true;
+}
+
+void Timer::TimerThread::onStop()
+{
 	// Calling onStop event handler for any periodic task
 	for (PeriodicTasksMap::iterator i = _timer._periodicTasksMap.begin(); i != _timer._periodicTasksMap.end(); ++i) {
 		i->second.taskPtr->onStop(_timer);
 	}
+	RequesterThread::onStop();
 }
 
 } // namespace isl
