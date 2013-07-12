@@ -162,34 +162,14 @@ protected:
 		  Default implementation does nothing and returns TRUE.
 		  \return TRUE if to continue thread execution
 		*/
-		virtual bool onStart();
+		virtual void onStart();
 		//! Doing the work virtual method
 		/*!
 		  \param prevTickTimestamp Previous tick timestamp
 		  \param nextTickTimestamp Next tick timestamp
 		  \param ticksExpired Amount of expired ticks - if > 1, then an overload has occured
-		  \return TRUE if to continue thread execution
 		*/
-		virtual bool doLoad(const Timestamp& prevTickTimestamp, const Timestamp& nextTickTimestamp, size_t ticksExpired);
-		//! On overload event handler
-		/*!
-		  \param prevTickTimestamp Previous tick timestamp
-		  \param nextTickTimestamp Next tick timestamp
-		  \param Amount of expired ticks - always > 2
-		  \return TRUE if to continue thread execution
-		*/
-		virtual bool onOverload(const Timestamp& prevTickTimestamp, const Timestamp& nextTickTimestamp, size_t ticksExpired)
-		{
-			return _timer.onOverload(prevTickTimestamp, nextTickTimestamp, ticksExpired);
-		}
-		//! On thread request event handler
-		/*!
-		  \param pendingRequest Constant reference to pending resuest to process
-		*/
-		virtual void onRequest(const ThreadRequesterType::PendingRequest& pendingRequest)
-		{
-			_timer.onRequest(pendingRequest);
-		}
+		virtual void doLoad(const Timestamp& prevTickTimestamp, const Timestamp& nextTickTimestamp, size_t ticksExpired);
 		//! On stop event handler
 		virtual void onStop();
 	private:
@@ -201,25 +181,6 @@ protected:
 		Timer& _timer;
 	};
 
-	//! On timer overload event handler
-	/*!
-	  Default implementation does nothing and returns TRUE.
-	  \param prevTickTimestamp Previous tick timestamp
-	  \param nextTickTimestamp Next tick timestamp
-	  \param Amount of expired ticks - always > 2
-	  \return TRUE if to continue thread execution
-	*/
-	virtual bool onOverload(const Timestamp& prevTickTimestamp, const Timestamp& nextTickTimestamp, size_t ticksExpired)
-	{
-		return true;
-	}
-	//! On thread request event handler
-	/*!
-	  Default implementation does nothing.
-	  \param pendingRequest Constant reference to pending resuest to process
-	*/
-	virtual void onRequest(const ThreadRequesterType::PendingRequest& pendingRequest)
-	{}
 	//! Timer thread creation factory method
 	/*!
 	 * \returns A pointer to new timer thread object

@@ -92,21 +92,18 @@ Timer::TimerThread::TimerThread(Timer& timer) :
 	_timer(timer)
 {}
 
-bool Timer::TimerThread::onStart()
+void Timer::TimerThread::onStart()
 {
-	if (!RequesterThread::onStart()) {
-		return false;
-	}
+	RequesterThread::onStart();
 	Log::debug().log(LogMessage(SOURCE_LOCATION_ARGS, "Timer thread has been started"));
 	// Calling onStart event handler for any periodic task
 	for (PeriodicTasksMap::iterator i = _timer._periodicTasksMap.begin(); i != _timer._periodicTasksMap.end(); ++i) {
 		i->second.taskPtr->onStart(_timer);
 		i->second.nextExecutionTimestamp.reset();
 	}
-	return true;
 }
 
-bool Timer::TimerThread::doLoad(const Timestamp& prevTickTimestamp, const Timestamp& nextTickTimestamp, size_t ticksExpired)
+void Timer::TimerThread::doLoad(const Timestamp& prevTickTimestamp, const Timestamp& nextTickTimestamp, size_t ticksExpired)
 {
 	// Executing periodic tasks, which are to be expired until next tick timestamp
 	for (PeriodicTasksMap::iterator i = _timer._periodicTasksMap.begin(); i != _timer._periodicTasksMap.end(); ++i) {
@@ -143,7 +140,6 @@ bool Timer::TimerThread::doLoad(const Timestamp& prevTickTimestamp, const Timest
 	for (ScheduledTasksMap::iterator i = expiredScheduledTasks.begin(); i != expiredScheduledTasks.end(); ++i) {
 		i->second->execute(_timer, i->first);
 	}
-	return true;
 }
 
 void Timer::TimerThread::onStop()

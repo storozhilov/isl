@@ -13,8 +13,12 @@ namespace isl
 Server::Server(int argc, char * argv[], const SignalSet& trackSignals, const Timeout& clockTimeout) :
 	Subsystem(0, clockTimeout),
 	_argv(),
+	_threadHandle(),
+	_requester(),
 	_trackSignals(trackSignals),
-	_initialSignalMask()
+	_initialSignalMask(),
+	_shouldRestart(false),
+	_shouldTerminate(false)
 {
 	_argv.reserve(argc);
 	for (int i = 0; i < argc; ++i) {
@@ -24,6 +28,9 @@ Server::Server(int argc, char * argv[], const SignalSet& trackSignals, const Tim
 
 void Server::run()
 {
+	_threadHandle = Thread::self();
+	_shouldRestart = false;
+	_shouldTerminate = false;
 	// Blocking UNIX-signals to be tracked
 	Log::debug().log(LogMessage(SOURCE_LOCATION_ARGS, "Blocking UNIX-signals"));
 	sigset_t blockedSignalMask = _trackSignals.sigset();
@@ -38,40 +45,49 @@ void Server::run()
 	start();
 	Log::debug().log(LogMessage(SOURCE_LOCATION_ARGS, "Server has been started"));
 	// Firing on start event
-	if (onStart()) {
-		Ticker ticker(clockTimeout());
-		bool firstTick = true;
-		while (true) {
-			size_t ticksExpired;
-			Timestamp prevTickTimestamp;
-			Timestamp nextTickTimestamp = ticker.tick(&ticksExpired, &prevTickTimestamp);
-			if (firstTick) {
-				firstTick = false;
-			} else if (ticksExpired > 1) {
-				// Overload has been detected
-				Log::warning().log(LogMessage(SOURCE_LOCATION_ARGS, "Server execution overload has been detected: ") << ticksExpired << " ticks expired");
-				if (!onOverload(prevTickTimestamp, nextTickTimestamp, ticksExpired)) {
-					Log::debug().log(LogMessage(SOURCE_LOCATION_ARGS, "Server has been terminated by onOverload() event handler -> stopping server"));
-				}
-			}
-			// Doing the job
-			if (!doLoad(prevTickTimestamp, nextTickTimestamp, ticksExpired)) {
-				Log::debug().log(LogMessage(SOURCE_LOCATION_ARGS, "Server has been terminated by doLoad() method -> stopping server"));
-				break;
-			}
-			// Inspecting for pending signals
-			// NOTE: sigtimedwait(2) system call have not been used here, cause it returns an error when the computer recovers from hibernate mode
-			if (hasPendingSignals()) {
-				int pendingSignal = extractPendingSignal();
-				if (!onSignal(pendingSignal)) {
-					Log::debug().log(LogMessage(SOURCE_LOCATION_ARGS, "Server has been terminated by onSignal() event handler -> stopping server"));
-					break;
-				}
-			}
-			// TODO: Wait for incoming inter-thread request
+	onStart();
+	// Init clock
+	Ticker ticker(clockTimeout());
+	bool firstTick = true;
+	while (true) {
+		// Handling termination flag
+		if (_shouldTerminate) {
+			// Termination state has been detected
+			Log::debug().log(LogMessage(SOURCE_LOCATION_ARGS, "Server termination has been detected -> terminating server"));
+			break;
 		}
-	} else {
-		Log::debug().log(LogMessage(SOURCE_LOCATION_ARGS, "Server has been terminated by onStart() event handler -> stopping server"));
+		// Handling restart flag
+		if (_shouldRestart) {
+			// Restart has been detected
+			Log::debug().log(LogMessage(SOURCE_LOCATION_ARGS, "Server restart has been detected -> restarting the server"));
+			stop();
+			Log::debug().log(LogMessage(SOURCE_LOCATION_ARGS, "Server has been stopped"));
+			// Firing on stop event
+			onStop();
+			start();
+			Log::debug().log(LogMessage(SOURCE_LOCATION_ARGS, "Server has been started"));
+			_shouldRestart = false;
+			// Firing on start event
+			onStart();
+			firstTick = true;
+		}
+		// Making next clock tick
+		size_t ticksExpired;
+		Timestamp prevTickTimestamp;
+		Timestamp nextTickTimestamp = ticker.tick(&ticksExpired, &prevTickTimestamp);
+		if (firstTick) {
+			firstTick = false;
+		} else if (ticksExpired > 1) {
+			// Overload has been detected
+			Log::warning().log(LogMessage(SOURCE_LOCATION_ARGS, "Server execution overload has been detected: ") << ticksExpired << " ticks expired");
+			onOverload(prevTickTimestamp, nextTickTimestamp, ticksExpired);
+		}
+		// Doing the job
+		doLoad(prevTickTimestamp, nextTickTimestamp, ticksExpired);
+		// Processing pending signals
+		processSignals();
+		// Awaiting for requests and processing them
+		processRequests(nextTickTimestamp);
 	}
 	// Stopping children subsystems
 	Log::debug().log(LogMessage(SOURCE_LOCATION_ARGS, "Stopping server"));
@@ -89,10 +105,63 @@ void Server::run()
 	Log::debug().log(LogMessage(SOURCE_LOCATION_ARGS, "UNIX-signals have been unblocked"));
 }
 
-/*void Server::appointRestart()
+void Server::appointRestart()
 {
-	stateSet().insert(RestartState);
-}*/
+	if (_threadHandle == Thread::self()) {
+		_shouldRestart = true;
+		return;
+	}
+	// Sending restart request
+	size_t requestId = _requester.sendRequest(RestartRequest());
+	if (requestId <= 0) {
+		Log::error().log(LogMessage(SOURCE_LOCATION_ARGS, "Could not send restart request to the thread requester thread"));
+	} else {
+		Log::debug().log(LogMessage(SOURCE_LOCATION_ARGS, "Restart request has been sent to the thread requester thread"));
+	}
+	// Fetching the response
+	Timestamp limit = Timestamp::limit(awaitResponseTimeout());
+	std::auto_ptr<AbstractThreadMessage> responseAutoPtr = _requester.awaitResponse(requestId, limit);
+	if (!responseAutoPtr.get()) {
+		Log::error().log(LogMessage(SOURCE_LOCATION_ARGS,
+					"No response to restart request have been received from the thread requester thread"));
+	} else if (responseAutoPtr->instanceOf<OkResponse>()) {
+		Log::debug().log(LogMessage(SOURCE_LOCATION_ARGS,
+					"OK response to the restart request has been received from the thread requester thread"));
+	} else {
+		Log::error().log(LogMessage(SOURCE_LOCATION_ARGS,
+					"Invalid response to restart request has been received from the thread requester thread: \"") <<
+				responseAutoPtr->name() << '"');
+	}
+}
+
+void Server::appointTermination()
+{
+	if (_threadHandle == Thread::self()) {
+		_shouldTerminate = true;
+		return;
+	}
+	// Sending termination request
+	size_t requestId = _requester.sendRequest(TerminationRequest());
+	if (requestId <= 0) {
+		Log::error().log(LogMessage(SOURCE_LOCATION_ARGS, "Could not send termination request to the thread requester thread"));
+	} else {
+		Log::debug().log(LogMessage(SOURCE_LOCATION_ARGS, "Termination request has been sent to the thread requester thread"));
+	}
+	// Fetching the response
+	Timestamp limit = Timestamp::limit(awaitResponseTimeout());
+	std::auto_ptr<AbstractThreadMessage> responseAutoPtr = _requester.awaitResponse(requestId, limit);
+	if (!responseAutoPtr.get()) {
+		Log::error().log(LogMessage(SOURCE_LOCATION_ARGS,
+					"No response to termination request have been received from the thread requester thread"));
+	} else if (responseAutoPtr->instanceOf<OkResponse>()) {
+		Log::debug().log(LogMessage(SOURCE_LOCATION_ARGS,
+					"OK response to the termination request has been received from the thread requester thread"));
+	} else {
+		Log::error().log(LogMessage(SOURCE_LOCATION_ARGS,
+					"Invalid response to termination request has been received from the thread requester thread: \"") <<
+				responseAutoPtr->name() << '"');
+	}
+}
 
 void Server::daemonize()
 {
@@ -109,33 +178,25 @@ void Server::daemonize()
 	}
 }
 
-void Server::restart()
-{
-	stop();
-	Log::debug().log(LogMessage(SOURCE_LOCATION_ARGS, "Server has been stopped"));
-	start();
-	Log::debug().log(LogMessage(SOURCE_LOCATION_ARGS, "Server has been started"));
-}
-
-bool Server::onSignal(int signo)
+void Server::onSignal(int signo)
 {
 	LogMessage msg(SOURCE_LOCATION_ARGS, "Signal #");
 	msg << signo << " has been received by server -> ";
 	switch (signo) {
 		case SIGHUP:
-			msg << "restarting server";
+			msg << "appointing a server restart";
 			Log::debug().log(msg);
-			restart();
-			return true;
+			appointRestart();
+			break;
 		case SIGINT:
 		case SIGTERM:
-			msg << "terminating server";
+			msg << "appointing a server termination";
 			Log::debug().log(msg);
-			return false;
+			appointTermination();
+			break;
 		default:
 			msg << "no action defined";
 			Log::warning().log(msg);
-			return true;
 	}
 }
 
@@ -162,6 +223,47 @@ int Server::extractPendingSignal() const
 		throw Exception(SystemCallError(SOURCE_LOCATION_ARGS, SystemCallError::SigWait, errno));
 	}
 	return pendingSignal;
+}
+
+void Server::processSignals()
+{
+	while (hasPendingSignals()) {
+		int pendingSignal = extractPendingSignal();
+		onSignal(pendingSignal);
+	}
+}
+
+std::auto_ptr<Subsystem::ThreadRequesterType::MessageType> Server::onRequest(const ThreadRequesterType::MessageType& request, bool responseRequired)
+{
+	Log::warning().log(LogMessage(SOURCE_LOCATION_ARGS, "Unrecognized request: '") << request.name() << '\'');
+	return std::auto_ptr<ThreadRequesterType::MessageType>();
+}
+
+void Server::processRequests(const Timestamp& limit)
+{
+	while (const ThreadRequesterType::PendingRequest * pendingRequestPtr = _requester.awaitRequest(limit)) {
+		std::auto_ptr<ThreadRequesterType::MessageType> responseAutoPtr = processRequest(pendingRequestPtr->request(), pendingRequestPtr->responseRequired());
+		if (responseAutoPtr.get()) {
+			_requester.sendResponse(*responseAutoPtr.get());
+		} else if (pendingRequestPtr->responseRequired()) {
+			Log::error().log(LogMessage(SOURCE_LOCATION_ARGS, "No response to the request, which requires one"));
+		}
+	}
+}
+
+std::auto_ptr<Subsystem::ThreadRequesterType::MessageType> Server::processRequest(const ThreadRequesterType::MessageType& request, bool responseRequired)
+{
+	if (request.instanceOf<TerminationRequest>()) {
+		Log::debug().log(LogMessage(SOURCE_LOCATION_ARGS,
+					"Termination request has been received by the thread requester thread -> setting the termination flag to TRUE"));
+		_shouldTerminate = true;
+		return std::auto_ptr<ThreadRequesterType::MessageType>(responseRequired ? new OkResponse() : 0);
+	} else if (request.instanceOf<PingRequest>()) {
+		Log::debug().log(LogMessage(SOURCE_LOCATION_ARGS,
+					"Ping request has been received by the thread requester thread -> responding with the pong response"));
+		return std::auto_ptr<ThreadRequesterType::MessageType>(responseRequired ? new PongResponse() : 0);
+	}
+	return onRequest(request, responseRequired);
 }
 
 } // namespace isl

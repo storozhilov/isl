@@ -219,11 +219,15 @@ public:
 		AbstractRequesterThread(Subsystem& subsystem, bool isTrackable = false, bool awaitStartup = false);
 		//! Destructor
 		virtual ~AbstractRequesterThread();
-		//! Returns a reference to the thread requester
-		inline ThreadRequesterType& requester()
-		{
-			return _requester;
-		}
+		//! Sends request to the thread
+		/*!
+		  \param request Request message to send
+		  \param limit Limit to await for the response
+		  \return Auto-pointer to the response or to 0 if no response has been provided
+		  \note Could be called from this thread or outside - 'awaitResponseLimit' argument is ignored in first case.
+		*/
+		std::auto_ptr<ThreadRequesterType::MessageType> sendRequest(const ThreadRequesterType::MessageType& request,
+				const Timestamp& awaitResponseLimit);
 
 		//! Resets thread (called before start)
 		/*!
@@ -237,15 +241,18 @@ public:
 		//! Appoints a subsystem's thread termination
 		virtual void appointTermination();
 	protected:
-		//! Appoints a subsystem's thread termination
+		//! Returns a reference to the thread requester
 		/*!
-		  \note To be called from the "inner", this thread
-		*/
-		/*void appointTerminationInternal()
+		 * TODO: Remove it?
+		 */
+		inline ThreadRequesterType& requester()
 		{
-			_shouldTerminate = true;
-		}*/
+			return _requester;
+		}
 		//! Processes all pending thread requests
+		/*!
+		 * TODO: Remove it?
+		 */
 		void processRequests();
 		//! Awaits for pending thread requests and processes them until limit timestamp has been reached
 		/*!
@@ -258,27 +265,20 @@ public:
 		{
 			return _shouldTerminate;
 		}
-		//! Awaits for termination
-		/*!
-		  \param limit Limit timestamp to wait until the termination
-		  \returns TRUE if the thread should be terminated
-		*/
-		/*virtual bool awaitTermination(const Timestamp& limit)
-		{
-			// TODO
-		}*/
 		//! On thread request event handler
 		/*!
-		  \param pendingRequest Constant reference to pending resuest to process
+		  \note Default implementation writes an "unrecognized request" entry in the error log
+		  \param pendingRequest Constant reference to pending request to process
+		  \return Auto-pointer to the response or to 0 if no response has been provided
 		*/
-		virtual void onRequest(const ThreadRequesterType::PendingRequest& pendingRequest)
-		{}
+		virtual std::auto_ptr<ThreadRequesterType::MessageType> onRequest(const ThreadRequesterType::MessageType& request, bool responseRequired);
 	private:
 		//! Processes thread request
 		/*!
 		  \param pendingRequest Constant reference to pending resuest to process
+		  \return Auto-pointer to the response or to 0 if no response has been provided
 		*/
-		void processThreadRequest(const ThreadRequesterType::PendingRequest& pendingRequest);
+		std::auto_ptr<ThreadRequesterType::MessageType> processRequest(const ThreadRequesterType::MessageType& request, bool responseRequired);
 
 		ThreadRequesterType _requester;
 		bool _shouldTerminate;
@@ -296,38 +296,25 @@ public:
 		*/
 		RequesterThread(Subsystem& subsystem, bool isTrackable = false, bool awaitStartup = false);
 		//! On start event handler
-		/*!
-		  Default implementation does nothing and returns TRUE.
-		  \return TRUE if to continue thread execution
-		*/
-		virtual bool onStart()
-		{
-			return true;
-		}
+		virtual void onStart()
+		{}
 		//! Doing the work virtual method
 		/*!
-		  Default implementation does nothing and returns TRUE.
 		  \param prevTickTimestamp Previous tick timestamp
 		  \param nextTickTimestamp Next tick timestamp
 		  \param ticksExpired Amount of expired ticks - if > 1, then an overload has occured
-		  \return TRUE if to continue thread execution
 		*/
-		virtual bool doLoad(const Timestamp& prevTickTimestamp, const Timestamp& nextTickTimestamp, size_t ticksExpired)
-		{
-			return true;
-		}
+		virtual void doLoad(const Timestamp& prevTickTimestamp, const Timestamp& nextTickTimestamp, size_t ticksExpired)
+		{}
 		//! On overload event handler
 		/*!
 		  Default implementation does nothing and returns TRUE.
 		  \param prevTickTimestamp Previous tick timestamp
 		  \param nextTickTimestamp Next tick timestamp
 		  \param Amount of expired ticks - always > 2
-		  \return TRUE if to continue thread execution
 		*/
-		virtual bool onOverload(const Timestamp& prevTickTimestamp, const Timestamp& nextTickTimestamp, size_t ticksExpired)
-		{
-			return true;
-		}
+		virtual void onOverload(const Timestamp& prevTickTimestamp, const Timestamp& nextTickTimestamp, size_t ticksExpired)
+		{}
 		//! On stop event handler
 		virtual void onStop()
 		{}
@@ -362,7 +349,6 @@ public:
 	//! Sets new clock timeout
 	/*!
 	  \param newValue New clock timeout value
-
 	  \note Thread-unsafe: call it when subsystem is idling only
 	*/
 	inline void setClockTimeout(const Timeout& newValue)
@@ -374,9 +360,15 @@ public:
 	{
 		return _awaitResponseTicksAmount;
 	}
+	//! Returns a timeout to await for the response from the any thread of the subsystem
+	inline const Timeout awaitResponseTimeout() const
+	{
+		return _clockTimeout * _awaitResponseTicksAmount;
+	}
 	//! Sets amount of clock ticks to await response from the another thread
 	/*!
 	 * \param newValue New amount of clock ticks to await response from the another thread
+	 * \note Thread-unsafe: call it when subsystem is idling only
 	 */
 	inline void setAwaitResponseTicksAmount(size_t newValue)
 	{

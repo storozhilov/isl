@@ -123,6 +123,7 @@ public:
 
 	//! Sends a message to the respondent thread (no response)
 	/*!
+	  TODO: Remove it
 	  \param request Message to send
 	  \return TRUE if the request has been accepted or FALSE if the requests container has been overflowed
 	  \note Call it from requesting thread only!
@@ -144,6 +145,7 @@ public:
 	}
 	//! Sends request message to the respondent thread (response required)
 	/*!
+	  TODO: Remove it
 	  \param request Request message to send
 	  \return Request ID if the request has been accepted or 0 if the requests container has been overflowed
 	  \note Call it from requesting thread only!
@@ -159,6 +161,28 @@ public:
 			newRequestId = 1;
 		}
 		_requestsQueue.push_front(RequestsQueueItem(newRequestId, request, true));
+		_cond.wakeAll();
+		return newRequestId;
+	}
+	//! Sends request message to the respondent thread
+	/*!
+	  \param request Request message to send
+	  \param responseRequired A response to the request is expected from the respondent thread
+	  \return Request ID if the request has been accepted or 0 if the requests container has been overflowed
+	  \note Call it from requesting thread only!
+	*/
+	size_t sendRequest(const MessageType& request, bool responseRequired)
+	{
+		MutexLocker locker(_cond.mutex());
+		if (_requestsQueue.size() >= _maxContainerSize) {
+			Log::error().log(LogMessage(SOURCE_LOCATION_ARGS, "Requests container overflow has been detected"));
+			return 0;
+		}
+		size_t newRequestId = ++_lastRequestId;
+		if (newRequestId <= 0) {
+			newRequestId = 1;
+		}
+		_requestsQueue.push_front(RequestsQueueItem(newRequestId, request, responseRequired));
 		_cond.wakeAll();
 		return newRequestId;
 	}

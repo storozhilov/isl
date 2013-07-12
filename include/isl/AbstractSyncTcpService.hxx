@@ -133,8 +133,8 @@ protected:
 
 		ListenerThread& operator=(const ListenerThread&);						// No copy
 
-		virtual bool onStart();
-		virtual bool doLoad(const Timestamp& prevTickTimestamp, const Timestamp& nextTickTimestamp, size_t ticksExpired);
+		virtual void onStart();
+		virtual void doLoad(const Timestamp& prevTickTimestamp, const Timestamp& nextTickTimestamp, size_t ticksExpired);
 
 		AbstractSyncTcpService& _service;
 		const TcpAddrInfo _addrInfo;

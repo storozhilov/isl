@@ -131,22 +131,27 @@ Subsystem::AbstractRequesterThread::AbstractRequesterThread(Subsystem& subsystem
 Subsystem::AbstractRequesterThread::~AbstractRequesterThread()
 {}
 
-void Subsystem::AbstractRequesterThread::appointTermination()
+std::auto_ptr<Subsystem::ThreadRequesterType::MessageType> Subsystem::AbstractRequesterThread::sendRequest(
+		const ThreadRequesterType::MessageType& request, const Timestamp& awaitResponseLimit)
 {
 	if (thread().handle() == Thread::self()) {
-		_shouldTerminate = true;
-		return;
+		// Process request directly if called from inside
+		return processRequest(request, true);
 	}
 	// Sending termination request
-	size_t requestId = _requester.sendRequest(TerminationRequest());
+	size_t requestId = _requester.sendRequest(request);
 	if (requestId <= 0) {
-		Log::error().log(LogMessage(SOURCE_LOCATION_ARGS, "Could not send termination request to the thread requester thread"));
-	} else {
-		Log::debug().log(LogMessage(SOURCE_LOCATION_ARGS, "Termination request has been sent to the thread requester thread"));
+		Log::error().log(LogMessage(SOURCE_LOCATION_ARGS, "Could not send request to the thread requester thread"));
+		return std::auto_ptr<ThreadRequesterType::MessageType>();
 	}
+	Log::debug().log(LogMessage(SOURCE_LOCATION_ARGS, "Request has been sent to the thread requester thread"));
 	// Fetching the response
-	Timestamp limit = Timestamp::limit(subsystem().clockTimeout() * subsystem().awaitResponseTicksAmount());
-	std::auto_ptr<AbstractThreadMessage> responseAutoPtr = _requester.awaitResponse(requestId, limit);
+	return _requester.awaitResponse(requestId, awaitResponseLimit);
+}
+
+void Subsystem::AbstractRequesterThread::appointTermination()
+{
+	std::auto_ptr<ThreadRequesterType::MessageType> responseAutoPtr = sendRequest(TerminationRequest(), Timestamp::limit(subsystem().awaitResponseTimeout()));
 	if (!responseAutoPtr.get()) {
 		Log::error().log(LogMessage(SOURCE_LOCATION_ARGS,
 					"No response to termination request have been received from the thread requester thread"));
@@ -156,41 +161,53 @@ void Subsystem::AbstractRequesterThread::appointTermination()
 	} else {
 		Log::error().log(LogMessage(SOURCE_LOCATION_ARGS,
 					"Invalid response to termination request has been received from the thread requester thread: \"") <<
-				responseAutoPtr->name() << '"');
+					responseAutoPtr->name() << '"');
 	}
+}
+
+std::auto_ptr<Subsystem::ThreadRequesterType::MessageType> Subsystem::AbstractRequesterThread::onRequest(const ThreadRequesterType::MessageType& request, bool responseRequired)
+{
+	Log::warning().log(LogMessage(SOURCE_LOCATION_ARGS, "Unrecognized request: '") << request.name() << '\'');
+	return std::auto_ptr<ThreadRequesterType::MessageType>();
 }
 
 void Subsystem::AbstractRequesterThread::processRequests()
 {
 	while (const ThreadRequesterType::PendingRequest * pendingRequestPtr = _requester.fetchRequest()) {
-		processThreadRequest(*pendingRequestPtr);
+		std::auto_ptr<ThreadRequesterType::MessageType> responseAutoPtr = processRequest(pendingRequestPtr->request(), pendingRequestPtr->responseRequired());
+		if (responseAutoPtr.get()) {
+			_requester.sendResponse(*responseAutoPtr.get());
+		} else if (pendingRequestPtr->responseRequired()) {
+			Log::error().log(LogMessage(SOURCE_LOCATION_ARGS, "No response to the request, which requires one"));
+		}
 	}
 }
 
 void Subsystem::AbstractRequesterThread::processRequests(const Timestamp& limit)
 {
 	while (const ThreadRequesterType::PendingRequest * pendingRequestPtr = _requester.awaitRequest(limit)) {
-		processThreadRequest(*pendingRequestPtr);
+		std::auto_ptr<ThreadRequesterType::MessageType> responseAutoPtr = processRequest(pendingRequestPtr->request(), pendingRequestPtr->responseRequired());
+		if (responseAutoPtr.get()) {
+			_requester.sendResponse(*responseAutoPtr.get());
+		} else if (pendingRequestPtr->responseRequired()) {
+			Log::error().log(LogMessage(SOURCE_LOCATION_ARGS, "No response to the request, which requires one"));
+		}
 	}
 }
 
-void Subsystem::AbstractRequesterThread::processThreadRequest(const ThreadRequesterType::PendingRequest& pendingRequest)
+std::auto_ptr<Subsystem::ThreadRequesterType::MessageType> Subsystem::AbstractRequesterThread::processRequest(const ThreadRequesterType::MessageType& request, bool responseRequired)
 {
-	if (pendingRequest.request().instanceOf<TerminationRequest>()) {
+	if (request.instanceOf<TerminationRequest>()) {
 		Log::debug().log(LogMessage(SOURCE_LOCATION_ARGS,
 					"Termination request has been received by the thread requester thread -> setting the termination flag to TRUE"));
 		_shouldTerminate = true;
-		if (pendingRequest.responseRequired()) {
-			_requester.sendResponse(OkResponse());
-		}
-	} else if (pendingRequest.request().instanceOf<PingRequest>()) {
+		return std::auto_ptr<ThreadRequesterType::MessageType>(responseRequired ? new OkResponse() : 0);
+	} else if (request.instanceOf<PingRequest>()) {
 		Log::debug().log(LogMessage(SOURCE_LOCATION_ARGS,
 					"Ping request has been received by the thread requester thread -> responding with the pong response"));
-		if (pendingRequest.responseRequired()) {
-			_requester.sendResponse(PongResponse());
-		}
+		return std::auto_ptr<ThreadRequesterType::MessageType>(responseRequired ? new PongResponse() : 0);
 	}
-	onRequest(pendingRequest);
+	return onRequest(request, responseRequired);
 }
 
 //------------------------------------------------------------------------------
@@ -203,36 +220,34 @@ Subsystem::RequesterThread::RequesterThread(Subsystem& subsystem, bool isTrackab
 
 void Subsystem::RequesterThread::run()
 {
-	if (!onStart()) {
-		Log::debug().log(LogMessage(SOURCE_LOCATION_ARGS, "Requester thread thread has been terminated by onStart() event handler -> exiting from the thread execution"));
-		return;
-	}
+	onStart();
 	Ticker ticker(subsystem().clockTimeout());
 	while (true) {
+		// Handling termination
+		if (shouldTerminate()) {
+			// Termination state has been detected
+			Log::debug().log(LogMessage(SOURCE_LOCATION_ARGS, "Requester thread termination has been detected -> exiting from the thread execution"));
+			break;
+		}
 		size_t ticksExpired;
 		Timestamp prevTickTimestamp;
 		Timestamp nextTickTimestamp = ticker.tick(&ticksExpired, &prevTickTimestamp);
 		if (ticksExpired > 1) {
 			// Overload has been detected
 			Log::warning().log(LogMessage(SOURCE_LOCATION_ARGS, "Requester thread thread execution overload has been detected: ") << ticksExpired << " ticks expired");
-			if (!onOverload(prevTickTimestamp, nextTickTimestamp, ticksExpired)) {
+			onOverload(prevTickTimestamp, nextTickTimestamp, ticksExpired);
+			// Handling termination
+			if (shouldTerminate()) {
+				// Termination state has been detected
 				Log::debug().log(LogMessage(SOURCE_LOCATION_ARGS,
-							"Requester thread thread has been terminated by onOverload() event handler -> exiting from the thread execution"));
+							"Requester thread termination after overload event triggering has been detected -> exiting from the thread execution"));
 				break;
 			}
 		}
 		// Doing the job
-		if (!doLoad(prevTickTimestamp, nextTickTimestamp, ticksExpired)) {
-			Log::debug().log(LogMessage(SOURCE_LOCATION_ARGS, "Requester thread thread has been terminated by doLoad() method -> exiting from the thread execution"));
-			break;
-		}
+		doLoad(prevTickTimestamp, nextTickTimestamp, ticksExpired);
 		// Awaiting for requests and processing them
 		processRequests(nextTickTimestamp);
-		if (shouldTerminate()) {
-			// Termination state has been detected
-			Log::debug().log(LogMessage(SOURCE_LOCATION_ARGS, "Requester thread termination has been detected -> exiting from the thread execution"));
-			break;
-		}
 	}
 	onStop();
 }

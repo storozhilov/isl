@@ -92,7 +92,7 @@ AbstractAsyncTcpService::ListenerThread::ListenerThread(AbstractAsyncTcpService&
 	_serverSocket()
 {}
 
-bool AbstractAsyncTcpService::ListenerThread::onStart()
+void AbstractAsyncTcpService::ListenerThread::onStart()
 {
 	try {
 		Log::debug().log(LogMessage(SOURCE_LOCATION_ARGS, "Listener thread has been started"));
@@ -102,24 +102,23 @@ bool AbstractAsyncTcpService::ListenerThread::onStart()
 		Log::debug().log(LogMessage(SOURCE_LOCATION_ARGS, "Server socket has been binded"));
 		_serverSocket.listen(_backLog);
 		Log::debug().log(LogMessage(SOURCE_LOCATION_ARGS, "Server socket has been switched to the listening state"));
-		return true;
 	} catch (std::exception& e) {
 		Log::error().log(ExceptionLogMessage(SOURCE_LOCATION_ARGS, e, "Asynchronous TCP-service listener socket initialization error -> exiting from listener thread"));
-		return false;
+		appointTermination();
 	} catch (...) {
 		Log::error().log(LogMessage(SOURCE_LOCATION_ARGS, "Asynchronous TCP-service listener unknown socket initialization error -> exiting from listener thread"));
-		return false;
+		appointTermination();
 	}
 }
 
-bool AbstractAsyncTcpService::ListenerThread::doLoad(const Timestamp& prevTickTimestamp, const Timestamp& nextTickTimestamp, size_t ticksExpired)
+void AbstractAsyncTcpService::ListenerThread::doLoad(const Timestamp& prevTickTimestamp, const Timestamp& nextTickTimestamp, size_t ticksExpired)
 {
 	try {
 		while (Timestamp::now() < nextTickTimestamp) {
 			std::auto_ptr<TcpSocket> socketAutoPtr(_serverSocket.accept(nextTickTimestamp.leftTo()));
 			if (!socketAutoPtr.get()) {
 				// Accepting TCP-connection timeout expired
-				return true;
+				return;
 			}
 			Log::debug().log(LogMessage(SOURCE_LOCATION_ARGS, "TCP-connection has been received from ") <<
 					socketAutoPtr.get()->remoteAddr().firstEndpoint().host << ':' <<
@@ -134,13 +133,12 @@ bool AbstractAsyncTcpService::ListenerThread::doLoad(const Timestamp& prevTickTi
 				_service.onOverload(*taskAutoPtr.get());
 			}
 		}
-		return true;
 	} catch (std::exception& e) {
 		Log::error().log(ExceptionLogMessage(SOURCE_LOCATION_ARGS, e, "Asynchronous TCP-service listener execution error -> exiting from listener thread"));
-		return false;
+		appointTermination();
 	} catch (...) {
 		Log::error().log(LogMessage(SOURCE_LOCATION_ARGS, "Asynchronous TCP-service listener unknown execution error -> exiting from listener thread"));
-		return false;
+		appointTermination();
 	}
 }
 
