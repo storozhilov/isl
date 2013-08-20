@@ -120,6 +120,11 @@ void AbstractSyncTcpService::ListenerThread::doLoad(const Timestamp& prevTickTim
 				// Accepting TCP-connection timeout expired
 				return;
 			}
+                        if (!_service.onConnected(*socketAutoPtr.get())) {
+                                Log::debug().log(LogMessage(SOURCE_LOCATION_ARGS,
+                                                        "New connection has been rejected by onConnected() event handler -> dropping the client"));
+                                continue;
+                        }
 			Log::debug().log(LogMessage(SOURCE_LOCATION_ARGS, "TCP-connection has been received from ") <<
 					socketAutoPtr.get()->remoteAddr().firstEndpoint().host << ':' <<
 					socketAutoPtr.get()->remoteAddr().firstEndpoint().port);

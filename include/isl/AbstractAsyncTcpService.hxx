@@ -140,6 +140,16 @@ protected:
 	*/
 	virtual void onOverload(AbstractTask& task)
 	{}
+        //! On client connection event handler
+        /*!
+          \param socket Reference to client connection socket
+          \return TRUE if to accept connection or FALSE otherwise
+          \note Default implementation does nothing and returns TRUE
+        */
+        virtual bool onConnected(TcpSocket& socket)
+        {
+                return true;
+        }
 
 	//! Task creation abstract virtual method to override in subclasses
 	/*!
