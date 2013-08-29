@@ -329,6 +329,7 @@ protected:
 		//! On start event handler
 		virtual void onStart()
 		{
+                        _connection.onReceiverStart();
 			_connection._socket.open();
 			Log::debug().log(LogMessage(SOURCE_LOCATION_ARGS, "Socket has been opened"));
 			_connection._socket.bind(_connection._localAddr);
@@ -443,6 +444,7 @@ protected:
 				isl::Log::debug().log(isl::LogMessage(SOURCE_LOCATION_ARGS, "Connection has been closed"));
 				_connection.onReceiverDisconnected(false);
 			}
+                        _connection.onReceiverStop();
 		}
 
 		AbstractMessageBrokerListeningConnection& _connection;
@@ -489,6 +491,7 @@ protected:
 		//! On start event handler
 		virtual void onStart()
 		{
+                        _connection.onSenderStart();
 			_currentMessageAutoPtr.reset();
 			_sendingMessage = false;
 			_connected = false;
@@ -565,6 +568,7 @@ protected:
 			if (_connected) {
 				_connection.onSenderDisconnected(false);
 			}
+                        _connection.onSenderStop();
 		}
 
 		AbstractMessageBrokerListeningConnection& _connection;
@@ -575,6 +579,9 @@ protected:
 		std::auto_ptr<typename MessageProviderType::SubscriberListReleaser> _subscriberListReleaserAutoPtr;
 	};
 
+        //! On receiver start event handler
+        virtual void onReceiverStart()
+        {}
 	//! On receive message thread overload event handler
 	/*!
 	  \param prevTickTimestamp Previous tick timestamp
@@ -618,6 +625,12 @@ protected:
 	*/
 	virtual void onProvideMessage(const MessageType& msg, AbstractMessageConsumerType& consumer)
 	{}
+        //! On receiver stop event handler
+        virtual void onReceiverStop()
+        {}
+        //! On sender start event handler
+        virtual void onSenderStart()
+        {}
 	//! On send message thread overload event handler
 	/*!
 	  \param prevTickTimestamp Previous tick timestamp
@@ -654,6 +667,9 @@ protected:
 	*/
 	virtual void onSendMessage(const MessageType& msg)
 	{}
+        //! On sender stop event handler
+        virtual void onSenderStop()
+        {}
 
 	//! Receiving message from transport abstract method
 	/*!
