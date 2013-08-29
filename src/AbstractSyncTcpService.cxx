@@ -99,7 +99,8 @@ void AbstractSyncTcpService::ListenerThread::onStart()
 		_serverSocket.open();
 		Log::debug().log(LogMessage(SOURCE_LOCATION_ARGS, "Server socket has been opened"));
 		_serverSocket.bind(_addrInfo);
-		Log::debug().log(LogMessage(SOURCE_LOCATION_ARGS, "Server socket has been binded"));
+		Log::debug().log(LogMessage(SOURCE_LOCATION_ARGS, "Server socket has been binded to ") <<
+                                _addrInfo.firstEndpoint().host << ':' << _addrInfo.firstEndpoint().port << " endpoint");
 		_serverSocket.listen(_backLog);
 		Log::debug().log(LogMessage(SOURCE_LOCATION_ARGS, "Server socket has been switched to the listening state"));
 	} catch (std::exception& e) {

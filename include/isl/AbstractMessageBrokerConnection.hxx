@@ -352,6 +352,7 @@ protected:
 					}
 					if (!_connected) {
 						Log::error().log(LogMessage(SOURCE_LOCATION_ARGS, "Message broker connection has been aborted in the receiver thread"));
+                                                _connection.onReceiverDisconnected(true);
 						_connectionAttempts = 0;
 						// Sending disconnect request to the sender thread
 						std::auto_ptr<ThreadRequesterType::MessageType> responseAutoPtr =
@@ -392,8 +393,9 @@ protected:
 					// Establishing connection if not connected
 					try {
 						_connection._socket.connect(_connection._remoteAddr);
-						Log::debug().log(LogMessage(SOURCE_LOCATION_ARGS, "Message broker connection has been established"));
+						Log::debug().log(LogMessage(SOURCE_LOCATION_ARGS, "Connection to message exchange peer has been established"));
 						_connected = true;
+                                                _connection.onReceiverConnected(_connection._socket);
 						// Sending connect request to the sender thread
 						std::auto_ptr<ThreadRequesterType::MessageType> responseAutoPtr =
 							_connection._senderThread.sendRequest(ConnectRequest(), Timestamp::limit(_connection.awaitResponseTimeout()));

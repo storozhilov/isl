@@ -361,6 +361,7 @@ protected:
 					}
 					if (!_connected) {
 						isl::Log::error().log(isl::LogMessage(SOURCE_LOCATION_ARGS, "Message broker connection has been aborted in the receiver thread"));
+                                                _connection.onReceiverDisconnected(true);
 						_acceptingAttempts = 0;
 						// Sending disconnect request to the sender thread
 						std::auto_ptr<ThreadRequesterType::MessageType> responseAutoPtr =
@@ -399,8 +400,9 @@ protected:
 				} else {
 					_connection._transferSocketAutoPtr = _connection._socket.accept(nextTickTimestamp.leftTo());
 					if (_connection._transferSocketAutoPtr.get()) {
-						Log::debug().log(LogMessage(SOURCE_LOCATION_ARGS, "Connection has been accepted"));
+						Log::debug().log(LogMessage(SOURCE_LOCATION_ARGS, "Connection has been accepted from message exchange peer"));
 						_connected = true;
+                                                _connection.onReceiverConnected(*_connection._transferSocketAutoPtr.get());
 						// Sending connect request to the sender thread
 						std::auto_ptr<ThreadRequesterType::MessageType> responseAutoPtr =
 							_connection._senderThread.sendRequest(ConnectRequest(), Timestamp::limit(_connection.awaitResponseTimeout()));
