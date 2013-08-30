@@ -519,6 +519,7 @@ protected:
 						try {
 							if (_connection.sendMessage(*_currentMessageAutoPtr.get(), *_connection._transferSocketAutoPtr.get(), nextTickTimestamp)) {
 								_sendingMessage = false;
+                                                                _connection.onSendMessage(*_currentMessageAutoPtr.get());
 							}
 						} catch (Exception& e) {
 							if (e.error().instanceOf<TcpSocket::ConnectionAbortedError>()) {
