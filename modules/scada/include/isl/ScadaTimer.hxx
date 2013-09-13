@@ -60,7 +60,7 @@ protected:
 		  \param pendingRequest Constant reference to pending request to process
 		  \return Auto-pointer to the response or to 0 if no response has been provided
 		*/
-		virtual std::auto_ptr<ThreadRequesterType::MessageType> onRequest(const ThreadRequesterType::MessageType& request, bool responseRequired);
+		virtual std::auto_ptr<AbstractThreadMessage> onRequest(const AbstractThreadMessage& request, bool responseRequired);
 	private:
 		ScadaTimerThread();
 		ScadaTimerThread(const ScadaTimerThread&);							// No copy

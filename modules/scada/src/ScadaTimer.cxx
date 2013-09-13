@@ -86,15 +86,21 @@ void ScadaTimer::ScadaTimerThread::onStop()
 	}
 }
 
-std::auto_ptr<Subsystem::ThreadRequesterType::MessageType> ScadaTimer::ScadaTimerThread::onRequest(const ThreadRequesterType::MessageType& request, bool responseRequired)
+std::auto_ptr<Subsystem::AbstractThreadMessage> ScadaTimer::ScadaTimerThread::onRequest(const Subsystem::AbstractThreadMessage& request, bool responseRequired)
 {
 	if (request.instanceOf<ScadaProgramMessageEnvelope>()) {
-		// TODO: Call onRequest() event handler from the target programs
-		const ScadaProgramMessageEnvelope * envPtr = request.cast<const ScadaProgramMessageEnvelope>();
-		return envPtr->_program->onRequest(*(envPtr->_messageAutoPtr.get()), responseRequired);
+                Log::debug().log(LogMessage(SOURCE_LOCATION_ARGS, "A request to SCADA program has been received"));
+		const ScadaProgramMessageEnvelope * envelopePtr = request.cast<const ScadaProgramMessageEnvelope>();
+                std::auto_ptr<Subsystem::AbstractThreadMessage> responseAutoPtr(envelopePtr->_program->onRequest(*(envelopePtr->_messageAutoPtr.get()), responseRequired));
+                if (!responseAutoPtr.get()) {
+                        Log::error().log(LogMessage(SOURCE_LOCATION_ARGS, "No response from SCADA program has been received"));
+                }
+                return responseAutoPtr;
 	} else {
 		return TimerThread::onRequest(request, responseRequired);
 	}
 }
+
+//------------------------------------------------------------------------------
 
 } // namespace isl

@@ -326,7 +326,7 @@ public:
 	//! Constructs a new subsystem
 	/*!
 	  \param owner The owner subsystem of the new subsystem
-	  \param clockTimeout Subsystem's clock timeout
+	  \param clockTimeout Subsystem's clock timeout (TODO: Set default to Subsystem::defaultClockTimeout())
 	  \param awaitResponseTicksAmount Amount of clock ticks to await response from the another thread
 	 */
 	Subsystem(Subsystem * owner, const Timeout& clockTimeout = Timeout::defaultTimeout(),
