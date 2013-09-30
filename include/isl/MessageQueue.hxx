@@ -119,7 +119,7 @@ public:
 		} while (_queueCond.wait(limit));
 		return false;
 	}
-	//! Fetches all available messages into the supplied consumer
+	//! Awaits for messages and fetches all available messages into the supplied consumer
 	/*!
 	  Method will wait for at least one message to be available in queue.
 	  \param consumer Message consumer to store messages to
@@ -146,6 +146,30 @@ public:
 			return providedMessages;
 		} while (_queueCond.wait(limit));
 		return 0;
+	}
+	//! Fetches all available messages into the supplied consumer
+	/*!
+	  Method will wait for at least one message to be available in queue.
+	  \param consumer Message consumer to store messages to
+	  \return Fetched messages amount
+	  \note If the consumer's filter rejects a message it will be discarded!
+	*/
+	size_t popAll(AbstractMessageConsumerType& consumer)
+	{
+		MutexLocker locker(_queueCond.mutex());
+                if (_queue.empty()) {
+                        return 0;
+                }
+                size_t providedMessages = 0;
+                for (typename Messages::const_reverse_iterator i = _queue.rbegin(); i != _queue.rend(); ++i) {
+                        if (consumer.push(**i)) {
+                                ++providedMessages;
+                        } else {
+                                Log::error().log(LogMessage(SOURCE_LOCATION_ARGS, "Message has been discarded cause it has been rejected by the target consumer"));
+                        }
+                }
+                resetQueue();
+                return providedMessages;
 	}
 	//! Clears message queue
 	void clear()

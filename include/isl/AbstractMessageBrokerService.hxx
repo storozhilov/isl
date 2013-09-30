@@ -165,6 +165,14 @@ protected:
 		{
 			return *_outputBusAutoPtr.get();
 		}
+                //! Enqueues a message for sending to peer
+                /*!
+                 * \param mgs A constant reference to message to enqueue
+                 */
+                inline bool enqueueMessage(const MessageType& msg)
+                {
+                        return inputQueue().push(msg);
+                }
 		//! Sends a request message to message broker client and waits for the response(-s)
 		/*!
 		  \param request Constant reference to the request message to send
@@ -172,7 +180,7 @@ protected:
 		  \param limit Time limit to wait for response
 		  \return TRUE if the request has been accepted by the input message queue and the response(-s) has been fetched during timeout
 		*/
-		inline bool sendRequest(const MessageType& request, MessageQueueType& responseQueue, const Timestamp& limit)
+		inline bool makeRequest(const MessageType& request, MessageQueueType& responseQueue, const Timestamp& limit)
 		{
 			responseQueue.clear();
 			typename MessageProviderType::Subscriber subscriber(outputBus(), responseQueue);

@@ -264,8 +264,11 @@ public:
 	{
 		_consumers.clear();
 	}
-	//! Sends a message to message broker
-	inline bool sendMessage(const MessageType& msg)
+	//! Enqueues a message for sending to peer
+        /*!
+         * \param mgs A constant reference to message to enqueue
+         */
+	inline bool enqueueMessage(const MessageType& msg)
 	{
 		return inputQueue().push(msg);
 	}
@@ -276,7 +279,7 @@ public:
 	  \param limit Time limit to wait for response
 	  \return True if the message has been accepted by input message queue
 	*/
-	inline bool sendRequest(const MessageType& request, MessageQueueType& responseQueue, const Timestamp& limit)
+	inline bool makeRequest(const MessageType& request, MessageQueueType& responseQueue, const Timestamp& limit)
 	{
 		responseQueue.clear();
 		typename MessageProviderType::Subscriber subscriber(outputBus(), responseQueue);

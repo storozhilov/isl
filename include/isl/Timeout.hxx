@@ -13,6 +13,11 @@ namespace isl
 class Timeout
 {
 public:
+	//! Constructs timeout from double seconds TODO
+	/*!
+	  \param secs Seconds amount
+	*/
+	//Timeout(double secs);
 	//! Constructs timeout from seconds and nanoseconds
 	/*!
 	  If either seconds or nanoseconds are negative it will create a zero timeout.
@@ -28,16 +33,21 @@ public:
 	  \param ts Libc timespec structure
 	*/
 	Timeout(const struct timespec& ts);
-	//! Returns seconds of the timeout
+	//! Returns seconds part of the timeout
 	inline time_t seconds() const
 	{
 		return _ts.tv_sec;
 	}
-	//! Returns nanoseconds of the timeout (0-999999999)
+	//! Returns nanoseconds part of the timeout (0-999999999)
 	inline long int nanoSeconds() const
 	{
 		return _ts.tv_nsec;
 	}
+        //! Returns timeout as double seconds value
+        inline double secondsDouble() const
+        {
+                return static_cast<double>(_ts.tv_sec) + static_cast<double>(_ts.tv_nsec) / 1000000000.0;
+        }
 	//! Returns POSIX.1b representation of the timeout
 	inline const struct timespec& timeSpec() const
 	{
