@@ -471,10 +471,13 @@ protected:
 	private:
 		//! On thread request event handler
 		/*!
-		  \param pendingRequest Constant reference to pending request to process
+		  \param request Constant reference to pending request to process
+                  \param responseRequired TRUE if the response is required
+                  \param stopRequestsProcessing A reference to flag, which means to terminate next incoming requests processing [OUT]
 		  \return Auto-pointer to the response or to 0 if no response has been provided
 		*/
-		virtual std::auto_ptr<ThreadRequesterType::MessageType> onRequest(const ThreadRequesterType::MessageType& request, bool responseRequired)
+		virtual std::auto_ptr<ThreadRequesterType::MessageType> onRequest(const ThreadRequesterType::MessageType& request,
+                                bool responseRequired, bool& stopRequestsProcessing)
 		{
 			if (request.instanceOf<ConnectRequest>()) {
 				Log::debug().log(LogMessage(SOURCE_LOCATION_ARGS, "Connect request has been received by the sender thread"));
@@ -489,7 +492,7 @@ protected:
 				}
 				return std::auto_ptr<ThreadRequesterType::MessageType>(responseRequired ? new OkResponse() : 0);
 			}
-			return RequesterThread::onRequest(request, responseRequired);
+			return RequesterThread::onRequest(request, responseRequired, stopRequestsProcessing);
 		}
 		//! On start event handler
 		virtual void onStart()

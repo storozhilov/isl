@@ -269,11 +269,12 @@ public:
 		/*!
 		  \note Default implementation writes an "unrecognized request" entry in the error log
 		  \param request Constant reference to pending request to process
+                  \param responseRequired TRUE if the response is required
                   \param stopRequestsProcessing A reference to flag, which means to terminate next incoming requests processing [OUT]
 		  \return Auto-pointer to the response or to 0 if no response has been provided
 		*/
-		virtual std::auto_ptr<ThreadRequesterType::MessageType> onRequest(const ThreadRequesterType::MessageType& request, bool responseRequired,
-                                bool& stopRequestsProcessing);
+		virtual std::auto_ptr<ThreadRequesterType::MessageType> onRequest(const ThreadRequesterType::MessageType& request,
+                                bool responseRequired, bool& stopRequestsProcessing);
 	private:
 		//! Processes thread request
 		/*!
