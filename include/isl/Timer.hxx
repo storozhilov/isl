@@ -16,7 +16,7 @@
 namespace isl
 {
 
-//! High-precision timer
+//! High-precision timer to execute tasks an a dedicated thread
 /*!
   Timer executes tasks in it's thread. A task could be:
 
@@ -43,6 +43,66 @@ public:
 			size_t maxScheduledTasksAmount = DefaultMaxScheduledTasksAmount);
 	//! Destructor
 	virtual ~Timer();
+
+        class AbstractScheduledTask;
+        //! Timer thread class
+	class TimerThread : public RequesterThread
+	{
+	public:
+		TimerThread(Timer& timer);
+
+                //! Returns a reference to timer which is executing this thread
+                inline Timer& timer() const
+                {
+                        return _timer;
+                }
+		//! on start event handler
+		/*!
+		  Default implementation does nothing and returns TRUE.
+		  \return TRUE if to continue thread execution
+		*/
+		virtual void onStart();
+		//! Doing the work virtual method
+		/*!
+		  \param prevTickTimestamp Previous tick timestamp
+		  \param nextTickTimestamp Next tick timestamp
+		  \param ticksExpired Amount of expired ticks - if > 1, then an overload has occured
+		*/
+		virtual void doLoad(const Timestamp& prevTickTimestamp, const Timestamp& nextTickTimestamp, size_t ticksExpired);
+		//! On stop event handler
+		virtual void onStop();
+        protected:
+                //! Schedule a task for single execution
+                /*!
+                  \param task Reference to task to schedule
+                  \param limit Limit timestamp task execution should be at
+                  \return TRUE if task has been successfully scheduled or FALSE if the scheduled task container has been overflowed
+                  \note The task will be executed even if the limit timestamp has been already passed!
+                */
+                bool scheduleTask(AbstractScheduledTask& task, const Timestamp& limit);
+                //! Schedule a task for single execution
+                /*!
+                  \param task Reference to task to schedule
+                  \param timeout Timeout to wait for the task execution from now
+                  \return TRUE if task has been successfully scheduled or FALSE if the scheduled task container has been overflowed
+                  \note The task will be executed even if zero timeout has been supplied!
+                */
+                inline bool scheduleTask(AbstractScheduledTask& task, const Timeout& timeout)
+                {
+                        return scheduleTask(task, Timestamp::limit(timeout));
+                }
+
+	private:
+		TimerThread();
+		TimerThread(const TimerThread&);							// No copy
+
+		TimerThread& operator=(const TimerThread&);						// No copy
+
+                typedef std::multimap<Timestamp, AbstractScheduledTask *> ScheduledTasksMap;
+
+		Timer& _timer;
+                ScheduledTasksMap _scheduledTasksMap;
+	};
 	//! Abstract periodic task for the timer
 	class AbstractPeriodicTask
 	{
@@ -62,12 +122,13 @@ public:
 		{}
 		//! Task execution asbtract virtual method
 		/*!
-		  \param timer Reference to timer
+		  \param timerThread Reference to timer thread
 		  \param lastExpiredTimestamp Last expired timestamp for the task execution
 		  \param expiredTimestamps Expired timestamps amount
 		  \param timeout Task execution timeout in timer
 		*/
-		virtual void execute(Timer& timer, const Timestamp& lastExpiredTimestamp, size_t expiredTimestamps, const Timeout& timeout) = 0;
+		virtual void execute(TimerThread& timerThread, const Timestamp& lastExpiredTimestamp,
+                                size_t expiredTimestamps, const Timeout& timeout) = 0;
 	private:
 		friend class Timer;
 	};
@@ -84,10 +145,10 @@ public:
 	protected:
 		//! Task execution asbtract virtual method
 		/*!
-		  \param timer Reference to timer
+		  \param timerThread Reference to timer thread
 		  \param timestamp Task execution timestamp in timer
 		*/
-		virtual void execute(Timer& timer, const Timestamp& timestamp) = 0;
+		virtual void execute(TimerThread& timerThread, const Timestamp& timestamp) = 0;
 	private:
 		friend class Timer;
 	};
@@ -123,14 +184,16 @@ public:
 	void resetPeriodicTasks();
 	//! Schedule a task for single execution
 	/*!
+          TODO: Not implemented -> request/response implementation is needed!
 	  \param task Reference to task to schedule
 	  \param limit Limit timestamp task execution should be at
 	  \return TRUE if task has been successfully scheduled or FALSE if the scheduled task container has been overflowed
-	  \note Thread-safe. The task will be executed even if the limit timestamp has been passed!
+	  \note Thread-safe. The task will be executed even if the limit timestamp has been already passed!
 	*/
 	bool scheduleTask(AbstractScheduledTask& task, const Timestamp& limit);
 	//! Schedule a task for single execution
 	/*!
+          TODO: Not implemented -> request/response implementation is needed!
 	  \param task Reference to task to schedule
 	  \param timeout Timeout to wait for the task execution from now
 	  \return TRUE if task has been successfully scheduled or FALSE if the scheduled task container has been overflowed
@@ -152,35 +215,6 @@ public:
 	*/
 	virtual void stop();
 protected:
-	class TimerThread : public RequesterThread
-	{
-	public:
-		TimerThread(Timer& timer);
-
-		//! On start event handler
-		/*!
-		  Default implementation does nothing and returns TRUE.
-		  \return TRUE if to continue thread execution
-		*/
-		virtual void onStart();
-		//! Doing the work virtual method
-		/*!
-		  \param prevTickTimestamp Previous tick timestamp
-		  \param nextTickTimestamp Next tick timestamp
-		  \param ticksExpired Amount of expired ticks - if > 1, then an overload has occured
-		*/
-		virtual void doLoad(const Timestamp& prevTickTimestamp, const Timestamp& nextTickTimestamp, size_t ticksExpired);
-		//! On stop event handler
-		virtual void onStop();
-	private:
-		TimerThread();
-		TimerThread(const TimerThread&);							// No copy
-
-		TimerThread& operator=(const TimerThread&);						// No copy
-
-		Timer& _timer;
-	};
-
 	//! Timer thread creation factory method
 	/*!
 	 * \returns A pointer to new timer thread object
@@ -208,13 +242,11 @@ private:
 		{}
 	};
 	typedef std::map<int, PeriodicTaskMapValue> PeriodicTasksMap;
-	typedef std::multimap<Timestamp, AbstractScheduledTask *> ScheduledTasksMap;
+	//typedef std::multimap<Timestamp, AbstractScheduledTask *> ScheduledTasksMap;
 
 	size_t _maxScheduledTaskAmount;
 	int _lastPeriodicTaskId;
 	PeriodicTasksMap _periodicTasksMap;
-	ReadWriteLock _scheduledTasksRWLock;
-	ScheduledTasksMap _scheduledTasksMap;
 	std::auto_ptr<TimerThread> _threadAutoPtr;
 };
 

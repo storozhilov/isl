@@ -1,6 +1,7 @@
 #include <isl/Timeout.hxx>
 #include <isl/Exception.hxx>
 #include <isl/Error.hxx>
+#include <cmath>
 
 #ifndef ISL__DEFAULT_TIMEOUT_SECONDS
 #define ISL__DEFAULT_TIMEOUT_SECONDS 0
@@ -11,6 +12,10 @@
 
 namespace isl
 {
+
+Timeout::Timeout(double secs) :
+	_ts(TimeSpec::makeTimeout(static_cast<time_t>(secs), static_cast<long int>(fmod(secs, 1.0) * 1000000000)))
+{}
 
 Timeout::Timeout(time_t secs, long int nsecs) :
 	_ts(TimeSpec::makeTimeout(secs, nsecs))

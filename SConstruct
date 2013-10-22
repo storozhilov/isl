@@ -34,6 +34,8 @@ AddOption('--prefix',
 sconscriptTargets = ['src/SConscript']
 if GetOption('build-scada') or os.environ.get('ISL_BUILD_SCADA', '').upper() == 'YES':
 	sconscriptTargets.append('modules/scada/SConscript')
+        if GetOption('build-tests') or os.environ.get('ISL_BUILD_TESTS', '').upper() == 'YES':
+                sconscriptTargets.append('modules/scada/tests/SConscript')
 if GetOption('build-examples') or os.environ.get('ISL_BUILD_EXAMPLES', '').upper() == 'YES':
 	sconscriptTargets.append('examples/SConscript')
 if GetOption('build-tests') or os.environ.get('ISL_BUILD_TESTS', '').upper() == 'YES':

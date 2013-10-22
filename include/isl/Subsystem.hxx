@@ -4,6 +4,7 @@
 #include <isl/Timeout.hxx>
 #include <isl/Thread.hxx>
 #include <isl/ThreadRequester.hxx>
+#include <isl/BasicDateTime.hxx>
 #include <list>
 
 #ifndef ISL__DEFAULT_SUBSYSTEM__AWAIT_RESPONSE_TICKS_AMOUNT
@@ -92,7 +93,6 @@ public:
 		}
 
 		friend class Subsystem;
-		friend class Thread;
 	};
 	//! Abstract inter-thread message
 	class AbstractThreadMessage
@@ -207,6 +207,9 @@ public:
 	};
 
 	//! Thread requester controllable abstract thread
+        /*!
+         * TODO: Migration to RequestableThread class
+         */
 	class AbstractRequesterThread : public AbstractThread
 	{
 	public:
@@ -250,9 +253,6 @@ public:
 			return _requester;
 		}
 		//! Processes all pending thread requests
-		/*!
-		 * TODO: Remove it?
-		 */
 		void processRequests();
 		//! Awaits for pending thread requests and processes them until limit timestamp has been reached
 		/*!
@@ -268,23 +268,30 @@ public:
 		//! On thread request event handler
 		/*!
 		  \note Default implementation writes an "unrecognized request" entry in the error log
-		  \param pendingRequest Constant reference to pending request to process
+		  \param request Constant reference to pending request to process
+                  \param stopRequestsProcessing A reference to flag, which means to terminate next incoming requests processing [OUT]
 		  \return Auto-pointer to the response or to 0 if no response has been provided
 		*/
-		virtual std::auto_ptr<ThreadRequesterType::MessageType> onRequest(const ThreadRequesterType::MessageType& request, bool responseRequired);
+		virtual std::auto_ptr<ThreadRequesterType::MessageType> onRequest(const ThreadRequesterType::MessageType& request, bool responseRequired,
+                                bool& stopRequestsProcessing);
 	private:
 		//! Processes thread request
 		/*!
-		  \param pendingRequest Constant reference to pending resuest to process
+		  \param request Constant reference to pending resuest to process
+                  \param stopRequestsProcessing A reference to flag, which means to terminate next incoming requests processing [OUT]
 		  \return Auto-pointer to the response or to 0 if no response has been provided
 		*/
-		std::auto_ptr<ThreadRequesterType::MessageType> processRequest(const ThreadRequesterType::MessageType& request, bool responseRequired);
+		std::auto_ptr<ThreadRequesterType::MessageType> processRequest(const ThreadRequesterType::MessageType& request, bool responseRequired,
+                                bool& stopRequestsProcessing);
 
 		ThreadRequesterType _requester;
 		bool _shouldTerminate;
 	};
 
 	//! Thread requester controllable thread with main loop
+        /*!
+         * TODO: Migration to RequestableThread class
+         */
 	class RequesterThread : public AbstractRequesterThread
 	{
 	public:
@@ -295,6 +302,7 @@ public:
 		  \param awaitStartup If TRUE, then launching thread will wait until new thread is started for the cost of condition variable and mutex
 		*/
 		RequesterThread(Subsystem& subsystem, bool isTrackable = false, bool awaitStartup = false);
+        protected:
 		//! On start event handler
 		virtual void onStart()
 		{}
@@ -322,6 +330,124 @@ public:
 		//! RequesterThread execution virtual method redefinition
 		virtual void run();
 	};
+
+        //! Requestable thread with main loop
+        /*!
+         * A thread which is periodically doing the load cycle, checks out for incoming requests
+         * and handles them.
+         * TODO: Migration to this class
+         */
+        class RequestableThread : public AbstractThread
+        {
+        public:
+		//! Constructs thread requester controllable abstract thread
+		/*!
+		  \param subsystem Reference to the subsystem object new thread is controlled by
+		  \param isTrackable If TRUE isRunning() method could be used for inspecting if the thread is running for the cost of R/W-lock
+		  \param awaitStartup If TRUE, then launching thread will wait until new thread is started for the cost of condition variable and mutex
+		*/
+		RequestableThread(Subsystem& subsystem, bool isTrackable = false, bool awaitStartup = false);
+		//! Destructor
+		virtual ~RequestableThread();
+		//! Sends request to the thread
+		/*!
+		  \param request Request message to send
+		  \param limit Limit to await for the response
+		  \return Auto-pointer to the response or to 0 if no response has been provided
+		  \note Could be called from this thread or outside - 'awaitResponseLimit' argument is ignored in first case.
+		*/
+		std::auto_ptr<ThreadRequesterType::MessageType> sendRequest(const ThreadRequesterType::MessageType& request,
+				const Timestamp& awaitResponseLimit);
+
+		//! Resets thread (called before start)
+		/*!
+		  \note Thread-unsafe
+		*/
+		virtual void reset()
+		{
+			_requester.reset();
+			_shouldTerminate = false;
+		}
+		//! Appoints a subsystem's thread termination
+		virtual void appointTermination();
+        protected:
+		//! Returns a reference to the thread requester
+		/*!
+		 * TODO: Remove it?
+		 */
+		inline ThreadRequesterType& requester()
+		{
+			return _requester;
+		}
+		//! Processes all pending thread requests
+		void processRequests();
+		//! Awaits for pending thread requests and processes them until limit timestamp has been reached
+		/*!
+		  \param limit Limit timestamp to await for thread requests
+		*/
+		void processRequests(const Timestamp& limit);
+                //! Returns a next load cycle timestamp
+                const Timestamp& nextLoad() const;
+                //! Appoints a load cycle
+                void appointLoad(const Timeout& timeout);
+
+		//! Returns TRUE if the thread should be terminated
+		virtual bool shouldTerminate()
+		{
+			return _shouldTerminate;
+		}
+		//! On thread request event handler
+		/*!
+		  \note Default implementation writes an "unrecognized request" entry in the error log
+		  \param request Constant reference to pending request to process
+                  \param stopRequestsProcessing A reference to flag, which means to terminate next incoming requests processing [OUT]
+		  \return Auto-pointer to the response or to 0 if no response has been provided
+		*/
+		virtual std::auto_ptr<ThreadRequesterType::MessageType> onRequest(const ThreadRequesterType::MessageType& request, bool responseRequired,
+                                bool& stopRequestsProcessing);
+		//! On start event handler
+		virtual void onStart()
+		{}
+		//! Doing the load cycle virtual method
+		/*!
+                  Default implementation does nothing and returns next year timestamp
+		  \param prevTimestamp Previous load cycle timestamp
+                  \param appointedTimestamp Timestamp this load cycle execution was appointed at
+		  \param limitTimestamp Limit timestamp for the load cycle
+                  \return Next load cycle timestamp
+		*/
+		virtual Timestamp doLoad(const Timestamp& prevTimestamp, const Timestamp& appointedTimestamp, const Timestamp& limitTimestamp)
+		{
+                        return limitTimestamp + Timeout(BasicDateTime::SecondsPerDay * 365);
+                }
+		//! On overload event handler
+		/*!
+                  Called if a load cycle was executed longer than clock timeout of the subsystem
+		  Default implementation does nothing and returns TRUE.
+		  \param limitTimestamp Load cycle limit timestamp
+		  \param actualTimestamp Load cycle end of execution timestamp
+		*/
+		virtual void onOverload(const Timestamp& limitTimestamp, const Timestamp& actualTimestamp)
+		{}
+		//! On stop event handler
+		virtual void onStop()
+		{}
+	private:
+		//! Processes thread request
+		/*!
+		  \param request Constant reference to pending resuest to process
+                  \param stopRequestsProcessing A reference to flag, which means to terminate next incoming requests processing [OUT]
+		  \return Auto-pointer to the response or to 0 if no response has been provided
+		*/
+		std::auto_ptr<ThreadRequesterType::MessageType> processRequest(const ThreadRequesterType::MessageType& request, bool responseRequired,
+                                bool& stopRequestsProcessing);
+
+		//! RequesterThread execution virtual method redefinition
+		virtual void run();
+
+		ThreadRequesterType _requester;
+		bool _shouldTerminate;
+        };
 
 	//! Constructs a new subsystem
 	/*!

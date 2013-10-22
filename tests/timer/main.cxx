@@ -14,7 +14,7 @@ public:
 		isl::Timer::AbstractScheduledTask()
 	{}
 private:
-	virtual void execute(isl::Timer& timer, const isl::Timestamp& timestamp)
+        virtual void execute(isl::Timer::TimerThread& timerThread, const isl::Timestamp& timestamp)
 	{
 		std::ostringstream msg;
 		msg << "Scheduled task execution has been fired. Task timestamp: " << isl::DateTime(timestamp).toString();
@@ -32,9 +32,9 @@ public:
 private:
 	PeriodicTask();
 
-	virtual void execute(isl::Timer& timer, const isl::Timestamp& lastExpiredTimestamp, size_t expiredTimestamps, const isl::Timeout& timeout)
+        virtual void execute(isl::Timer::TimerThread& timerThread, const isl::Timestamp& lastExpiredTimestamp, size_t expiredTimestamps, const isl::Timeout& timeout)
 	{
-		timer.scheduleTask(_scheduledTask, isl::Timeout(1));
+		timerThread.timer().scheduleTask(_scheduledTask, isl::Timeout(1));
 		std::ostringstream msg;
 		msg << "Periodic task execution has been fired. Last expired timestamp: {" << isl::DateTime(lastExpiredTimestamp).toString() <<
 			"}, expired timestamps: " << expiredTimestamps << ", task execution timeout: {" << timeout.timeSpec().tv_sec << ", " <<

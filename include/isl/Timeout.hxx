@@ -17,7 +17,7 @@ public:
 	/*!
 	  \param secs Seconds amount
 	*/
-	//Timeout(double secs);
+	explicit Timeout(double secs = 0.0);
 	//! Constructs timeout from seconds and nanoseconds
 	/*!
 	  If either seconds or nanoseconds are negative it will create a zero timeout.
@@ -27,7 +27,7 @@ public:
 	  \param secs Seconds amount
 	  \param nsecs Nanoseconds amount
 	*/
-	Timeout(time_t secs = 0, long int nsecs = 0);
+	explicit Timeout(time_t secs, long int nsecs);
 	//! Constructs timeout from the POSIX.1b structure
 	/*!
 	  \param ts Libc timespec structure

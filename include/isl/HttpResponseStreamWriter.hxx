@@ -13,14 +13,31 @@ namespace isl
 class HttpResponseStreamWriter : public AbstractHttpMessageStreamWriter
 {
 public:
-	//! Constructs HTTP-response stream writer
+        static const int defaultStatusCode = 200;
+        static const char * defaultVersion;
+
+        //! Constructs HTTP-response stream writer with default parameters
+	HttpResponseStreamWriter();
+	//! Constructs HTTP-response stream writer with particular status code and default version
+	/*!
+          A reason phrase is identified by status code.
+	  \param statusCode Status code
+	*/
+	HttpResponseStreamWriter(int statusCode);
+	//! Constructs HTTP-response stream writer with particular status code and version.
+	/*!
+          A reason phrase is identified by status code.
+	  \param statusCode Status code
+	  \param version HTTP-version
+	*/
+	HttpResponseStreamWriter(int statusCode, const std::string& version);
+	//! Constructs HTTP-response stream writer with particular status code, version and reason phrase
 	/*!
 	  \param statusCode Status code
 	  \param version HTTP-version
 	  \param reasonPhrase Reason phrase
 	*/
-	HttpResponseStreamWriter(int statusCode = 200, const std::string& version = std::string("HTTP/1.1"),
-			const std::string& reasonPhrase = lookupReasonPhrase(200));
+	HttpResponseStreamWriter(int statusCode, const std::string& version, const std::string& reasonPhrase);
 	//! Returns status code
 	inline int statusCode() const
 	{

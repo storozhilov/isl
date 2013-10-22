@@ -8,26 +8,34 @@
 namespace isl
 {
 
-ModbusEndpoint::ModbusEndpoint(const std::string& serialDevice, int id, Baud baud, Parity parity, DataBits dataBits, StopBits stopBits) :
+ModbusEndpoint::ModbusEndpoint(const std::string& serialDevice, int id, Baud baud, Parity parity, DataBits dataBits, StopBits stopBits,
+                        const Timeout& idleTimeout) :
 	_ctx(),
 	_serialDevice(serialDevice),
 	_id(id),
 	_baudValue(baudToValue(baud)),
 	_parityValue(parityToValue(parity)),
 	_dataBitsValue(dataBitsToValue(dataBits)),
-	_stopBitsValue(stopBitsToValue(stopBits))
+	_stopBitsValue(stopBitsToValue(stopBits)),
+        _idleTimeout(idleTimeout),
+        _idleTimeoutCond(),
+        _nextOperationLimit(Timestamp::now())
 {
 	init();
 }
 
-ModbusEndpoint::ModbusEndpoint(const std::string& serialDevice, int id, int baudValue, char parityValue, int dataBitsValue, int stopBitsValue) :
+ModbusEndpoint::ModbusEndpoint(const std::string& serialDevice, int id, int baudValue, char parityValue, int dataBitsValue, int stopBitsValue,
+                        const Timeout& idleTimeout) :
 	_ctx(),
 	_serialDevice(serialDevice),
 	_id(id),
 	_baudValue(baudValue),
 	_parityValue(parityValue),
 	_dataBitsValue(dataBitsValue),
-	_stopBitsValue(stopBitsValue)
+	_stopBitsValue(stopBitsValue),
+        _idleTimeout(idleTimeout),
+        _idleTimeoutCond(),
+        _nextOperationLimit(Timestamp::now())
 {
 	baudFromValue(baudValue);
 	parityFromValue(parityValue);
@@ -58,7 +66,11 @@ void ModbusEndpoint::flush()
 std::vector<uint8_t> ModbusEndpoint::readBits(int addr, int bitsAmount)
 {
 	std::vector<uint8_t> bits(bitsAmount);
-	int bitsFetched = modbus_read_bits(_ctx, addr, bitsAmount, &bits[0]);
+        int bitsFetched = 0;
+        {
+                Locker locker(*this);
+                bitsFetched = modbus_read_bits(_ctx, addr, bitsAmount, &bits[0]);
+        }
 	if (bitsFetched < 0) {
 		throw Exception(ModbusError(SOURCE_LOCATION_ARGS, errno, "Error reading bits"));
 	}
@@ -69,7 +81,11 @@ std::vector<uint8_t> ModbusEndpoint::readBits(int addr, int bitsAmount)
 std::vector<uint8_t> ModbusEndpoint::readInputBits(int addr, int bitsAmount)
 {
 	std::vector<uint8_t> bits(bitsAmount);
-	int bitsFetched = modbus_read_input_bits(_ctx, addr, bitsAmount, &bits[0]);
+	int bitsFetched = 0;
+        {
+                Locker locker(*this);
+                bitsFetched = modbus_read_input_bits(_ctx, addr, bitsAmount, &bits[0]);
+        }
 	if (bitsFetched < 0) {
 		throw Exception(ModbusError(SOURCE_LOCATION_ARGS, errno, "Error reading input bits"));
 	}
@@ -80,7 +96,11 @@ std::vector<uint8_t> ModbusEndpoint::readInputBits(int addr, int bitsAmount)
 std::vector<uint16_t> ModbusEndpoint::readRegisters(int addr, int registersAmount)
 {
 	std::vector<uint16_t> registers(registersAmount);
-	int registersFetched = modbus_read_registers(_ctx, addr, registersAmount, &registers[0]);
+	int registersFetched = 0;
+        {
+                Locker locker(*this);
+                registersFetched = modbus_read_registers(_ctx, addr, registersAmount, &registers[0]);
+        }
 	if (registersFetched < 0) {
 		throw Exception(ModbusError(SOURCE_LOCATION_ARGS, errno, "Error reading registers"));
 	}
@@ -91,7 +111,11 @@ std::vector<uint16_t> ModbusEndpoint::readRegisters(int addr, int registersAmoun
 std::vector<uint16_t> ModbusEndpoint::readInputRegisters(int addr, int registersAmount)
 {
 	std::vector<uint16_t> registers(registersAmount);
-	int registersFetched = modbus_read_input_registers(_ctx, addr, registersAmount, &registers[0]);
+	int registersFetched = 0;
+        {
+                Locker locker(*this);
+                registersFetched = modbus_read_input_registers(_ctx, addr, registersAmount, &registers[0]);
+        }
 	if (registersFetched < 0) {
 		throw Exception(ModbusError(SOURCE_LOCATION_ARGS, errno, "Error reading input registers"));
 	}
@@ -108,14 +132,23 @@ void ModbusEndpoint::writeBit(int addr, bool value)
 
 void ModbusEndpoint::writeRegister(int addr, uint16_t value)
 {
-	if (modbus_write_register(_ctx, addr, value) < 0) {
+        int res = 0;
+        {
+                Locker locker(*this);
+                res = modbus_write_register(_ctx, addr, value);
+        }
+	if (res < 0) {
 		throw Exception(ModbusError(SOURCE_LOCATION_ARGS, errno, "Error writing register"));
 	}
 }
 
 int ModbusEndpoint::writeBits(int addr, const std::vector<uint8_t>& bits)
 {
-	int bitsWritten = modbus_write_bits(_ctx, addr, bits.size(), &bits[0]);
+	int bitsWritten = 0;
+        {
+                Locker locker(*this);
+                bitsWritten = modbus_write_bits(_ctx, addr, bits.size(), &bits[0]);
+        }
 	if (bitsWritten < 0) {
 		throw Exception(ModbusError(SOURCE_LOCATION_ARGS, errno, "Error writing bits"));
 	}
@@ -124,7 +157,11 @@ int ModbusEndpoint::writeBits(int addr, const std::vector<uint8_t>& bits)
 
 int ModbusEndpoint::writeRegisters(int addr, const std::vector<uint16_t>& registers)
 {
-	int registersWritten = modbus_write_registers(_ctx, addr, registers.size(), &registers[0]);
+	int registersWritten = 0;
+        {
+                Locker locker(*this);
+                registersWritten = modbus_write_registers(_ctx, addr, registers.size(), &registers[0]);
+        }
 	if (registersWritten < 0) {
 		throw Exception(ModbusError(SOURCE_LOCATION_ARGS, errno, "Error writing registers"));
 	}
@@ -134,7 +171,11 @@ int ModbusEndpoint::writeRegisters(int addr, const std::vector<uint16_t>& regist
 std::vector<uint16_t> ModbusEndpoint::writeAndReadRegisters(int writeAddr, const std::vector<uint16_t>& writeRegisters, int readAddr, int readRegistersAmount)
 {
 	std::vector<uint16_t> readRegisters(readRegistersAmount);
-	int registersFetched = modbus_write_and_read_registers(_ctx, writeAddr, writeRegisters.size(), &writeRegisters[0], readAddr, readRegistersAmount, &readRegisters[0]);
+	int registersFetched = 0;
+        {
+                Locker locker(*this);
+                registersFetched = modbus_write_and_read_registers(_ctx, writeAddr, writeRegisters.size(), &writeRegisters[0], readAddr, readRegistersAmount, &readRegisters[0]);
+        }
 	if (registersFetched < 0) {
 		throw Exception(ModbusError(SOURCE_LOCATION_ARGS, errno, "Error writing and reading registers"));
 	}
@@ -388,6 +429,25 @@ ModbusEndpoint::StopBits ModbusEndpoint::stopBitsFromValue(int stopBitsValue)
 			errMsg << "Invalid stop bits value: " << stopBitsValue;
 			throw Exception(Error(SOURCE_LOCATION_ARGS, errMsg.str()));
 	};
+}
+
+//------------------------------------------------------------------------------
+
+ModbusEndpoint::Locker::Locker(ModbusEndpoint& endpoint) :
+        _endpoint(endpoint),
+        _mutexLocker(endpoint._idleTimeoutCond.mutex())
+{
+        while (true) {
+                if (Timestamp::now() >= _endpoint._nextOperationLimit) {
+                        return;
+                }
+                _endpoint._idleTimeoutCond.wait(_endpoint._nextOperationLimit);
+        }
+}
+
+ModbusEndpoint::Locker::~Locker()
+{
+        _endpoint._nextOperationLimit = Timestamp::now() + _endpoint._idleTimeout;
 }
 
 } // namespace isl

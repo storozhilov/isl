@@ -1,6 +1,8 @@
 #ifndef ISL__MODBUS_ENDPOINT__HXX
 #define ISL__MODBUS_ENDPOINT__HXX
 
+#include <isl/Timeout.hxx>
+#include <isl/WaitCondition.hxx>
 #include <modbus.h>
 #include <string>
 #include <vector>
@@ -13,6 +15,8 @@ namespace isl
   Use this class for SCADA-systems implementation. ISL is very suitable for device-controlling applications development due to it's multithread nature.
 
   This class belongs to the SCADA module of the ISL. You should enable appropriate building option (see 'scons -h').
+
+  TODO: Idle timeout support!
 */
 class ModbusEndpoint
 {
@@ -77,7 +81,8 @@ public:
 	  \param dataBits Data bits
 	  \param stopBits Stop bits
 	*/
-	ModbusEndpoint(const std::string& serialDevice, int id, Baud baud, Parity parity, DataBits dataBits, StopBits stopBits);
+	ModbusEndpoint(const std::string& serialDevice, int id, Baud baud, Parity parity, DataBits dataBits, StopBits stopBits,
+                        const Timeout& idleTimeout = Timeout(0.1));
 	//! Constructs Modbus/RTU endpoint using raw parameter values
 	/*!
 	  \param serialDevice Serial device filename (e.g. /dev/ttyS0 or /dev/ttyUSB0)
@@ -87,7 +92,8 @@ public:
 	  \param dataBitsValue Data bits amount: 5, 6, 7, or 8
 	  \param stopBitsValue Stop bits amount: 1 or 2
 	*/
-	ModbusEndpoint(const std::string& serialDevice, int id, int baudValue, char parityValue, int dataBitsValue, int stopBitsValue);
+	ModbusEndpoint(const std::string& serialDevice, int id, int baudValue, char parityValue, int dataBitsValue, int stopBitsValue,
+                        const Timeout& idleTimeout = Timeout(0.1));
 	//! Destructor
 	~ModbusEndpoint();
 	//! Returns constant reference to the serial device filename
@@ -191,6 +197,18 @@ public:
 	*/
 	std::vector<uint16_t> writeAndReadRegisters(int writeAddr, const std::vector<uint16_t>& writeRegisters, int readAddr, int readRegistersAmount);
 private:
+        class Locker
+        {
+        public:
+                Locker(ModbusEndpoint& endpoint);
+                ~Locker();
+        private:
+                Locker();
+
+                ModbusEndpoint& _endpoint;
+                MutexLocker _mutexLocker;
+        };
+
 	ModbusEndpoint();
 
 	ModbusEndpoint(const ModbusEndpoint&);
@@ -214,6 +232,9 @@ private:
 	char _parityValue;
 	int _dataBitsValue;
 	int _stopBitsValue;
+        Timeout _idleTimeout;
+        WaitCondition _idleTimeoutCond;
+        Timestamp _nextOperationLimit;
 };
 
 } // namespace isl

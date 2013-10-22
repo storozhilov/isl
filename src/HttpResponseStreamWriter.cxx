@@ -46,8 +46,30 @@ HttpResponseStreamWriter::Status HttpResponseStreamWriter::statusContainer[] = {
 	{505, "HTTP Version not supported"}
 };
 
-HttpResponseStreamWriter::HttpResponseStreamWriter(int statusCode,
-		const std::string& version, const std::string& reasonPhrase) :
+const char * HttpResponseStreamWriter::defaultVersion = "HTTP/1.1";
+
+HttpResponseStreamWriter::HttpResponseStreamWriter() :
+	AbstractHttpMessageStreamWriter(),
+	_version(defaultVersion),
+	_statusCode(defaultStatusCode),
+	_reasonPhrase(lookupReasonPhrase(defaultStatusCode))
+{}
+
+HttpResponseStreamWriter::HttpResponseStreamWriter(int statusCode) :
+	AbstractHttpMessageStreamWriter(),
+	_version(defaultVersion),
+	_statusCode(statusCode),
+	_reasonPhrase(lookupReasonPhrase(statusCode))
+{}
+
+HttpResponseStreamWriter::HttpResponseStreamWriter(int statusCode, const std::string& version) :
+	AbstractHttpMessageStreamWriter(),
+	_version(version),
+	_statusCode(statusCode),
+	_reasonPhrase(lookupReasonPhrase(statusCode))
+{}
+
+HttpResponseStreamWriter::HttpResponseStreamWriter(int statusCode, const std::string& version, const std::string& reasonPhrase) :
 	AbstractHttpMessageStreamWriter(),
 	_version(version),
 	_statusCode(statusCode),

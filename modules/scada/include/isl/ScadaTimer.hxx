@@ -56,11 +56,12 @@ protected:
 		virtual void onStop();
 		//! On thread request event handler
 		/*!
-		  \note Default implementation writes an "unrecognized request" entry in the error log
-		  \param pendingRequest Constant reference to pending request to process
+		  \param request Constant reference to pending request to process
+                  \param stopRequestsProcessing A reference to flag, which means to terminate next incoming requests processing [OUT]
 		  \return Auto-pointer to the response or to 0 if no response has been provided
 		*/
-		virtual std::auto_ptr<AbstractThreadMessage> onRequest(const AbstractThreadMessage& request, bool responseRequired);
+		virtual std::auto_ptr<AbstractThreadMessage> onRequest(const AbstractThreadMessage& request, bool responseRequired,
+                                bool& stopRequestsProcessing);
 	private:
 		ScadaTimerThread();
 		ScadaTimerThread(const ScadaTimerThread&);							// No copy

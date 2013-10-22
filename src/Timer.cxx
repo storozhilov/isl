@@ -16,8 +16,6 @@ Timer::Timer(Subsystem * owner, const Timeout& clockTimeout, size_t maxScheduled
 	_maxScheduledTaskAmount(maxScheduledTaskAmount),
 	_lastPeriodicTaskId(0),
 	_periodicTasksMap(),
-	_scheduledTasksRWLock(),
-	_scheduledTasksMap(),
 	_threadAutoPtr()
 {}
 
@@ -63,12 +61,7 @@ void Timer::resetPeriodicTasks()
 
 bool Timer::scheduleTask(AbstractScheduledTask& task, const Timestamp& timestamp)
 {
-	WriteLocker locker(_scheduledTasksRWLock);
-	if (_scheduledTasksMap.size() >= _maxScheduledTaskAmount) {
-		return false;
-	}
-	_scheduledTasksMap.insert(ScheduledTasksMap::value_type(timestamp, &task));
-	return true;
+        throw Exception(Error(SOURCE_LOCATION_ARGS, "Timer::scheduleTask() is not implemented yet"));
 }
 
 void Timer::start()
@@ -89,7 +82,8 @@ void Timer::stop()
 
 Timer::TimerThread::TimerThread(Timer& timer) :
 	RequesterThread(timer),
-	_timer(timer)
+	_timer(timer),
+        _scheduledTasksMap()
 {}
 
 void Timer::TimerThread::onStart()
@@ -125,20 +119,18 @@ void Timer::TimerThread::doLoad(const Timestamp& prevTickTimestamp, const Timest
 			}
 		}
 		if (shouldExecute) {
-			i->second.taskPtr->execute(_timer, lastExpiredTimestamp, expiredTimestamps, i->second.timeout);
+			//i->second.taskPtr->execute(_timer, lastExpiredTimestamp, expiredTimestamps, i->second.timeout);
+			i->second.taskPtr->execute(*this, lastExpiredTimestamp, expiredTimestamps, i->second.timeout);
 		}
 	}
 	// Extracting scheduled tasks, which are to be expired until next tick timestamp
-	ScheduledTasksMap expiredScheduledTasks;
-	{
-		ReadLocker locker(_timer._scheduledTasksRWLock);
-		ScheduledTasksMap::iterator pos = _timer._scheduledTasksMap.upper_bound(nextTickTimestamp);
-		expiredScheduledTasks.insert(_timer._scheduledTasksMap.begin(), pos);
-		_timer._scheduledTasksMap.erase(_timer._scheduledTasksMap.begin(), pos);
-	}
+        ScheduledTasksMap::iterator pos = _scheduledTasksMap.upper_bound(nextTickTimestamp);
+        ScheduledTasksMap expiredScheduledTasks(_scheduledTasksMap.begin(), pos);
+        _scheduledTasksMap.erase(_scheduledTasksMap.begin(), pos);
 	// Executing expired scheduled tasks
 	for (ScheduledTasksMap::iterator i = expiredScheduledTasks.begin(); i != expiredScheduledTasks.end(); ++i) {
-		i->second->execute(_timer, i->first);
+		//i->second->execute(_timer, i->first);
+		i->second->execute(*this, i->first);
 	}
 }
 
@@ -149,6 +141,15 @@ void Timer::TimerThread::onStop()
 		i->second.taskPtr->onStop(_timer);
 	}
 	RequesterThread::onStop();
+}
+
+bool Timer::TimerThread::scheduleTask(AbstractScheduledTask& task, const Timestamp& limit)
+{
+	if (_scheduledTasksMap.size() >= _timer._maxScheduledTaskAmount) {
+		return false;
+	}
+	_scheduledTasksMap.insert(ScheduledTasksMap::value_type(limit, &task));
+	return true;
 }
 
 } // namespace isl

@@ -125,7 +125,7 @@ void Subsystem::unregisterThread(Subsystem::AbstractThread * thread)
 Subsystem::AbstractRequesterThread::AbstractRequesterThread(Subsystem& subsystem, bool isTrackable, bool awaitStartup) :
 	AbstractThread(subsystem, isTrackable, awaitStartup),
 	_requester(),
-	_shouldTerminate()
+	_shouldTerminate(false)
 {}
 
 Subsystem::AbstractRequesterThread::~AbstractRequesterThread()
@@ -136,7 +136,8 @@ std::auto_ptr<Subsystem::ThreadRequesterType::MessageType> Subsystem::AbstractRe
 {
 	if (thread().handle() == Thread::self()) {
 		// Process request directly if called from inside
-		return processRequest(request, true);
+                bool stopRequestsProcessing = false;
+		return processRequest(request, true, stopRequestsProcessing);
 	}
 	// Sending termination request
 	size_t requestId = _requester.sendRequest(request);
@@ -165,7 +166,8 @@ void Subsystem::AbstractRequesterThread::appointTermination()
 	}
 }
 
-std::auto_ptr<Subsystem::ThreadRequesterType::MessageType> Subsystem::AbstractRequesterThread::onRequest(const ThreadRequesterType::MessageType& request, bool responseRequired)
+std::auto_ptr<Subsystem::ThreadRequesterType::MessageType> Subsystem::AbstractRequesterThread::onRequest(const ThreadRequesterType::MessageType& request, bool responseRequired,
+                                bool& stopRequestsProcessing)
 {
 	Log::warning().log(LogMessage(SOURCE_LOCATION_ARGS, "Unrecognized request: '") << request.name() << '\'');
 	return std::auto_ptr<ThreadRequesterType::MessageType>();
@@ -174,40 +176,52 @@ std::auto_ptr<Subsystem::ThreadRequesterType::MessageType> Subsystem::AbstractRe
 void Subsystem::AbstractRequesterThread::processRequests()
 {
 	while (const ThreadRequesterType::PendingRequest * pendingRequestPtr = _requester.fetchRequest()) {
-		std::auto_ptr<ThreadRequesterType::MessageType> responseAutoPtr = processRequest(pendingRequestPtr->request(), pendingRequestPtr->responseRequired());
+                bool stopRequestsProcessing = false;
+		std::auto_ptr<ThreadRequesterType::MessageType> responseAutoPtr = processRequest(pendingRequestPtr->request(), pendingRequestPtr->responseRequired(),
+                                stopRequestsProcessing);
 		if (responseAutoPtr.get()) {
 			_requester.sendResponse(*responseAutoPtr.get());
 		} else if (pendingRequestPtr->responseRequired()) {
 			Log::error().log(LogMessage(SOURCE_LOCATION_ARGS, "No response to the request, which requires one"));
 		}
+                if (stopRequestsProcessing) {
+                        break;
+                }
 	}
 }
 
 void Subsystem::AbstractRequesterThread::processRequests(const Timestamp& limit)
 {
 	while (const ThreadRequesterType::PendingRequest * pendingRequestPtr = _requester.awaitRequest(limit)) {
-		std::auto_ptr<ThreadRequesterType::MessageType> responseAutoPtr = processRequest(pendingRequestPtr->request(), pendingRequestPtr->responseRequired());
+                bool stopRequestsProcessing = false;
+		std::auto_ptr<ThreadRequesterType::MessageType> responseAutoPtr = processRequest(pendingRequestPtr->request(), pendingRequestPtr->responseRequired(),
+                                stopRequestsProcessing);
 		if (responseAutoPtr.get()) {
 			_requester.sendResponse(*responseAutoPtr.get());
 		} else if (pendingRequestPtr->responseRequired()) {
 			Log::error().log(LogMessage(SOURCE_LOCATION_ARGS, "No response to the request, which requires one"));
 		}
+                if (stopRequestsProcessing) {
+                        break;
+                }
 	}
 }
 
-std::auto_ptr<Subsystem::ThreadRequesterType::MessageType> Subsystem::AbstractRequesterThread::processRequest(const ThreadRequesterType::MessageType& request, bool responseRequired)
+std::auto_ptr<Subsystem::ThreadRequesterType::MessageType> Subsystem::AbstractRequesterThread::processRequest(const ThreadRequesterType::MessageType& request, bool responseRequired,
+                                bool& stopRequestsProcessing)
 {
 	if (request.instanceOf<TerminationRequest>()) {
 		Log::debug().log(LogMessage(SOURCE_LOCATION_ARGS,
 					"Termination request has been received by the thread requester thread -> setting the termination flag to TRUE"));
 		_shouldTerminate = true;
+                stopRequestsProcessing = false;
 		return std::auto_ptr<ThreadRequesterType::MessageType>(responseRequired ? new OkResponse() : 0);
 	} else if (request.instanceOf<PingRequest>()) {
 		Log::debug().log(LogMessage(SOURCE_LOCATION_ARGS,
 					"Ping request has been received by the thread requester thread -> responding with the pong response"));
 		return std::auto_ptr<ThreadRequesterType::MessageType>(responseRequired ? new PongResponse() : 0);
 	}
-	return onRequest(request, responseRequired);
+	return onRequest(request, responseRequired, stopRequestsProcessing);
 }
 
 //------------------------------------------------------------------------------

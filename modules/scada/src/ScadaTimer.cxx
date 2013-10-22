@@ -86,7 +86,8 @@ void ScadaTimer::ScadaTimerThread::onStop()
 	}
 }
 
-std::auto_ptr<Subsystem::AbstractThreadMessage> ScadaTimer::ScadaTimerThread::onRequest(const Subsystem::AbstractThreadMessage& request, bool responseRequired)
+std::auto_ptr<Subsystem::AbstractThreadMessage> ScadaTimer::ScadaTimerThread::onRequest(const Subsystem::AbstractThreadMessage& request, bool responseRequired,
+                                bool& stopRequestsProcessing)
 {
 	if (request.instanceOf<ScadaProgramMessageEnvelope>()) {
                 Log::debug().log(LogMessage(SOURCE_LOCATION_ARGS, "A request to SCADA program has been received"));
@@ -97,7 +98,7 @@ std::auto_ptr<Subsystem::AbstractThreadMessage> ScadaTimer::ScadaTimerThread::on
                 }
                 return responseAutoPtr;
 	} else {
-		return TimerThread::onRequest(request, responseRequired);
+		return TimerThread::onRequest(request, responseRequired, stopRequestsProcessing);
 	}
 }
 
