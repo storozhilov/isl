@@ -169,7 +169,7 @@ private:
 	};
 	typedef std::map<int, ListenerConfig> ListenerConfigs;
 
-	class ListenerThread : public RequesterThread
+	class ListenerThread : public OscillatorThread
 	{
 	public:
 		ListenerThread(AbstractAsyncTcpService& service, const TcpAddrInfo& addrInfo, unsigned int backLog);

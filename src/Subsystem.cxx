@@ -119,19 +119,19 @@ void Subsystem::unregisterThread(Subsystem::AbstractThread * thread)
 }
 
 //------------------------------------------------------------------------------
-// Subsystem::AbstractRequesterThread
+// Subsystem::AbstractRequestableThread
 //------------------------------------------------------------------------------
 
-Subsystem::AbstractRequesterThread::AbstractRequesterThread(Subsystem& subsystem, bool isTrackable, bool awaitStartup) :
+Subsystem::AbstractRequestableThread::AbstractRequestableThread(Subsystem& subsystem, bool isTrackable, bool awaitStartup) :
 	AbstractThread(subsystem, isTrackable, awaitStartup),
 	_requester(),
 	_shouldTerminate(false)
 {}
 
-Subsystem::AbstractRequesterThread::~AbstractRequesterThread()
+Subsystem::AbstractRequestableThread::~AbstractRequestableThread()
 {}
 
-std::auto_ptr<Subsystem::ThreadRequesterType::MessageType> Subsystem::AbstractRequesterThread::sendRequest(
+std::auto_ptr<Subsystem::ThreadRequesterType::MessageType> Subsystem::AbstractRequestableThread::sendRequest(
 		const ThreadRequesterType::MessageType& request, const Timestamp& awaitResponseLimit)
 {
 	if (thread().handle() == Thread::self()) {
@@ -150,7 +150,7 @@ std::auto_ptr<Subsystem::ThreadRequesterType::MessageType> Subsystem::AbstractRe
 	return _requester.awaitResponse(requestId, awaitResponseLimit);
 }
 
-void Subsystem::AbstractRequesterThread::appointTermination()
+void Subsystem::AbstractRequestableThread::appointTermination()
 {
 	std::auto_ptr<ThreadRequesterType::MessageType> responseAutoPtr = sendRequest(TerminationRequest(), Timestamp::limit(subsystem().awaitResponseTimeout()));
 	if (!responseAutoPtr.get()) {
@@ -166,14 +166,14 @@ void Subsystem::AbstractRequesterThread::appointTermination()
 	}
 }
 
-std::auto_ptr<Subsystem::ThreadRequesterType::MessageType> Subsystem::AbstractRequesterThread::onRequest(const ThreadRequesterType::MessageType& request, bool responseRequired,
+std::auto_ptr<Subsystem::ThreadRequesterType::MessageType> Subsystem::AbstractRequestableThread::onRequest(const ThreadRequesterType::MessageType& request, bool responseRequired,
                                 bool& stopRequestsProcessing)
 {
 	Log::warning().log(LogMessage(SOURCE_LOCATION_ARGS, "Unrecognized request: '") << request.name() << '\'');
 	return std::auto_ptr<ThreadRequesterType::MessageType>();
 }
 
-void Subsystem::AbstractRequesterThread::processRequests()
+void Subsystem::AbstractRequestableThread::processRequests()
 {
 	while (const ThreadRequesterType::PendingRequest * pendingRequestPtr = _requester.fetchRequest()) {
                 bool stopRequestsProcessing = false;
@@ -190,7 +190,7 @@ void Subsystem::AbstractRequesterThread::processRequests()
 	}
 }
 
-void Subsystem::AbstractRequesterThread::processRequests(const Timestamp& limit)
+void Subsystem::AbstractRequestableThread::processRequests(const Timestamp& limit)
 {
 	while (const ThreadRequesterType::PendingRequest * pendingRequestPtr = _requester.awaitRequest(limit)) {
                 bool stopRequestsProcessing = false;
@@ -207,7 +207,7 @@ void Subsystem::AbstractRequesterThread::processRequests(const Timestamp& limit)
 	}
 }
 
-std::auto_ptr<Subsystem::ThreadRequesterType::MessageType> Subsystem::AbstractRequesterThread::processRequest(const ThreadRequesterType::MessageType& request, bool responseRequired,
+std::auto_ptr<Subsystem::ThreadRequesterType::MessageType> Subsystem::AbstractRequestableThread::processRequest(const ThreadRequesterType::MessageType& request, bool responseRequired,
                                 bool& stopRequestsProcessing)
 {
 	if (request.instanceOf<TerminationRequest>()) {
@@ -225,14 +225,14 @@ std::auto_ptr<Subsystem::ThreadRequesterType::MessageType> Subsystem::AbstractRe
 }
 
 //------------------------------------------------------------------------------
-// Subsystem::RequesterThread
+// Subsystem::OscillatorThread
 //------------------------------------------------------------------------------
 
-Subsystem::RequesterThread::RequesterThread(Subsystem& subsystem, bool isTrackable, bool awaitStartup) :
-	Subsystem::AbstractRequesterThread(subsystem, isTrackable, awaitStartup)
+Subsystem::OscillatorThread::OscillatorThread(Subsystem& subsystem, bool isTrackable, bool awaitStartup) :
+	Subsystem::AbstractRequestableThread(subsystem, isTrackable, awaitStartup)
 {}
 
-void Subsystem::RequesterThread::run()
+void Subsystem::OscillatorThread::run()
 {
 	onStart();
 	Ticker ticker(subsystem().clockTimeout());
@@ -240,28 +240,66 @@ void Subsystem::RequesterThread::run()
 		// Handling termination
 		if (shouldTerminate()) {
 			// Termination state has been detected
-			Log::debug().log(LogMessage(SOURCE_LOCATION_ARGS, "Requester thread termination has been detected -> exiting from the thread execution"));
+			Log::debug().log(LogMessage(SOURCE_LOCATION_ARGS, "Oscillator thread termination has been detected -> exiting from the thread execution"));
 			break;
 		}
 		size_t ticksExpired;
-		Timestamp prevTickTimestamp;
-		Timestamp nextTickTimestamp = ticker.tick(&ticksExpired, &prevTickTimestamp);
+		Timestamp prevTick;
+		Timestamp nextTick = ticker.tick(&ticksExpired, &prevTick);
 		if (ticksExpired > 1) {
 			// Overload has been detected
-			Log::warning().log(LogMessage(SOURCE_LOCATION_ARGS, "Requester thread thread execution overload has been detected: ") << ticksExpired << " ticks expired");
-			onOverload(prevTickTimestamp, nextTickTimestamp, ticksExpired);
+			Log::warning().log(LogMessage(SOURCE_LOCATION_ARGS, "Oscillator thread execution overload has been detected: ") << ticksExpired << " ticks expired");
+			onOverload(prevTick, nextTick, ticksExpired);
 			// Handling termination
 			if (shouldTerminate()) {
 				// Termination state has been detected
 				Log::debug().log(LogMessage(SOURCE_LOCATION_ARGS,
-							"Requester thread termination after overload event triggering has been detected -> exiting from the thread execution"));
+							"Oscillator thread termination after overload event triggering has been detected -> exiting from the thread execution"));
 				break;
 			}
 		}
 		// Doing the job
-		doLoad(prevTickTimestamp, nextTickTimestamp, ticksExpired);
+		doLoad(prevTick, nextTick, ticksExpired);
 		// Awaiting for requests and processing them
-		processRequests(nextTickTimestamp);
+		processRequests(nextTick);
+	}
+	onStop();
+}
+
+//------------------------------------------------------------------------------
+// Subsystem::SchedulerThread
+//------------------------------------------------------------------------------
+
+Subsystem::SchedulerThread::SchedulerThread(Subsystem& subsystem, bool isTrackable, bool awaitStartup) :
+	Subsystem::AbstractRequestableThread(subsystem, isTrackable, awaitStartup),
+        _loadScheduled()
+{}
+
+void Subsystem::SchedulerThread::run()
+{
+	onStart();
+        _loadScheduled = Timestamp::now();
+	while (true) {
+		// Handling termination
+		if (shouldTerminate()) {
+			// Termination state has been detected
+			Log::debug().log(LogMessage(SOURCE_LOCATION_ARGS,
+                                                "Scheduler thread termination has been detected -> exiting from the thread execution"));
+			break;
+		}
+                // Executing load if not executed
+                Timestamp now = Timestamp::now();
+                if (now >= _loadScheduled) {
+                        Timestamp limit = now + subsystem().clockTimeout();
+                        _loadScheduled = doLoad(now, limit);
+                        if (Timestamp::now() >= (limit + subsystem().clockTimeout())) {
+                                Log::warning().log(LogMessage(SOURCE_LOCATION_ARGS,
+                                                        "Scheduler thread execution overload has been detected"));
+                                onOverload(now, limit);
+                        }
+                }
+                // Awaiting for requests until next load cycle
+                processRequests(_loadScheduled);
 	}
 	onStop();
 }

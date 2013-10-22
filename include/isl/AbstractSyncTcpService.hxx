@@ -117,7 +117,7 @@ public:
 	//! Stopping service method redefinition
 	virtual void stop();
 protected:
-	class ListenerThread : public RequesterThread
+	class ListenerThread : public OscillatorThread
 	{
 	public:
 		//! Constructs a listener

@@ -81,14 +81,14 @@ void Timer::stop()
 //------------------------------------------------------------------------------
 
 Timer::TimerThread::TimerThread(Timer& timer) :
-	RequesterThread(timer),
+	OscillatorThread(timer),
 	_timer(timer),
         _scheduledTasksMap()
 {}
 
 void Timer::TimerThread::onStart()
 {
-	RequesterThread::onStart();
+	OscillatorThread::onStart();
 	Log::debug().log(LogMessage(SOURCE_LOCATION_ARGS, "Timer thread has been started"));
 	// Calling onStart event handler for any periodic task
 	for (PeriodicTasksMap::iterator i = _timer._periodicTasksMap.begin(); i != _timer._periodicTasksMap.end(); ++i) {
@@ -140,7 +140,7 @@ void Timer::TimerThread::onStop()
 	for (PeriodicTasksMap::iterator i = _timer._periodicTasksMap.begin(); i != _timer._periodicTasksMap.end(); ++i) {
 		i->second.taskPtr->onStop(_timer);
 	}
-	RequesterThread::onStop();
+	OscillatorThread::onStop();
 }
 
 bool Timer::TimerThread::scheduleTask(AbstractScheduledTask& task, const Timestamp& limit)

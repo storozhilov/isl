@@ -85,7 +85,7 @@ void AbstractAsyncTcpService::resetListenerThreads()
 //------------------------------------------------------------------------------
 
 AbstractAsyncTcpService::ListenerThread::ListenerThread(AbstractAsyncTcpService& service, const TcpAddrInfo& addrInfo, unsigned int backLog) :
-	RequesterThread(service),
+	OscillatorThread(service),
 	_service(service),
 	_addrInfo(addrInfo),
 	_backLog(backLog),

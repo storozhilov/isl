@@ -46,7 +46,7 @@ public:
 
         class AbstractScheduledTask;
         //! Timer thread class
-	class TimerThread : public RequesterThread
+	class TimerThread : public OscillatorThread
 	{
 	public:
 		TimerThread(Timer& timer);

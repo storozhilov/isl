@@ -80,6 +80,7 @@ public:
 	  \param parity Parity
 	  \param dataBits Data bits
 	  \param stopBits Stop bits
+          \param idleTimeout Timeout between MODBUS requests - a calling thread will await for the first available time slot on any MODBUS call
 	*/
 	ModbusEndpoint(const std::string& serialDevice, int id, Baud baud, Parity parity, DataBits dataBits, StopBits stopBits,
                         const Timeout& idleTimeout = Timeout(0.1));
@@ -91,6 +92,7 @@ public:
 	  \param parityValue Parity value: 'N' - no parity, 'E' - even parity, 'O' - odd parity
 	  \param dataBitsValue Data bits amount: 5, 6, 7, or 8
 	  \param stopBitsValue Stop bits amount: 1 or 2
+          \param idleTimeout Timeout between MODBUS requests - a calling thread will await for the first available time slot on any MODBUS call
 	*/
 	ModbusEndpoint(const std::string& serialDevice, int id, int baudValue, char parityValue, int dataBitsValue, int stopBitsValue,
                         const Timeout& idleTimeout = Timeout(0.1));

@@ -319,11 +319,11 @@ protected:
 	};
 
 	//! Message receiver thread class
-	class ReceiverThread : public RequesterThread
+	class ReceiverThread : public OscillatorThread
 	{
 	public:
 		ReceiverThread(AbstractMessageBrokerListeningConnection& connection) :
-			RequesterThread(connection),
+			OscillatorThread(connection),
 			_connection(connection),
 			_connected(false),
 			_acceptingAttempts(0)
@@ -456,11 +456,11 @@ protected:
 	};
 
 	//! Message sender thread class
-	class SenderThread : public RequesterThread
+	class SenderThread : public OscillatorThread
 	{
 	public:
 		SenderThread(AbstractMessageBrokerListeningConnection& connection) :
-			RequesterThread(connection),
+			OscillatorThread(connection),
 			_connection(connection),
 			_currentMessageAutoPtr(),
 			_sendingMessage(false),
@@ -492,7 +492,7 @@ protected:
 				}
 				return std::auto_ptr<ThreadRequesterType::MessageType>(responseRequired ? new OkResponse() : 0);
 			}
-			return RequesterThread::onRequest(request, responseRequired, stopRequestsProcessing);
+			return OscillatorThread::onRequest(request, responseRequired, stopRequestsProcessing);
 		}
 		//! On start event handler
 		virtual void onStart()

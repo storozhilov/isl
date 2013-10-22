@@ -206,11 +206,8 @@ public:
 		}
 	};
 
-	//! Thread requester controllable abstract thread
-        /*!
-         * TODO: Migration to RequestableThread class
-         */
-	class AbstractRequesterThread : public AbstractThread
+	//! A thread which is able to request for optional response
+	class AbstractRequestableThread : public AbstractThread
 	{
 	public:
 		//! Constructs thread requester controllable abstract thread
@@ -219,9 +216,9 @@ public:
 		  \param isTrackable If TRUE isRunning() method could be used for inspecting if the thread is running for the cost of R/W-lock
 		  \param awaitStartup If TRUE, then launching thread will wait until new thread is started for the cost of condition variable and mutex
 		*/
-		AbstractRequesterThread(Subsystem& subsystem, bool isTrackable = false, bool awaitStartup = false);
+		AbstractRequestableThread(Subsystem& subsystem, bool isTrackable = false, bool awaitStartup = false);
 		//! Destructor
-		virtual ~AbstractRequesterThread();
+		virtual ~AbstractRequestableThread();
 		//! Sends request to the thread
 		/*!
 		  \param request Request message to send
@@ -289,11 +286,8 @@ public:
 		bool _shouldTerminate;
 	};
 
-	//! Thread requester controllable thread with main loop
-        /*!
-         * TODO: Migration to RequestableThread class
-         */
-	class RequesterThread : public AbstractRequesterThread
+	//! Requestable thread which is executing a load cycle periodically
+	class OscillatorThread : public AbstractRequestableThread
 	{
 	public:
 		//! Constructs thread requester controllable thread
@@ -302,153 +296,96 @@ public:
 		  \param isTrackable If TRUE isRunning() method could be used for inspecting if the thread is running for the cost of R/W-lock
 		  \param awaitStartup If TRUE, then launching thread will wait until new thread is started for the cost of condition variable and mutex
 		*/
-		RequesterThread(Subsystem& subsystem, bool isTrackable = false, bool awaitStartup = false);
+		OscillatorThread(Subsystem& subsystem, bool isTrackable = false, bool awaitStartup = false);
         protected:
 		//! On start event handler
 		virtual void onStart()
 		{}
-		//! Doing the work virtual method
+		//! Doing the load cycle virtual method
 		/*!
-		  \param prevTickTimestamp Previous tick timestamp
-		  \param nextTickTimestamp Next tick timestamp
+		  \param prevTick Previous tick timestamp
+		  \param nextTick Next tick timestamp
 		  \param ticksExpired Amount of expired ticks - if > 1, then an overload has occured
 		*/
-		virtual void doLoad(const Timestamp& prevTickTimestamp, const Timestamp& nextTickTimestamp, size_t ticksExpired)
+		virtual void doLoad(const Timestamp& prevTick, const Timestamp& nextTick, size_t ticksExpired)
 		{}
 		//! On overload event handler
 		/*!
 		  Default implementation does nothing and returns TRUE.
-		  \param prevTickTimestamp Previous tick timestamp
-		  \param nextTickTimestamp Next tick timestamp
+		  \param prevTick Previous tick timestamp
+		  \param nextTick Next tick timestamp
 		  \param Amount of expired ticks - always > 2
 		*/
-		virtual void onOverload(const Timestamp& prevTickTimestamp, const Timestamp& nextTickTimestamp, size_t ticksExpired)
+		virtual void onOverload(const Timestamp& prevTick, const Timestamp& nextTick, size_t ticksExpired)
 		{}
 		//! On stop event handler
 		virtual void onStop()
 		{}
 	private:
-		//! RequesterThread execution virtual method redefinition
+		//! Thread execution virtual method redefinition
 		virtual void run();
 	};
 
-        //! Requestable thread with main loop
+        //! Requestable thread which schedules load cycle for itself.
         /*!
-         * A thread which is periodically doing the load cycle, checks out for incoming requests
-         * and handles them.
-         * TODO: Migration to this class
+         * It awaits for incoming requests until next load cycle timestamp occurs.
          */
-        class RequestableThread : public AbstractThread
+        class SchedulerThread : public AbstractRequestableThread
         {
         public:
-		//! Constructs thread requester controllable abstract thread
+		//! Constructs scheduling thread
 		/*!
 		  \param subsystem Reference to the subsystem object new thread is controlled by
 		  \param isTrackable If TRUE isRunning() method could be used for inspecting if the thread is running for the cost of R/W-lock
 		  \param awaitStartup If TRUE, then launching thread will wait until new thread is started for the cost of condition variable and mutex
 		*/
-		RequestableThread(Subsystem& subsystem, bool isTrackable = false, bool awaitStartup = false);
-		//! Destructor
-		virtual ~RequestableThread();
-		//! Sends request to the thread
-		/*!
-		  \param request Request message to send
-		  \param limit Limit to await for the response
-		  \return Auto-pointer to the response or to 0 if no response has been provided
-		  \note Could be called from this thread or outside - 'awaitResponseLimit' argument is ignored in first case.
-		*/
-		std::auto_ptr<ThreadRequesterType::MessageType> sendRequest(const ThreadRequesterType::MessageType& request,
-				const Timestamp& awaitResponseLimit);
-
-		//! Resets thread (called before start)
-		/*!
-		  \note Thread-unsafe
-		*/
-		virtual void reset()
-		{
-			_requester.reset();
-			_shouldTerminate = false;
-		}
-		//! Appoints a subsystem's thread termination
-		virtual void appointTermination();
+		SchedulerThread(Subsystem& subsystem, bool isTrackable = false, bool awaitStartup = false);
         protected:
-		//! Returns a reference to the thread requester
-		/*!
-		 * TODO: Remove it?
-		 */
-		inline ThreadRequesterType& requester()
-		{
-			return _requester;
-		}
-		//! Processes all pending thread requests
-		void processRequests();
-		//! Awaits for pending thread requests and processes them until limit timestamp has been reached
-		/*!
-		  \param limit Limit timestamp to await for thread requests
-		*/
-		void processRequests(const Timestamp& limit);
-                //! Returns a next load cycle timestamp
-                const Timestamp& nextLoad() const;
-                //! Appoints a load cycle
-                void appointLoad(const Timeout& timeout);
+                //! Returns a timestamp next load cycle is scheduled at
+                inline Timestamp loadScheduled() const
+                {
+                        return _loadScheduled;
+                }
+                //! Schedules a load cycle
+                /*!
+                 * \param start Timestamp to start a load cycle
+                 */
+                inline void scheduleLoad(const Timestamp& start)
+                {
+                        _loadScheduled = start;
+                }
 
-		//! Returns TRUE if the thread should be terminated
-		virtual bool shouldTerminate()
-		{
-			return _shouldTerminate;
-		}
-		//! On thread request event handler
-		/*!
-		  \note Default implementation writes an "unrecognized request" entry in the error log
-		  \param request Constant reference to pending request to process
-                  \param stopRequestsProcessing A reference to flag, which means to terminate next incoming requests processing [OUT]
-		  \return Auto-pointer to the response or to 0 if no response has been provided
-		*/
-		virtual std::auto_ptr<ThreadRequesterType::MessageType> onRequest(const ThreadRequesterType::MessageType& request, bool responseRequired,
-                                bool& stopRequestsProcessing);
 		//! On start event handler
 		virtual void onStart()
 		{}
 		//! Doing the load cycle virtual method
 		/*!
                   Default implementation does nothing and returns next year timestamp
-		  \param prevTimestamp Previous load cycle timestamp
-                  \param appointedTimestamp Timestamp this load cycle execution was appointed at
-		  \param limitTimestamp Limit timestamp for the load cycle
+                  \param start Timestamp this load cycle execution was scheduled at
+		  \param limit Limit timestamp for the load cycle
                   \return Next load cycle timestamp
 		*/
-		virtual Timestamp doLoad(const Timestamp& prevTimestamp, const Timestamp& appointedTimestamp, const Timestamp& limitTimestamp)
+		virtual Timestamp doLoad(const Timestamp& start, const Timestamp& limit)
 		{
-                        return limitTimestamp + Timeout(BasicDateTime::SecondsPerDay * 365);
+                        return limit + Timeout(BasicDateTime::SecondsPerDay * 365);
                 }
 		//! On overload event handler
 		/*!
-                  Called if a load cycle was executed longer than clock timeout of the subsystem
-		  Default implementation does nothing and returns TRUE.
-		  \param limitTimestamp Load cycle limit timestamp
-		  \param actualTimestamp Load cycle end of execution timestamp
+                  Called if the next cycle has been completely covered by the load execution
+                  \param start Timestamp a current load cycle execution was scheduled at
+		  \param limit Limit timestamp for current load cycle
 		*/
-		virtual void onOverload(const Timestamp& limitTimestamp, const Timestamp& actualTimestamp)
+		virtual void onOverload(const Timestamp& start, const Timestamp& limit)
 		{}
 		//! On stop event handler
 		virtual void onStop()
 		{}
 	private:
-		//! Processes thread request
-		/*!
-		  \param request Constant reference to pending resuest to process
-                  \param stopRequestsProcessing A reference to flag, which means to terminate next incoming requests processing [OUT]
-		  \return Auto-pointer to the response or to 0 if no response has been provided
-		*/
-		std::auto_ptr<ThreadRequesterType::MessageType> processRequest(const ThreadRequesterType::MessageType& request, bool responseRequired,
-                                bool& stopRequestsProcessing);
-
-		//! RequesterThread execution virtual method redefinition
+		//! Thread execution virtual method redefinition
 		virtual void run();
 
-		ThreadRequesterType _requester;
-		bool _shouldTerminate;
-        };
+                Timestamp _loadScheduled;
+	};
 
 	//! Constructs a new subsystem
 	/*!

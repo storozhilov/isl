@@ -27,13 +27,6 @@ namespace isl
 
   \section intro_section Introduction
 
-  TODO: Documentation & website information refactoring needed!!! Sorry for poor description of the library - 
-  will pay attention to it soon.
-
-  TODO: It seems to me, the project renaming is needed. There is another <a href="http://freecode.com/projects/isl">ISL library</a>
-  on the Inet. New preliminary title is UDTK, which is stands for "Unix Daemon ToolKit". An &quot;isl&quot; namespace will be
-  renamed to &quot;udtk&quot; respectively. :)
-
   Every server application should run daemonized 24x7 in memory leak free multithread environment, have it's own UNIX signals
   handler, thread-safe logging subsystem, thread-safe message queues/buses for inter-thread exchange, etc. In general terms
   the architecture of any server application is usually composed from common design elements which are based on
@@ -49,12 +42,13 @@ namespace isl
   - <a href="http://en.wikipedia.org/wiki/Active_object">Active object pattern</a> templated extensible implementation;
   - Hierarchially organized extensible server/subsystem design in accordance with
     <a href="http://en.wikipedia.org/wiki/Composite_pattern">Composite design pattern</a>;
-  - I/O-device abstraction and it's implementation for TCP/UDP(TODO) sockets with asynchronous data transmission and SSL (TODO) support;
-  - Extensible UNIX-signal handler subsystem implementation;
-  - Extensible design for synchronous (one thread per client connection) and asynchronous (two threads per client connection) TCP-service
+  - Non-blocking I/O-device abstraction and it's implementation for TCP/UDP (TODO) sockets with asynchronous data transmission
+    and SSL (TODO) support;
+  - UNIX-signal handling;
+  - Synchronous (one thread per client connection) and asynchronous (two threads per client connection) TCP-service
     subsystems implementation;
-  - Message queueing design elements, including thread-safe message queue/bus/fan, asynchronous
-    message broker connection subsystem, asynchronous message broker service subsystem, message routing facilities, etc.;
+  - Message exchange design elements, including thread-safe message queue/bus/fan, asynchronous
+    message exchange TCP-connection and TCP-service subsystems, message routing, etc.;
   - Functionally rich HTTP-module with HTTP-message/HTTP-cookie parsers and composers, HTTP-request/HTTP-response stream readers and writers,
     utility methods, etc.;
   - High-precision extensible timer subsystem to execute tasks periodically;
@@ -74,16 +68,16 @@ namespace isl
 
   - <a href="http://scons.org/doc/production/HTML/scons-user/c95.html">SCons</a>.
 
-  To get ISL's source code do SVN-checkout from the http://svn.storozhilov.com/isl repository:
+  To get ISL's source code from the <a href="https://github.com/storozhilov/isl">GitHub</a> &reg; type:
 
   \verbatim
-  $ svn co http://svn.storozhilov.com/isl
+  $ git clone https://github.com/storozhilov/isl.git
   \endverbatim
   
   To build and install ISL type:
 
   \verbatim
-  $ cd isl/trunk
+  $ cd isl
   $ scons & sudo scons install
   \endverbatim
 
@@ -235,6 +229,28 @@ int main(int argc, char *argv[])
 }
   \endcode
 
+  \section todo_section TODO
+
+Urgent:
+
+- Unit and functional testing;
+- Continuous Integration usage;
+- Code coverage analysis;
+- Profiling analysis;
+- Migration to libdt;
+- Porting to Windows;
+
+Regular:
+
+- Add a &quot;const Timestamp& limit&quot; parameter to AbstractSyncTcpService::execute() and
+  AbstractAsyncTcpService::execute() methods;
+- Migration to AbstractPosixIoDevice;
+- Add a buffer for outgoing messages to message exchange transport classes;
+- SSL support;
+- HTTP-response cookie parser;
+- UDP support;
+- Add backtrace info to the AbstractError class;
+
   \section license_section License
 
   This software is distributed under &quot;Simplified <a href="http://en.wikipedia.org/wiki/BSD_licenses">BSD-license</a>&quot;
@@ -263,4 +279,4 @@ int main(int argc, char *argv[])
 
 */
 
-} // namespace smxx
+} // namespace isl
