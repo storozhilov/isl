@@ -59,7 +59,7 @@ void parseToStream()
 			std::cout << "-------------------------------------" << std::endl;
 			std::cout << "HTTP-message has been parsed:" << std::endl << std::endl <<
 				parser.firstToken() << ' ' << parser.secondToken() << ' ' << parser.thirdToken() << std::endl;
-			for (isl::Http::Params::const_iterator i = parser.header().begin(); i != parser.header().end(); ++i) {
+			for (isl::Http::Params::const_iterator i = parser.headers().begin(); i != parser.headers().end(); ++i) {
 				std::cout << i->first << ": " << i->second << std::endl;
 			}
 			if (!body.str().empty()) {
@@ -88,7 +88,7 @@ void parseToBuffer()
 			std::cout << "-------------------------------------" << std::endl;
 			std::cout << "HTTP-message has been parsed:" << std::endl << std::endl <<
 				parser.firstToken() << ' ' << parser.secondToken() << ' ' << parser.thirdToken() << std::endl;
-			for (isl::Http::Params::const_iterator i = parser.header().begin(); i != parser.header().end(); ++i) {
+			for (isl::Http::Params::const_iterator i = parser.headers().begin(); i != parser.headers().end(); ++i) {
 				std::cout << i->first << ": " << i->second << std::endl;
 			}
 			if (res.second > 0) {
@@ -169,7 +169,7 @@ int main(int argc, char *argv[])
 		if (p.isCompleted()) {
 			std::cout << std::endl;
 			std::cout << "Complete HTTP-message \"" << p.firstToken() << ' ' << p.secondToken() << ' ' << p.thirdToken() << "\" has been received, header is:" << std::endl;
-			for (isl::Http::Params::const_iterator i = p.header().begin(); i != p.header().end(); ++i) {
+			for (isl::Http::Params::const_iterator i = p.headers().begin(); i != p.headers().end(); ++i) {
 				std::cout << '\t' << i->first << ": " << i->second << std::endl;
 			}
 		}

@@ -21,7 +21,7 @@ HttpRequestReader::HttpRequestReader(HttpRequestParser& parser, size_t maxBodySi
 const Http::RequestCookies& HttpRequestReader::cookies() const
 {
 	if (!_cookiesExtracted) {
-		Http::grabCookies(_parser.header(), _cookies);
+		Http::grabCookies(_parser.headers(), _cookies);
 		_cookiesExtracted = true;
 	}
 	return _cookies;
@@ -39,7 +39,7 @@ const Http::Params& HttpRequestReader::get() const
 const Http::Params& HttpRequestReader::post() const
 {
 	if (!_postExtracted) {
-		if (Http::hasParam(_parser.header(), "Content-Type", "application/x-www-form-urlencoded")) {
+		if (Http::hasHeader(_parser.headers(), "Content-Type", "application/x-www-form-urlencoded")) {
 			Http::parseParams(body(), _post);
 		}
 		_postExtracted = true;

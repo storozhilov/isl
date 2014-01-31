@@ -70,7 +70,7 @@ private:
 				for (isl::Http::Params::const_iterator i = reader.get().begin(); i != reader.get().end(); ++i) {
 					oss << "<p>get[&quot;" << i->first << "&quot;] = &quot;" << i->second << "&quot;</p>";
 				}
-				for (isl::Http::Params::const_iterator i = parser.header().begin(); i != parser.header().end(); ++i) {
+				for (isl::Http::Params::const_iterator i = parser.headers().begin(); i != parser.headers().end(); ++i) {
 					oss << "<p>header[&quot;" << i->first << "&quot;] = &quot;" << i->second << "&quot;</p>";
 				}
 				for (isl::Http::RequestCookies::const_iterator i = reader.cookies().begin(); i != reader.cookies().end(); ++i) {

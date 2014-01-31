@@ -24,7 +24,7 @@ HttpMessageParser::HttpMessageParser(size_t maxFirstTokenLength, size_t maxSecon
 	_thirdToken(),
 	_headerFieldName(),
 	_headerFieldValue(),
-	_header(),
+	_headers(),
 	_contentLength(0),
 	_identityBodyBytesParsed(0),
 	_chunkSizeStr(),
@@ -158,15 +158,15 @@ bool HttpMessageParser::parse(char ch)
 		break;
 	case ParsingEndOfHeader:
 		if (Char::isLineFeed(ch)) {
-			if (Http::hasParam(_header, "Transfer-Encoding", "chunked")) {
+			if (Http::hasHeader(_headers, "Transfer-Encoding", "chunked")) {
 				_state = ParsingChunkSize;
-			} else if (Http::hasParam(_header, "Content-Length")) {
+			} else if (Http::hasHeader(_headers, "Content-Length")) {
 				// Extracting the content length
 				bool contentLengthConversionErrorOccured;
-				_contentLength = String::toUnsignedInt(Http::paramValue(_header, "Content-Length"), &contentLengthConversionErrorOccured);
+				_contentLength = String::toUnsignedInt(Http::headerValue(_headers, "Content-Length"), &contentLengthConversionErrorOccured);
 				if (contentLengthConversionErrorOccured) {
 					std::ostringstream msg;
-					msg << "Invalid 'Content-Length' header field unsigned integer value: " << Http::paramValue(_header, "Content-Length");
+					msg << "Invalid 'Content-Length' header field unsigned integer value: " << Http::headerValue(_headers, "Content-Length");
 					setIsBad(ch, msg.str());
 				} else if (_contentLength <= 0) {
 					_state = MessageCompleted;
@@ -335,7 +335,7 @@ void HttpMessageParser::reset()
 	_thirdToken.clear(),
 	_headerFieldName.clear();
 	_headerFieldValue.clear();
-	_header.clear();
+	_headers.clear();
 	_contentLength = 0;
 	_identityBodyBytesParsed = 0;
 	_chunkSizeStr.clear();
@@ -350,13 +350,13 @@ void HttpMessageParser::setIsBad(char ch, const std::string& errMsg)
 
 void HttpMessageParser::appendHeader(char ch)
 {
-	if (_header.size() >= _maxHeadersAmount) {
+	if (_headers.size() >= _maxHeadersAmount) {
 		setIsBad(ch, "Too many headers");
 		return;
 	}
 	String::trim(_headerFieldName);
 	String::trim(_headerFieldValue);
-	_header.insert(Http::Params::value_type(_headerFieldName, _headerFieldValue));
+	_headers.insert(Http::Headers::value_type(_headerFieldName, _headerFieldValue));
 	_headerFieldName.clear();
 	_headerFieldValue.clear();
 }

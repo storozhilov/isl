@@ -174,10 +174,10 @@ public:
 	{
 		return _thirdToken;
 	}
-	//! Returns a constant reference to the HTTP-message header
-	inline const Http::Params& header() const
+	//! Returns a constant reference to the HTTP-message headers
+	inline const Http::Headers& headers() const
 	{
-		return _header;
+		return _headers;
 	}
 	//! Returns maximum header field name length
 	inline size_t maxHeaderNameLength() const
@@ -298,7 +298,7 @@ private:
 	std::string _thirdToken;
 	std::string _headerFieldName;
 	std::string _headerFieldValue;
-	Http::Params _header;
+	Http::Headers _headers;
 	size_t _contentLength;
 	size_t _identityBodyBytesParsed;
 	std::string _chunkSizeStr;

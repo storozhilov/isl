@@ -87,13 +87,30 @@ public:
 	//! Inspects headers for header
 	/*!
 	 * \param headers Headers to inspect
-	 * \param headerName Header to inspect for existence
+	 * \param header Header to inspect for existence
 	 * \return TRUE if header exists in headers
 	 */
 	inline static bool hasHeader(const Headers& headers, const std::string& header)
 	{
 		std::pair<Headers::const_iterator, Headers::const_iterator> range = headers.equal_range(header);
 		return range.first != range.second;
+	}
+	//! Inspects headers for 'header' => 'value' pair
+	/*!
+	 * \param headers Headers to inspect
+	 * \param header Header to inspect for value
+	 * \param value Value to inspect against
+	 * \return TRUE if header contains 'header' => 'value' pair
+	 */
+	static bool hasHeader(const Headers& headers, const std::string& paramName, const std::string& value)
+	{
+		std::pair<Headers::const_iterator, Headers::const_iterator> range = headers.equal_range(paramName);
+		for (Headers::const_iterator i = range.first; i != range.second; ++i) {
+			if (i->second == value) {
+				return true;
+			}
+		}
+		return false;
 	}
 	//! Returns first header value
 	inline static std::string headerValue(const Headers& headers, const std::string& header)
@@ -138,16 +155,16 @@ public:
 	}
 	//! Extracts HTTP-request cookies from the HTTP header
 	/*!
-	  \param header Header to extract cookies from
+	  \param headers Headers to extract cookies from
 	  \param cookies Container to store the result
 	*/
-	static void grabCookies(const Params& header, RequestCookies& cookies);
+	static void grabCookies(const Headers& headers, RequestCookies& cookies);
 	//! Extracts HTTP-response cookies from the HTTP header
 	/*!
-	  \param header Header to extract cookies from
+	  \param headers Headers to extract cookies from
 	  \param cookies Container to store the result
 	*/
-	static void grabCookies(const Params& header, ResponseCookies& cookies);
+	static void grabCookies(const Headers& headers, ResponseCookies& cookies);
 
 	inline static bool isText(unsigned char ch)
 	{

@@ -77,10 +77,10 @@ std::string Http::composeParams(const Http::Params& params)
 	return paramsStr;
 }
 
-void Http::grabCookies(const Params& header, RequestCookies& cookies)
+void Http::grabCookies(const Headers& headers, RequestCookies& cookies)
 {
 	cookies.clear();
-	for (Params::const_iterator i = header.begin(); i != header.end(); ++i) {
+	for (Headers::const_iterator i = headers.begin(); i != headers.end(); ++i) {
 		if (i->first != "Cookie") {
 			continue;
 		}
@@ -91,7 +91,7 @@ void Http::grabCookies(const Params& header, RequestCookies& cookies)
 	}
 }
 
-void Http::grabCookies(const Params& header, ResponseCookies& cookies)
+void Http::grabCookies(const Headers& headers, ResponseCookies& cookies)
 {
 	// TODO
 }

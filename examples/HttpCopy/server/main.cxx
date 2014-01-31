@@ -55,8 +55,8 @@ int main(int argc, char *argv[])
 				}
 			}
 			std::cout << "Source filename is \"" << requestParser.uri() << '"' << std::endl;
-			std::cout << "Current directory is \"" << isl::Http::paramValue(requestParser.header(), "X-Current-Directory") << '"' << std::endl;
-			std::cout << "Target filename/directory is \"" << isl::Http::paramValue(requestParser.header(), "X-Dest-Filename") << '"' << std::endl;
+			std::cout << "Current directory is \"" << isl::Http::headerValue(requestParser.headers(), "X-Current-Directory") << '"' << std::endl;
+			std::cout << "Target filename/directory is \"" << isl::Http::headerValue(requestParser.headers(), "X-Dest-Filename") << '"' << std::endl;
 			isl::HttpResponseStreamWriter w;
 			w.setHeaderField("X-Copy-Status", "OK");
 			/*if (!w.writeBodyless()) {
@@ -77,7 +77,7 @@ int main(int argc, char *argv[])
 			return 1;
 		}
 		//std::cout << "\nHTTP-request has been succefully read. Method: '" << r.method() << "', URI: '" << r.uri() << "' Version: '" << r.version() << "', Headers:" << std::endl;
-		//isl::HttpRequestStreamReader::Header header = r.header();
+		//isl::HttpRequestStreamReader::Header header = r.headers();
 		//for (isl::HttpRequestStreamReader::Header::const_iterator i = header.begin(); i != header.end(); ++i) {
 		//	std::cout << "\t'" << i->first << "': '" << i->second << '\'' << std::endl;
 		//}
