@@ -5,6 +5,8 @@
 #include <string>
 #include <map>
 #include <list>
+#include <functional>
+#include <cstring>
 
 namespace isl
 {
@@ -18,7 +20,15 @@ public:
 	//! HTTP datetime wide character format string
 	static const wchar_t * DateTimeWFormat;
 
-	//! Container for header, get and post data
+	struct CaseInsensitiveCompare : public std::binary_function<std::string, std::string, bool>
+	{
+		bool operator()(const std::string &lhs, const std::string &rhs) const {
+			return strcasecmp(lhs.c_str(), rhs.c_str()) < 0 ;
+		}
+	};
+	//! Container for headers (TODO: Use it for headers)
+	typedef std::multimap<std::string, std::string, CaseInsensitiveCompare> Headers;
+	//! Container for header, get and post data (TODO: Use it for GET and POST data only)
 	typedef std::multimap<std::string, std::string> Params;
 	//! HTTP-request cookie
 	struct RequestCookie {
@@ -69,6 +79,28 @@ public:
 	  \param params Reference to container where params should be stored in
 	*/
 	static void parseParams(const std::string& paramsStr, Params& params);
+	//! Encodes params
+	/*!
+	  \param params Parameters to encode
+	  \return Encoded parameters string
+	*/
+	//! Inspects headers for header
+	/*!
+	 * \param headers Headers to inspect
+	 * \param headerName Header to inspect for existence
+	 * \return TRUE if header exists in headers
+	 */
+	inline static bool hasHeader(const Headers& headers, const std::string& header)
+	{
+		std::pair<Headers::const_iterator, Headers::const_iterator> range = headers.equal_range(header);
+		return range.first != range.second;
+	}
+	//! Returns first header value
+	inline static std::string headerValue(const Headers& headers, const std::string& header)
+	{
+		std::pair<Headers::const_iterator, Headers::const_iterator> range = headers.equal_range(header);
+		return range.first == range.second ? std::string() : range.first->second;
+	}
 	//! Encodes params
 	/*!
 	  \param params Parameters to encode
