@@ -90,8 +90,15 @@ const std::string& HttpMessageComposer::composeFirstChunk(const Http::Headers& h
 HttpMessageComposer::Packet HttpMessageComposer::composeFirstChunk(const Http::Headers& header, char * buffer,
 		size_t headerPartSize, size_t dataLen)
 {
-	// TODO: Implementation
-	return Packet();
+	const std::string& envelope = composeFirstChunk(header, dataLen);
+	if (envelope.size() > headerPartSize) {
+		throw isl::Exception(isl::Error(SOURCE_LOCATION_ARGS, "Provided buffer for header (") <<
+				headerPartSize << " bytes) does not have enough size to store a requested header (" <<
+				envelope.size() << " bytes)");
+	}
+	char * packetPtr = buffer + headerPartSize - envelope.size(); 
+	envelope.copy(packetPtr, envelope.size());
+	return Packet(packetPtr, envelope.size() + dataLen);
 }
 
 const std::string& HttpMessageComposer::composeChunk(size_t dataLen)
@@ -103,6 +110,19 @@ const std::string& HttpMessageComposer::composeChunk(size_t dataLen)
 	envelopStream << "\r\n" << std::hex << dataLen << "\r\n";
 	_envelope = envelopStream.str();
 	return _envelope;
+}
+
+HttpMessageComposer::Packet HttpMessageComposer::composeChunk(char * buffer, size_t headerPartSize, size_t dataLen)
+{
+	const std::string& envelope = composeChunk(dataLen);
+	if (envelope.size() > headerPartSize) {
+		throw isl::Exception(isl::Error(SOURCE_LOCATION_ARGS, "Provided buffer for header (") <<
+				headerPartSize << " bytes) does not have enough size to store a requested header (" <<
+				envelope.size() << " bytes)");
+	}
+	char * packetPtr = buffer + headerPartSize - envelope.size(); 
+	envelope.copy(packetPtr, envelope.size());
+	return Packet(packetPtr, envelope.size() + dataLen);
 }
 
 const std::string& HttpMessageComposer::composeLastChunk(const Http::Headers& header)

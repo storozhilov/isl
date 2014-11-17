@@ -35,9 +35,20 @@ TEST(HttpMessageComposer, compose)
 		"Transfer-Encoding: chunked\r\n"
 		"\r\n"
 		"19\r\n";
+	static const char * FirstChunkPacket =
+		"HTTP/1.1 200 OK\r\n"
+		"Content-Type: text/html\r\n"
+		"Transfer-Encoding: chunked\r\n"
+		"\r\n"
+		"19\r\n"
+		"This is some data to send";
 	static const char * ChunkEnvelope =
 		"\r\n"
 		"19\r\n";
+	static const char * ChunkPacket =
+		"\r\n"
+		"19\r\n"
+		"This is some data to send";
 	static const char * LastChunkEnvelope =
 		"\r\n"
 		"0\r\n"
@@ -66,9 +77,15 @@ TEST(HttpMessageComposer, compose)
 	EXPECT_THROW(composer.composeFirstChunk(header, 0U), Exception);
 	const std::string& e3 = composer.composeFirstChunk(header, DataLen);
 	EXPECT_EQ(FirstChunkEnvelope, e3);
+	HttpMessageComposer::Packet p3 = composer.composeFirstChunk(header, buf, HEADER_SIZE, DataLen);
+	EXPECT_EQ(FirstChunkPacket, std::string(p3.first, p3.second));
+
 	EXPECT_THROW(composer.composeChunk(0U), Exception);
 	const std::string& e4 = composer.composeChunk(DataLen);
 	EXPECT_EQ(ChunkEnvelope, e4);
+	HttpMessageComposer::Packet p4 = composer.composeChunk(buf, HEADER_SIZE, DataLen);
+	EXPECT_EQ(ChunkPacket, std::string(p4.first, p4.second));
+
 	const std::string& e5 = composer.composeLastChunk(header);
 	EXPECT_EQ(LastChunkEnvelope, e5);
 }

@@ -43,6 +43,7 @@ public:
 	Packet composeFirstChunk(const Http::Headers& header, char * buffer,
 			size_t headerPartSize, size_t dataLen);
 	const std::string& composeChunk(size_t dataLen);
+	Packet composeChunk(char * buffer, size_t headerPartSize, size_t dataLen);
 	const std::string& composeLastChunk(const Http::Headers& header);
 private:
 	inline static void composeHeader(const Http::Headers& header, std::ostream& target)
