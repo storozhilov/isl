@@ -9,12 +9,14 @@ LIBS = ['isl', 'pthread', 'rt']
 )
 env.Append(ENV = {'PATH' : os.environ['PATH']})
 
+# TODO: To be ported to GTest/GMock:
 datetimeTestBuilder = env.Program('datetime/datetime', Glob('datetime/main.cxx'))
-datetimeTestBuilder1 = env.Program('dt', ['datetime.cxx', 'gtest.cxx'])
 timerTestBuilder = env.Program('timer/timer', Glob('timer/main.cxx'))
 httpTestBuilder = env.Program('http/http', Glob('http/main.cxx'))
-httpHeadersTestBuilder = env.Program('http/http_headers_test', ['http/http_headers_test.cxx', 'gtest.cxx'])
 threadTestBuilder = env.Program('thread/thread', Glob('thread/main.cxx'))
 logTestBuilder = env.Program('log', 'log.cxx')
 
-Default([datetimeTestBuilder, datetimeTestBuilder1, timerTestBuilder, httpTestBuilder, httpHeadersTestBuilder, threadTestBuilder, logTestBuilder])
+datetimeTestBuilder1 = env.Program('dt', ['datetime.cxx', 'gtest.cxx'])
+testHttpBuilder = env.Program('test_http', ['http/test_http.cxx', 'http/HttpMessageComposer.cxx', 'http/http_headers_test.cxx', 'gtest.cxx'])
+
+Default([datetimeTestBuilder, datetimeTestBuilder1, timerTestBuilder, httpTestBuilder, threadTestBuilder, logTestBuilder, testHttpBuilder])

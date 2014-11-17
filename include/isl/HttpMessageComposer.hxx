@@ -40,6 +40,8 @@ public:
 	Packet compose(const Http::Headers& header, char * buffer, size_t headerPartSize,
 			size_t dataLen = 0U);
 	const std::string& composeFirstChunk(const Http::Headers& header, size_t dataLen);
+	Packet composeFirstChunk(const Http::Headers& header, char * buffer,
+			size_t headerPartSize, size_t dataLen);
 	const std::string& composeChunk(size_t dataLen);
 	const std::string& composeLastChunk(const Http::Headers& header);
 private:

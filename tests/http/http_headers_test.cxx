@@ -31,10 +31,3 @@ TEST_F(HttpHeadersTest, HeaderValue)
 	EXPECT_EQ("128", isl::Http::headerValue(headers, "cOntent-lengtH"));
 	EXPECT_EQ(std::string(), isl::Http::headerValue(headers, "cOntent-lengtg"));
 }
-
-int main(int argc, char **argv)
-{
-	::testing::InitGoogleTest(&argc, argv);
-	return RUN_ALL_TESTS();
-}
-

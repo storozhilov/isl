@@ -49,7 +49,7 @@ const std::string& HttpMessageComposer::compose(const Http::Headers& header, siz
 	}
 	std::ostringstream envelopStream;
 	composeFirstLine(envelopStream);
-	composeHeader(header, envelopStream);
+	composeHeader(actualHeader, envelopStream);
 	envelopStream << "\r\n";
 	_envelope = envelopStream.str();
 	return _envelope;
@@ -81,10 +81,17 @@ const std::string& HttpMessageComposer::composeFirstChunk(const Http::Headers& h
 	// Composing chunk
 	std::ostringstream envelopStream;
 	composeFirstLine(envelopStream);
-	composeHeader(header, envelopStream);
+	composeHeader(actualHeader, envelopStream);
 	envelopStream << "\r\n" << std::hex << dataLen << "\r\n";
 	_envelope = envelopStream.str();
 	return _envelope;
+}
+
+HttpMessageComposer::Packet HttpMessageComposer::composeFirstChunk(const Http::Headers& header, char * buffer,
+		size_t headerPartSize, size_t dataLen)
+{
+	// TODO: Implementation
+	return Packet();
 }
 
 const std::string& HttpMessageComposer::composeChunk(size_t dataLen)
